@@ -14,8 +14,6 @@ import util
 from util import years_masterdata
 import processed_revenue
 from util import (
-    social_cost_of_carbon_lower_bound,
-    social_cost_of_carbon_upper_bound,
     social_cost_of_carbon,
     world_gdp_2020,
 )
@@ -126,18 +124,6 @@ NGFS_dynamic_weight = util.read_json(
     f"data/NGFS_renewable_dynamic_weight_{util.NGFS_MODEL}.json"
 )
 
-if False:
-    # Outputting csv file containing sorted average unit profit.
-    # Optional
-    df.drop_duplicates(subset="company_id").sort_values(
-        by="energy_type_specific_average_unit_profit", ascending=False
-    ).set_index("company_id")[
-        ["company_name", "energy_type_specific_average_unit_profit"]
-    ].to_csv(
-        "plots/average_unit_profit.csv"
-    )
-    exit()
-
 # We re-generate nonpower_coal, power_coal again now that df has "energy_type_specific_average_unit_profit".
 _, nonpower_coal, power_coal = util.read_masterdata(df)
 
@@ -145,31 +131,6 @@ if SECTOR_INCLUDED == "power":
     nonpower_coal = nonpower_coal.drop(nonpower_coal.index)
 elif SECTOR_INCLUDED == "nonpower":
     power_coal = power_coal.drop(power_coal.index)
-
-if False:
-    # Sanity check for the average unite profit distribution
-
-    plt.figure()
-    print("Total number of plants", len(df))
-    df = df.drop_duplicates(subset=["company_id"])
-    _name = "ap_new"
-    df.set_index("company_id").rename(
-        {"energy_type_specific_average_unit_profit": _name}, axis="columns"
-    )[_name].to_csv(f"plots/{_name}.csv")
-    exit()
-    for idx, row in df.nlargest(
-        10, "energy_type_specific_average_unit_profit"
-    ).iterrows():
-        print(idx, row["energy_type_specific_average_unit_profit"])
-    plt.hist(
-        df["energy_type_specific_average_unit_profit"].drop(
-            index=df.nlargest(10, "energy_type_specific_average_unit_profit").index
-        ),
-        bins=20,
-    )
-    plt.xlabel("dollars")
-    plt.savefig("plots/AUP_distribution.png")
-    exit()
 
 
 def sum_array_of_mixed_objs(x):
