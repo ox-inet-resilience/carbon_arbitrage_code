@@ -30,7 +30,9 @@ dominant technology.
 - shiller.py: to calculate the 100 year CARP used in 100year rho_mode in util.calculate_rho
 - unused_analysis.py
 
-## To reproduce the plots
+## To reproduce the results
+> Based on this AR-2DII data our estimate of global coal production in 2020 is 6.41 Giga
+> tonnes (Gt).
 ### Figure 2
 
 ## data

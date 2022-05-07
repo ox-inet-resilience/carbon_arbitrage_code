@@ -204,6 +204,8 @@ def prepare_revenue_data(masterdata_df, sector):
 
 
 def prepare_average_unit_profit(masterdata_df):
+    # For detail, see the carbon arbitrage paper starting from page 10, on the
+    # subsection of "Opportunity Costs of Coal".
     # We simplify the calculation by taking the median of the average unit
     # profit of those top 10 pure coal companies by their production in 2020
     # instead.

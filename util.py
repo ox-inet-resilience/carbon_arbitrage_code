@@ -368,6 +368,8 @@ def calculate_ngfs_fractional_increase(ngfss, sector, scenario, start_year):
 
 
 def calculate_rho(beta, rho_mode="default"):
+    # See the carbon arbitrage paper page 11, in the paragraph that starts with
+    # "We discount expected free cash flows of ...".
     # This function is used on masterdata
     rho_f = 0.0208
     # How the CARP is calculated can be obtained in
@@ -393,6 +395,7 @@ def calculate_rho(beta, rho_mode="default"):
     # This is chi in the paper
     tax_rate = 0.15
 
+    # This is equation 7 in the paper.
     rho = _lambda * rho_f * (1 - tax_rate) + (1 - _lambda) * (rho_f + beta * carp)
     # Truncate rho to be >= 0.
     # Future payoff are <= current payoff.
@@ -401,6 +404,7 @@ def calculate_rho(beta, rho_mode="default"):
 
 
 def calculate_discount(rho, deltat):
+    # This is equation 5 in the paper.
     return (1 + rho) ** -deltat
 
 
@@ -416,8 +420,9 @@ def get_coal_nonpower_global_emissions_across_years(
         discount = 1
         if discounted:
             discount = calculate_discount(rho, year - 2022)
-        # emissions_factor unit tonnes of CO2 per tonnes of coal
-        # The division by 1e9 converts to GtCO2
+        # This is equation 3 in the carbon arbitrage paper.
+        # emissions_factor unit is tonnes of CO2 per tonnes of coal.
+        # The division by 1e9 converts to GtCO2.
         emissions = (
             tonnes_coal * nonpower_coal.emissions_factor * discount
         ).sum() / 1e9
