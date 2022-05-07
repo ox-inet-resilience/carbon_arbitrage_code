@@ -721,28 +721,33 @@ def generate_cost1_output(
                 out_non_discounted[i] = 0.0
                 out_discounted[i] = 0.0
 
-        def calculate_c(sector, year):
+        def calculate_cost(sector, year):
             if sector == "Coal":
                 _df = _df_nonpower
                 _convert2GJ = util.coal2GJ
             else:
                 _df = _df_power
                 _convert2GJ = util.MW2GJ
-            coal_production_peg_year = _df[f"_{year}"]
-            _gj = _convert2GJ(coal_production_peg_year)
+
+            grouped = _df.groupby("asset_country")
+            coal_production_by_country = grouped[f"_{year}"].sum()
+            in_gj = _convert2GJ(coal_production_by_country)
+
             if rev_ren == "revenue":
                 # In this case, the energy-type-specific is coal
-                _c = _df.energy_type_specific_average_unit_profit * _gj
+                # aup is the same across the df rows anyway
+                if len(_df) > 0:
+                    aup = _df.energy_type_specific_average_unit_profit.iloc[0]
+                else:
+                    aup = 0.0
+                cost = aup * in_gj
             else:
                 assert rev_ren == "renewable"
-                _c = util.GJ2MWh(_gj) * global_lcoe_average
-            _df[f"_{year}_c"] = _c
-            grouped = _df.groupby("asset_country")
-            _c_sum = grouped[f"_{year}_c"].sum()
-            return _c_sum
+                cost = util.GJ2MWh(in_gj) * global_lcoe_average
+            return cost
 
-        _c_sum_nonpower = calculate_c("Coal", NGFS_PEG_YEAR)
-        _c_sum_power = calculate_c("Power", NGFS_PEG_YEAR)
+        _c_sum_nonpower = calculate_cost("Coal", NGFS_PEG_YEAR)
+        _c_sum_power = calculate_cost("Power", NGFS_PEG_YEAR)
         for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
             if (last_year == MID_YEAR) and y > MID_YEAR:
                 break
@@ -780,10 +785,10 @@ def generate_cost1_output(
                 assert v_p <= 0.0
                 # It's slightly more complicated to calculate DeltaP in
                 # this case, because we have to use the masterdata value
-                # (obtained via calculate_c) instead of the NGFS
+                # (obtained via calculate_cost) instead of the NGFS
                 # fractional increase from NGFS_PEG_YEAR..
-                _c_sum_nonpower_y = calculate_c("Coal", y)
-                _c_sum_power_y = calculate_c("Power", y)
+                _c_sum_nonpower_y = calculate_cost("Coal", y)
+                _c_sum_power_y = calculate_cost("Power", y)
                 _c_sum_v = _c_sum_v.add(_c_sum_nonpower_y, fill_value=0.0).add(
                     _c_sum_power_y, fill_value=0.0
                 )
@@ -817,12 +822,11 @@ def generate_cost1_output(
             else:
                 _df = _df_power
                 _convert2GJ = util.MW2GJ
-            coal_production_peg_year = _df[f"_{year}"]
-            _gj = _convert2GJ(coal_production_peg_year)
-            _df[f"_{year}_GJ"] = _gj
+
             grouped = _df.groupby("asset_country")
-            _gj_sum = grouped[f"_{year}_GJ"].sum()
-            return _gj_sum
+            coal_production_by_country = grouped[f"_{year}"].sum()
+            in_gj = _convert2GJ(coal_production_by_country)
+            return in_gj
 
         _gj_sum_nonpower = calculate_gj("Coal", NGFS_PEG_YEAR)
         _gj_sum_power = calculate_gj("Power", NGFS_PEG_YEAR)
