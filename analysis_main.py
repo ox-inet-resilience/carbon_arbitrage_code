@@ -34,8 +34,8 @@ ENABLE_RESIDUAL_BENEFIT = 1
 # Whether to use the HQ country of a company instead of the asset country
 USE_COUNTRY_OF_DOMICILE = 0
 MID_YEAR = 2050
-# The year where the NGFS value is pegged to be the same as Masterdata global
-# production value.
+# The year where the NGFS value is pegged/rescaled to be the same as Masterdata
+# global production value.
 NGFS_PEG_YEAR = 2023
 # Assert the peg year to be at most the last year of masterdata.
 assert NGFS_PEG_YEAR <= 2026
@@ -1232,7 +1232,7 @@ def run_cost1(
     }
 
     # rho is the same everywhere
-    rho = util.calculate_rho(processed_revenue.beta, 1, rho_mode=RHO_MODE)
+    rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
 
     # Emissions discounted
     total_emissions_by_year_discounted_nonpower = (

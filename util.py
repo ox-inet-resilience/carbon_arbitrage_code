@@ -367,8 +367,7 @@ def calculate_ngfs_fractional_increase(ngfss, sector, scenario, start_year):
     return fraction_increase_after_start_year
 
 
-def calculate_rho(beta, x, rho_mode="default"):
-    assert x == 1
+def calculate_rho(beta, rho_mode="default"):
     # This function is used on masterdata
     rho_f = 0.0208
     # How the CARP is calculated can be obtained in
@@ -503,7 +502,7 @@ def get_coal_nonpower_per_company_discounted_PROFIT_summed_over_years(
     assert summation_start_year is not None
     assert len(masterdata_years) == (ngfs_peg_year - 2022 + 1)
     assert beta is not None
-    rho = calculate_rho(beta, x)
+    rho = calculate_rho(beta)
     grouped = nonpower_coal.groupby("company_id")
     for year in masterdata_years:
         if year < summation_start_year:
@@ -655,7 +654,7 @@ def get_coal_power_per_company_discounted_PROFIT_summed_over_years(
     assert masterdata_years[0] == 2022
     assert summation_start_year is not None
     assert beta is not None
-    rho = calculate_rho(beta, x)
+    rho = calculate_rho(beta)
     grouped = power_coal.groupby("company_id")
     for year in masterdata_years:
         if year < summation_start_year:
