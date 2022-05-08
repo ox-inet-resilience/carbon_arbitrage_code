@@ -68,7 +68,7 @@ def get_cost_including_ngfs(
     # Since the scenario is NZ2050, the 2022-NGFS_PEG_YEAR costs are
     # force-set to 0, because the difference of s2-s1 in
     # 2022-NGFS_PEG_YEAR is 0.
-    out_discounted = 0.0
+    total_cost_discounted = 0.0
     # We simplify the code here. In the full version, you can choose rev_ren to
     # be "renewable", which calculates the investment cost of renewable using
     # the global lcoe average.
@@ -90,29 +90,25 @@ def get_cost_including_ngfs(
     for y, fraction_increase_np in fraction_increase_after_peg_year.items():
         discount = util.calculate_discount(rho, y - 2022)
         if y <= 2026:
-            # If the year is <= 2026, we use masterdata for CPS later.
-            v_np = -fraction_increase_np
-        else:
-            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
-        # discount and v are scalar
-        # _c_sum_v is the left hand side of equation 6 in the paper.
-        _c_sum_v = cost_peg_year * v_np
-        if y <= 2026:
-            # Sanity check, because we will use masterdata for CPS
-            # here.
-            assert v_np <= 0.0
+            # If the year is <= 2026, we use masterdata for CPS.
             # It's slightly more complicated to calculate DeltaP in
             # this case, because we have to use the masterdata value
             # (obtained via calculate_cost) instead of the NGFS
             # fractional increase from NGFS_PEG_YEAR..
             cost_masterdata_y = calculate_cost(y)
-            _c_sum_v = _c_sum_v.add(cost_masterdata_y, fill_value=0.0)
+            cost = cost_masterdata_y.subtract(
+                cost_peg_year * fraction_increase_np, fill_value=0.0
+            )
+        else:
+            fraction_delta = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            cost = cost_peg_year * fraction_delta
 
-        out_discounted += _c_sum_v * discount
+        # cost is the left hand side of equation 6 in the paper.
+        total_cost_discounted += cost * discount
 
     # The sum is over the countries, because remember, we use groupby on the
     # asset_country when calculating the cost.
-    return sum(out_discounted)
+    return sum(total_cost_discounted)
 
 
 class InvestmentCostNewMethod:
@@ -316,21 +312,16 @@ def get_cost_including_ngfs_renewable_new_method(
     for y, fraction_increase_np in fraction_increase_after_peg_year.items():
         discount = util.calculate_discount(rho, y - 2022)
         if y <= 2026:
-            # If the year is <= 2026, we use masterdata for CPS later.
-            v_np = -fraction_increase_np
-        else:
-            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
-        DeltaP = gj_peg_year * v_np
-        if y <= 2026:
-            # Sanity check, because we will use masterdata for CPS
-            # here.
-            assert v_np <= 0.0
+            # If the year is <= 2026, we use masterdata for CPS.
             # It's slightly more complicated to calculate DeltaP in
             # this case, because we have to use the masterdata value
             # (obtained via calculate_gj_and_c) instead of the NGFS
             # fractional increase from NGFS_PEG_YEAR..
-            _gj_sum_nonpower_y = calculate_gj(y)
-            DeltaP = DeltaP.add(_gj_sum_nonpower_y, fill_value=0.0)
+            gj_sum_nonpower_y = calculate_gj(y)
+            DeltaP = gj_sum_nonpower_y.subtract(gj_peg_year * fraction_increase_np, fill_value=0.0)
+        else:
+            fraction_delta = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            DeltaP = gj_peg_year * fraction_delta
 
         temp_cost_new_method.calculate_investment_cost(DeltaP, y, discount)
     # The sum is over the countries
@@ -403,4 +394,5 @@ benefit_non_discounted = (
 # paper.
 net_benefit = benefit_non_discounted - cost_discounted
 print(benefit_non_discounted, cost_discounted)
+assert math.isclose(net_benefit, 58.01459793600306)
 print("Carbon arbitrage opportunity (in trillion dollars)", net_benefit)
