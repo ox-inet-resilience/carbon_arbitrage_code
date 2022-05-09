@@ -42,7 +42,11 @@ NGFS_PEG_YEAR_ORIGINAL = NGFS_PEG_YEAR
 RENEWABLE_LIFESPAN = 30  # years
 NGFS_RENEWABLE_WEIGHT = "static_50%"
 SECTOR_INCLUDED = "nonpower"
-RENEWABLE_SOLAR_STATIC_WEIGHT = 0.5
+RENEWABLE_WEIGHTS = {
+    "solar": 0.5,
+    "onshore_wind": 0.25,
+    "offshore_wind": 0.25,
+}
 # Possible values: "default", "100year", "5%", "8%"
 RHO_MODE = "default"
 # Whether to reverse-discount the gross benefit at 1% per
@@ -423,11 +427,7 @@ class InvestmentCostNewMethod:
         }
 
     def get_static_weight(self, tech):
-        return {
-            "solar": RENEWABLE_SOLAR_STATIC_WEIGHT,
-            "onshore_wind": (1.0 - RENEWABLE_SOLAR_STATIC_WEIGHT) * 0.5,
-            "offshore_wind": (1.0 - RENEWABLE_SOLAR_STATIC_WEIGHT) * 0.5,
-        }[tech]
+        return RENEWABLE_WEIGHTS[tech]
 
     def GJ2kW(self, x):
         # MW
@@ -1112,7 +1112,9 @@ def generate_cost1_output(
                 )
 
                 lcoe_gas = 69.8  # $/MWh
-                cost_gas_investment = lcoe_gas * WEIGHT_GAS * discounted_production / 1e12
+                cost_gas_investment = (
+                    lcoe_gas * WEIGHT_GAS * discounted_production / 1e12
+                )
 
             for never_discount in [False, True]:
                 never_discount_text = " NON-DISCOUNTED" if never_discount else ""
@@ -2451,10 +2453,11 @@ def initialize_website_sensitivity_analysis_params():
     # demonstration website
     # (https://ox-inet-resilience.github.io/carbon_arbitrage/).
     coal_replacements = {
-        "50% solar, 50% wind": 0.5,
-        "100% solar, 0% wind": 1.0,
-        "56% solar, 44% wind": 0.56,
-        "0% solar, 100% wind": 0.0,
+        "50% solar, 25% wind onshore, 25% wind offshore": (0.5, 0.25, 0.25),
+        "100% solar, 0% wind": (1.0, 0.0, 0.0),
+        "56% solar, 42% wind onshore, 2% wind offshore": (0.56, 0.42, 0.02),
+        "0% solar, 100% wind onshore, 0% wind offshore": (0.0, 1.0, 0.0),
+        "0% solar, 0% wind onshore, 100% wind offshore": (0.0, 0.0, 1.0),
     }
     lifetimes = [30, 50]
     learning_curve_map = {
@@ -2501,7 +2504,7 @@ def do_website_sensitivity_analysis():
                         all_scs_output = mp.Manager().dict()
 
                         def fn(sc):
-                            global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, social_cost_of_carbon, MID_YEAR, RENEWABLE_SOLAR_STATIC_WEIGHT, RHO_MODE
+                            global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, social_cost_of_carbon, MID_YEAR, RENEWABLE_WEIGHTS, RHO_MODE
                             if last_year == 2070:
                                 MID_YEAR = 2070
                             else:
@@ -2513,9 +2516,12 @@ def do_website_sensitivity_analysis():
 
                             ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
                             RENEWABLE_LIFESPAN = lifetime
-                            RENEWABLE_SOLAR_STATIC_WEIGHT = coal_replacements[
-                                coal_replacement
-                            ]
+                            weights = coal_replacements[coal_replacement]
+                            RENEWABLE_WEIGHTS = {
+                                "solar": weights[0],
+                                "onshore_wind": weights[1],
+                                "offshore_wind": weights[2],
+                            }
                             RHO_MODE = rho_mode_map[rho_mode]
                             util.social_cost_of_carbon = sc
                             social_cost_of_carbon = sc  # noqa: F811
@@ -2537,14 +2543,14 @@ def do_website_sensitivity_analysis():
                         out_dict[learning_curve][str(lifetime)][coal_replacement][
                             str(last_year)
                         ][rho_mode] = dict(all_scs_output)
-    with open("sensitivity_analysis.json", "w") as f:
+    with open("sensitivity_analysis_result.json", "w") as f:
         json.dump(out_dict, f)
 
 
 def common_set_website_sensitiviy_analysis_params(
     param, learning_curve_map, coal_replacements
 ):
-    global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, MID_YEAR, RENEWABLE_SOLAR_STATIC_WEIGHT
+    global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, MID_YEAR, RENEWABLE_WEIGHTS
     learning_curve = param["learning_curve"]
     lifetime = param["lifetime"]
     coal_replacement = param["coal_replacement"]
@@ -2569,7 +2575,12 @@ def common_set_website_sensitiviy_analysis_params(
 
     ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
     RENEWABLE_LIFESPAN = lifetime
-    RENEWABLE_SOLAR_STATIC_WEIGHT = coal_replacements[coal_replacement]
+    weights = coal_replacements[coal_replacement]
+    RENEWABLE_WEIGHTS = {
+        "solar": weights[0],
+        "onshore_wind": weights[1],
+        "offshore_wind": weights[2],
+    }
     return chosen_s2_scenario
 
 
