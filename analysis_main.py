@@ -377,12 +377,16 @@ class InvestmentCostNewMethod:
         "onshore_wind": 42.000406987439874 / 100,
         "offshore_wind": 2.0155938210757327 / 100,
     }
+    # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
+    # and Green 2014.
     degradation_rate = {
         "solar": 0.5 / 100,
         "onshore_wind": 0.48 / 100,
         "offshore_wind": 0.48 / 100,
     }
-    # Wright's law learning
+    # Wright's law learning rate
+    # See equation 15 in the carbon arbitrage paper on how these numbers are
+    # calculated.
     gammas = {"solar": 0.32, "onshore_wind": 0.07, "offshore_wind": 0.04}
 
     def __init__(self):

@@ -1,9 +1,9 @@
 # This file is a simplified version of analysis_main.py, which calculate the
 # carbon arbitrage opportunity for the baseline parameters, and with restricted
 # customization.
-# - The residual benefit is not calculated, for simplicity purpose. Hence our
-#   default result here is 58.01 trillion dollars instead of 77.89 trillion
-#   dollars.
+# - (Important) the residual benefit is not calculated, for simplicity purpose.
+#   Hence our default result here is 58.01 trillion dollars instead of 77.89
+#   trillion dollars.
 # - The coal phase out scenario is restricted to "Net Zero 2050"
 # - The energy type specific average unit profit is restricted to the median of
 #   top 10 pure coal nonpower
@@ -113,12 +113,14 @@ def get_cost_including_ngfs(
 
 class InvestmentCostNewMethod:
     techs = ["solar", "onshore_wind", "offshore_wind"]
+    # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
+    # and Green 2014.
     degradation_rate = {
         "solar": 0.5 / 100,
         "onshore_wind": 0.48 / 100,
         "offshore_wind": 0.48 / 100,
     }
-    # Wright's law learning
+    # Wright's law learning rate
     # See equation 15 in the carbon arbitrage paper on how these numbers are
     # calculated.
     gammas = {"solar": 0.32, "onshore_wind": 0.07, "offshore_wind": 0.04}
