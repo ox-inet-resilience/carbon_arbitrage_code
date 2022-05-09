@@ -31,8 +31,6 @@ ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 ENABLE_WRIGHTS_LAW = 1
 ENABLE_WRIGHT_USE_NGFS_DATA = 0
 ENABLE_RESIDUAL_BENEFIT = 1
-# Whether to use the HQ country of a company instead of the asset country
-USE_COUNTRY_OF_DOMICILE = 0
 MID_YEAR = 2050
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
@@ -63,7 +61,6 @@ print("Wright's law", ENABLE_WRIGHTS_LAW)
 print("Weight mode", NGFS_RENEWABLE_WEIGHT)
 print("Residual benefit", ENABLE_RESIDUAL_BENEFIT)
 print("Sector included", SECTOR_INCLUDED)
-print("Use HQ country domicile", USE_COUNTRY_OF_DOMICILE)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
 print("WEIGHT_GAS", WEIGHT_GAS)
 
@@ -93,9 +90,7 @@ def set_matplotlib_tick_spacing(tick_spacing):
 
 ngfss = util.read_ngfs_coal_and_power()
 
-df, nonpower_coal, power_coal = util.read_masterdata(
-    use_country_of_domicile=USE_COUNTRY_OF_DOMICILE
-)
+df, nonpower_coal, power_coal = util.read_masterdata()
 
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0

@@ -32,49 +32,6 @@ if 1:
 # Only keep the ultimate parents
 df = df[df.is_ultimate_parent]
 
-use_domicile = True
-# Replace asset_country with country of domicile
-# Important: we have to do this AFTER the capacity factor multiplication. The
-# capacity factor must use the original asset country!
-if use_domicile:
-    df_with_country_of_domicile = pd.read_csv(
-        "data_private/masterdata_country_of_domicile.csv.gz",
-        encoding="latin1",
-    )
-    company_id_to_HQ_country = df_with_country_of_domicile.set_index(
-        "company_id"
-    ).country_of_domicile.to_dict()
-
-    # We figure out the domicile with the following rules:
-    # - If the asset country is nan, then set domicile to nan
-    # - If the domicile is nan, then set it to be the same as the asset country
-    # We do this so that the result is more comparable with the original asset
-    # country version.
-    nan_domicile_count = 0
-
-    def get_domicile(row):
-        global nan_domicile_count
-        if pd.isna(row.asset_country):
-            return row.asset_country
-        domicile = company_id_to_HQ_country[row.company_id]
-        if pd.isna(domicile):
-            nan_domicile_count += 1
-            return row.asset_country
-        if domicile == "JE":
-            # JE is Jersey.
-            # Move this to UK
-            return "UK"
-        elif domicile == "KY":
-            # Cayman Islands
-            # Move this to UK
-            return "UK"
-        elif domicile == "VG":
-            # Virgin Islands
-            return "US"
-        return domicile
-    df["asset_country"] = df.apply(get_domicile, axis=1)
-    print("NaN domicile count", nan_domicile_count, len(df))
-
 # Sanity check
 if False:
     np = df[df.sector == "Coal"]
@@ -117,9 +74,8 @@ df = df.drop(
 # Rename some columns
 df = df.rename(columns={"emission_factor": "emissions_factor"})
 
-ext = "_domicile" if use_domicile else ""
 df.to_csv(
-    f"data_private/masterdata_ownership_PROCESSED_capacity_factor{ext}.csv.gz",
+    "data_private/masterdata_ownership_PROCESSED_capacity_factor.csv.gz",
     compression="gzip",
     encoding="latin1",
 )

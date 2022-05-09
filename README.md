@@ -47,11 +47,9 @@ But the private data is confidential.
 3-indices.csv
 Arial.ttf
 IEA-Scenarios.csv
-masterdata_country_of_domicile.csv.gz
 masterdata_ownership.csv.gz
 masterdata_ownership_2021_version.csv.gz
 masterdata_ownership_PROCESSED_capacity_factor.csv.gz
-masterdata_ownership_PROCESSED_capacity_factor_domicile.csv.gz
 revenue_data_coal_companies_confidential.csv.gz
 revenue_data_companies_confidential_PROCESSED_coal.csv.gz
 ```

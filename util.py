@@ -229,11 +229,10 @@ def MW2Gigatonnes_of_coal(x):
     return tc / 1e9
 
 
-def maybe_load_masterdata(pre_existing_df=None, use_country_of_domicile=False):
+def maybe_load_masterdata(pre_existing_df=None):
     if pre_existing_df is None:
-        ext = "_domicile" if use_country_of_domicile else ""
         df = pd.read_csv(
-            f"data_private/masterdata_ownership_PROCESSED_capacity_factor{ext}.csv.gz",
+            "data_private/masterdata_ownership_PROCESSED_capacity_factor.csv.gz",
             compression="gzip",
             encoding="latin1",
             dtype={
@@ -258,8 +257,8 @@ def replace_into_fr(_df):
     _df.loc[_df.asset_country.isin(gmn), "asset_country"] = "FR"
 
 
-def read_masterdata(pre_existing_df=None, use_country_of_domicile=False):
-    df = maybe_load_masterdata(pre_existing_df, use_country_of_domicile)
+def read_masterdata(pre_existing_df=None):
+    df = maybe_load_masterdata(pre_existing_df)
     replace_into_fr(df)
     # Remove rows without proper asset_country.
     # df = df[~pd.isna(df.asset_country)]
