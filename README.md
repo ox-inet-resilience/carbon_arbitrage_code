@@ -4,11 +4,18 @@ own data.
 
 ## Main code
 You should start with reading analysis_simplified.py, which has < 500 LOC, but
-already reproduces the main result of the paper (excluding residual benefit).
-- analysis_main.py: contains the code for identifying the net social gain from phasing out coal, as well as the requisite climate financing to phase out coal
-- analysis_simplified.py: simplified version of analysis_main.py, contains only code to calculate carbon arbitrage opportunity under restricted parameter choices.
+already reproduces the main result of the paper, i.e. carbon arbitrage
+opportunity in trillion dollars (but excluding residual benefit, for
+simplicity).
+- analysis_main.py: contains the code for identifying the net social gain from
+  phasing out coal, as well as the requisite climate financing to phase out
+  coal
+- analysis_simplified.py: simplified version of analysis_main.py, contains only
+  code to calculate carbon arbitrage opportunity under restricted parameter
+  choices.
 - analysis_data_section.py: contains analysis for the data section
-- processed_revenue: computes the median coal free cash flow per unit of coal production
+- processed_revenue: computes the median coal free cash flow per unit of coal
+  production
 - util.py: common code used by other files
 
 ## The folder data_preparation/
