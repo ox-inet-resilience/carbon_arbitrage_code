@@ -35,13 +35,33 @@ ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 RENEWABLE_LIFESPAN = 30  # years
 
 
+# rho is the discount rate. Its value is computed to be 0.028.
 # We set the  processed_revenue.beta to be constant, based on the MM beta of
 # aggregate_beta.py We simplify the model because the beta data is not good.
 # It is basically the unleveraged beta, calculated from misc/aggregate_beta.py.
 rho = util.calculate_rho(processed_revenue.beta)
-# The NGFS data (public)
+# The NGFS coal production data (public). You can see the content for coal
+# (nonpower) in data/ngfs_scenario_production_fossil.csv.
 ngfss = util.read_ngfs_coal_and_power()
 # The Masterdata, i.e. the AR-2DII data (private)
+# This is what a row in the DataFrame is like
+# ```
+# {
+#     "company_name": "Tazenda",
+#     "sector": "Coal",
+#     "technology": "Lignite",
+#     "technology_type": "Surface",
+#     "asset_country": "US",
+#     "emissions_factor": 1.60,
+#     "emission_factor_unit": "tonnes of CO2 per tonnes of coal",
+#     "number_of_assets": 1.0,
+#     "unit": "tonnes of coal",
+#     # This is the coal production in 2013, and so on.
+#     "_2013": 299792.0,
+#     #... until 2026
+#     "_2026": 105457.0,
+# }
+# ```
 _, nonpower_coal, _ = util.read_masterdata()
 
 # NGFS energy production over the years, rescaled so that its value during the
@@ -82,6 +102,15 @@ def get_cost_including_ngfs(
 
         grouped = _df.groupby("asset_country")
         coal_production_by_country = grouped[f"_{year}"].sum()
+        # An example of a coal_production_by_country value (as pandas.Series):
+        # ```
+        # asset_country
+        # AR    2.639000e+06
+        # AU    9.028651e+08
+        #           ...
+        # ZM    3.162331e+06
+        # ZW    2.294319e+07
+        # ```
         in_gj = _convert2GJ(coal_production_by_country)
         cost = energy_type_specific_average_unit_profit * in_gj
         return cost
@@ -100,7 +129,9 @@ def get_cost_including_ngfs(
                 cost_peg_year * fraction_increase_np, fill_value=0.0
             )
         else:
-            fraction_delta = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            fraction_delta = (
+                fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            )
             cost = cost_peg_year * fraction_delta
 
         # cost is the left hand side of equation 6 in the paper.
@@ -320,9 +351,13 @@ def get_cost_including_ngfs_renewable_new_method(
             # (obtained via calculate_gj_and_c) instead of the NGFS
             # fractional increase from NGFS_PEG_YEAR..
             gj_sum_nonpower_y = calculate_gj(y)
-            DeltaP = gj_sum_nonpower_y.subtract(gj_peg_year * fraction_increase_np, fill_value=0.0)
+            DeltaP = gj_sum_nonpower_y.subtract(
+                gj_peg_year * fraction_increase_np, fill_value=0.0
+            )
         else:
-            fraction_delta = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            fraction_delta = (
+                fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
+            )
             DeltaP = gj_peg_year * fraction_delta
 
         temp_cost_new_method.calculate_investment_cost(DeltaP, y, discount)
@@ -396,5 +431,6 @@ benefit_non_discounted = (
 # paper.
 net_benefit = benefit_non_discounted - cost_discounted
 print(benefit_non_discounted, cost_discounted)
+# Sanity check
 assert math.isclose(net_benefit, 58.01459793600306)
 print("Carbon arbitrage opportunity (in trillion dollars)", net_benefit)
