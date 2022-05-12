@@ -142,6 +142,8 @@ def get_cost_including_ngfs(
     return sum(total_cost_discounted)
 
 
+# This class contains the most complicated code of this file
+# (analysis_simplified.py).
 class InvestmentCostNewMethod:
     techs = ["solar", "onshore_wind", "offshore_wind"]
     # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
