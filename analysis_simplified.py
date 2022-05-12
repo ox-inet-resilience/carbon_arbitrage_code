@@ -186,7 +186,6 @@ class InvestmentCostNewMethod:
         self.stocks_kW = {tech: {} for tech in self.techs}
 
         # To be used in the full cost1 table calculation
-        self.cost_non_discounted = []
         self.cost_discounted = []
 
         self.cached_wrights_law_investment_costs = {
@@ -248,7 +247,6 @@ class InvestmentCostNewMethod:
         # D is calculated according to equation 11 in the carbon arbitrage paper.
         D = max(0, DeltaP - total_R)
         if math.isclose(D, 0):
-            self.cost_non_discounted[-1][country_name] = 0.0
             self.cost_discounted[-1][country_name] = 0.0
             for tech in self.techs:
                 if year in self.stocks_kW[tech]:
@@ -279,16 +277,13 @@ class InvestmentCostNewMethod:
                 self.stocks_kW[tech][year][country_name] = G
             else:
                 self.stocks_kW[tech][year] = {country_name: G}
-        self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
 
     def calculate_investment_cost(self, DeltaP, year, discount):
         if isinstance(DeltaP, float):
             assert math.isclose(DeltaP, 0)
-            self.cost_non_discounted.append(0.0)
             self.cost_discounted.append(0.0)
             return
-        self.cost_non_discounted.append({})
         self.cost_discounted.append({})
         for country_name, dp in DeltaP.items():
             self.calculate_investment_cost_one_country(country_name, dp, year, discount)
