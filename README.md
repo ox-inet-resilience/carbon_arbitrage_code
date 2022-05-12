@@ -2,7 +2,7 @@ This repository contains the code for the great carbon arbitrage paper. The
 data required for the analysis is confidential, but you can run it with your
 own data.
 
-## main code
+## Main code
 You should start with reading analysis_simplified.py, which has < 500 LOC, but
 already reproduces the main result of the paper (excluding residual benefit).
 - analysis_main.py: contains the code for identifying the net social gain from phasing out coal, as well as the requisite climate financing to phase out coal
@@ -11,7 +11,7 @@ already reproduces the main result of the paper (excluding residual benefit).
 - processed_revenue: computes the median coal free cash flow per unit of coal production
 - util.py: common code used by other files
 
-## data_preparation
+## The folder data_preparation/
 - gdp/: contains data downloaded from https://data.worldbank.org/indicator/NY.GDP.PCAP.CD and https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
 - gdp_2020.py
 - LearningSolarWind.csv.gz
@@ -20,11 +20,11 @@ already reproduces the main result of the paper (excluding residual benefit).
 - prepare_world_wright_learning.py
 - Solar-Wind-Capacity.csv
 
-## increasing_renewables
+## The folder increasing_renewables/
 In increasing_renewables.py output, we show that solar and wind are the
 dominant technology.
 
-## misc
+## The folder misc/
 - aggregate_beta.py: to calculate un_leveraged_beta in processed_revenue.py
 - experience_curve.py
 - hq_country_analysis.py
@@ -38,23 +38,9 @@ dominant technology.
 > tonnes (Gt).
 ### Figure 2
 
-## data
+## The folder data/
 The public data can be found in the data/ folder in this Git repo.
 But the private data is confidential.
-
-### private
-```
-3-indices.csv
-Arial.ttf
-IEA-Scenarios.csv
-masterdata_ownership.csv.gz
-masterdata_ownership_2021_version.csv.gz
-masterdata_ownership_PROCESSED_capacity_factor.csv.gz
-revenue_data_coal_companies_confidential.csv.gz
-revenue_data_companies_confidential_PROCESSED_coal.csv.gz
-```
-
-### public
 ```
 2DII-country-name-shortcuts.csv
 all_countries_gdp_marketcap_2020.json
@@ -76,4 +62,16 @@ ShillerData.csv
 TRISK-Data.xlsx
 TRISK_data_NGFS_scenarios.csv
 world_bank_group_carbon_tax.json
+```
+
+### private
+```
+3-indices.csv
+Arial.ttf
+IEA-Scenarios.csv
+masterdata_ownership.csv.gz
+masterdata_ownership_2021_version.csv.gz
+masterdata_ownership_PROCESSED_capacity_factor.csv.gz
+revenue_data_coal_companies_confidential.csv.gz
+revenue_data_companies_confidential_PROCESSED_coal.csv.gz
 ```
