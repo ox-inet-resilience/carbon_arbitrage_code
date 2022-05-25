@@ -1,12 +1,14 @@
 # This file is a simplified version of analysis_main.py, which calculate the
 # carbon arbitrage opportunity for the baseline parameters, and with restricted
 # customization.
-# - (Important) the residual benefit is not calculated, for simplicity purpose.
-#   Hence our default result here is 58.01 trillion dollars instead of 77.89
-#   trillion dollars.
-# - The coal phase out scenario is restricted to "Net Zero 2050"
+# - (Important) The "residual benefits" (i.e. the benefits resulting from the
+#   amount of carbon emissions that renewables built up to the time horizon T
+#   can avoid beyond the time horizon T) are not calculated, for simplicity
+#   purpose. Hence our default result here is 58.01 trillion dollars instead of
+#   77.89 trillion dollars.
+# - The coal phase out scenario is restricted to "Net Zero 2050".
 # - The energy type specific average unit profit is restricted to the median of
-#   top 10 pure coal nonpower
+#   top 10 pure coal nonpower.
 
 import math
 
@@ -19,7 +21,10 @@ social_cost_of_carbon = util.social_cost_of_carbon
 scenario = "Net Zero 2050"
 sector = "Coal"
 # The year where the NGFS value is pegged/rescaled to be the same as
-# Masterdata/AR-2DII global production value.
+# Masterdata/AR global production value. The starting year is t=2022, and
+# we assume that the phase out of coal starts from year t+2=2024. So the peg
+# year represents the last year where the coal production under the
+# business-as-usual scenario and the coal phase out scenario are the same.
 NGFS_PEG_YEAR = 2023
 # Time horizon -- the last year of the arbitrage
 last_year = 2100
@@ -43,7 +48,7 @@ rho = util.calculate_rho(processed_revenue.beta)
 # The NGFS coal production data (public). You can see the content for coal
 # (nonpower) in data/ngfs_scenario_production_fossil.csv.
 ngfss = util.read_ngfs_coal_and_power()
-# The Masterdata, i.e. the AR-2DII data (private)
+# This is the Masterdata, i.e. the Asset Resolution (AR) data (private)
 # This is what a row in the DataFrame is like
 # ```
 # {
@@ -77,10 +82,7 @@ fraction_increase_after_peg_year_CPS = util.calculate_ngfs_fractional_increase(
 irena = util.read_json("data/irena.json")
 
 
-def get_cost_including_ngfs(
-    fraction_increase_after_peg_year,
-    rev_ren,  # the value is either "revenue" or "renewable"
-):
+def get_cost_including_ngfs(fraction_increase_after_peg_year):
     # This function calculates the present values of missed free cash flows of
     # coal companies resulting from phasing out coal -- all from 2022 to
     # last_year.
@@ -89,10 +91,6 @@ def get_cost_including_ngfs(
     # force-set to 0, because the difference of s2-s1 in
     # 2022-NGFS_PEG_YEAR is 0.
     total_cost_discounted = 0.0
-    # We simplify the code here. In the full version, you can choose rev_ren to
-    # be "renewable", which calculates the investment cost of renewable using
-    # the global lcoe average.
-    assert rev_ren == "revenue"
 
     def calculate_cost(year):
         # Calculate cost for a given year.
@@ -119,11 +117,11 @@ def get_cost_including_ngfs(
     for y, fraction_increase_np in fraction_increase_after_peg_year.items():
         discount = util.calculate_discount(rho, y - 2022)
         if y <= 2026:
-            # If the year is <= 2026, we use masterdata for CPS.
-            # It's slightly more complicated to calculate DeltaP in
-            # this case, because we have to use the masterdata value
-            # (obtained via calculate_cost) instead of the NGFS
-            # fractional increase from NGFS_PEG_YEAR..
+            # We use the Masterdata (i.e. AR data) if the year is <=2026 to
+            # inform coal production under the CPS, and then use extrapolation
+            # of these data based on the NGFS CPS from the years 2027 until the
+            # time horizon T. The reason is that AR data contains coal
+            # production projections only up to 2026.
             cost_masterdata_y = calculate_cost(y)
             cost = cost_masterdata_y.subtract(
                 cost_peg_year * fraction_increase_np, fill_value=0.0
@@ -367,7 +365,6 @@ def get_cost_including_ngfs_renewable_new_method(
 # from phasing out coal.
 cost_discounted_revenue = get_cost_including_ngfs(
     fraction_increase_after_peg_year,
-    "revenue",
 )
 
 # Cost of investing in green energy.
