@@ -2544,7 +2544,7 @@ def do_website_sensitivity_analysis():
                             str(last_year)
                         ][rho_mode] = dict(all_scs_output)
     with open("sensitivity_analysis_result.json", "w") as f:
-        json.dump(out_dict, f)
+        json.dump(out_dict, f, separators=(",", ":"))
 
 
 def common_set_website_sensitiviy_analysis_params(
@@ -2636,7 +2636,7 @@ def do_website_sensitivity_analysis_climate_financing():
     util.run_parallel_ncpus(8, fn, params_flat, ())
 
     with open("plots/website_sensitivity_climate_financing.json", "w") as f:
-        json.dump(dict(output), f)
+        json.dump(dict(output), f, separators=(",", ":"))
 
     # Reenable residual benefit again
     ENABLE_RESIDUAL_BENEFIT = 1
