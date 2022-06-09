@@ -384,6 +384,8 @@ def calculate_rho(beta, rho_mode="default"):
         return 0.05
     elif rho_mode == "8%":
         return 0.08
+    elif rho_mode == "0%":
+        return 0.0
     else:
         raise Exception("Unexpected rho_mode")
     # Always subtract 1%

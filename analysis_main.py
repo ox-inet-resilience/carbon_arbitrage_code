@@ -47,7 +47,7 @@ RENEWABLE_WEIGHTS = {
     "onshore_wind": 0.25,
     "offshore_wind": 0.25,
 }
-# Possible values: "default", "100year", "5%", "8%"
+# Possible values: "default", "100year", "5%", "8%", "0%"
 RHO_MODE = "default"
 # Whether to reverse-discount the gross benefit at 1% per
 # year.
@@ -2465,6 +2465,7 @@ def initialize_website_sensitivity_analysis_params():
         "No learning (no investment cost drop)": False,
     }
     rho_mode_map = {
+        "0%": "0%",
         "2.8% (WACC)": "default",
         "3.6% (WACC, average risk-premium 100 years)": "100year",
         "5%": "5%",
