@@ -6,26 +6,29 @@ import util
 # the masterdata.
 
 df = pd.read_csv(
-    "data_private/Company Indicator.csv.gz",
+    "data_private/pams_ef_wide.csv.gz",
     compression="gzip",
-    delimiter=";",
-    decimal=",",
 )
 
 # Index(['Company ID', 'Company Name', 'Asset Sector', 'Asset Technology',
 #        'Asset Technology Type', 'Asset Country', 'Emissions Factor',
 #        'Emissions Factor Unit', 'Activity Unit',
-#        'Total 2013', 'Total 2014', 'Total 2015', 'Total 2016', 'Total 2017',
-#        'Total 2018', 'Total 2019', 'Total 2020', 'Total 2021', 'Total 2022',
-#        'Total 2023', 'Total 2024', 'Total 2025', 'Total 2026'],
+#        'direct_production_2013', 'direct_production_2014', 'direct_production_2015', 'direct_production_2016', 'direct_production_2017',
+#        'direct_production_2018', 'direct_production_2019', 'direct_production_2020', 'direct_production_2021', 'direct_production_2022',
+#        'direct_production_2023', 'direct_production_2024', 'direct_production_2025', 'direct_production_2026'],
 #       dtype='object')
 
-years = list(range(2013, 2026 + 1))
+years = list(range(2020, 2026 + 1))
 # Delete unused columns
 for y in years:
-    del df[f"Direct {y}"]
+    del df[f"total_production_{y}"]
 
-df.rename(columns={f"Total {y}": f"_{y}" for y in years}, inplace=True)
+df.rename(columns={f"direct_production_{y}": f"_{y}" for y in years}, inplace=True)
+
+# Convert MWh back to MW
+for y in years:
+    df[f"_{y}"] /= util.hours_in_1year
+
 df.rename(
     columns={
         "Company ID": "company_id",
@@ -40,12 +43,5 @@ df.rename(
     inplace=True,
 )
 
-if 1:
-    print("Multiplying production by capacity factor...")
-    # We always use SPS
-    _, iea_sps = util.read_iea()
-    for year in years:
-        capacity_factor = util.get_capacity_factor(iea_sps, year)
-        df.loc[df.sector == "Power", f"_{year}"] *= capacity_factor
-
+# No need to multiply by capacity factor. The data has already been processed with this factored in.
 df.to_csv("data_private/pams.csv.gz")
