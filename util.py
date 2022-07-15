@@ -229,12 +229,20 @@ def MW2Gigatonnes_of_coal(x):
     return tc / 1e9
 
 
-def maybe_load_masterdata(pre_existing_df=None):
+def maybe_load_masterdata(pre_existing_df=None, use_pams=False):
+    if use_pams:
+        print("Reading from PAMS")
+        filename = "pams_total.csv.gz"
+        encoding = None
+    else:
+        print("Reading from Masterdata")
+        filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
+        encoding = "latin1"
     if pre_existing_df is None:
         df = pd.read_csv(
-            "data_private/masterdata_ownership_PROCESSED_capacity_factor.csv.gz",
+            f"data_private/{filename}",
             compression="gzip",
-            encoding="latin1",
+            encoding=encoding,
             dtype={
                 "company_name": "string[pyarrow]",
                 "company_id": int,
@@ -257,8 +265,8 @@ def replace_into_fr(_df):
     _df.loc[_df.asset_country.isin(gmn), "asset_country"] = "FR"
 
 
-def read_masterdata(pre_existing_df=None):
-    df = maybe_load_masterdata(pre_existing_df)
+def read_masterdata(pre_existing_df=None, use_pams=False):
+    df = maybe_load_masterdata(pre_existing_df, use_pams)
     replace_into_fr(df)
     # Remove rows without proper asset_country.
     # df = df[~pd.isna(df.asset_country)]
