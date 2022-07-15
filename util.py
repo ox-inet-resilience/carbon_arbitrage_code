@@ -753,7 +753,7 @@ def get_developing_countries():
 def get_emerging_countries():
     # From IMF data as of 2021. Table A page 76
     emerging_shortnames = read_csv_1d_list("data/emerging_shortnames.csv")
-    assert len(emerging_shortnames) == 85
+    assert len(emerging_shortnames) == 87
     emerging_shortnames += [
         "CU",  # Cuba
     ]
