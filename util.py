@@ -259,15 +259,23 @@ def maybe_load_masterdata(pre_existing_df=None, use_pams=False):
     return df
 
 
-def replace_into_fr(_df):
+def replace_countries(_df):
     # Merge Guadeloupe, Martinique, and New Caledonia into France.
     gmn = ["GP", "MQ", "NC"]
     _df.loc[_df.asset_country.isin(gmn), "asset_country"] = "FR"
+    # PAMS data only:
+    # Merge Bermuda, Cayman Islands, Virgin Islands (British) into GB
+    bcv = ["BM", "KY", "VG"]
+    _df.loc[_df.asset_country.isin(bcv), "asset_country"] = "GB"
+    # PAMS data only:
+    # Merge Virgin Islands (US) into US
+    vi = ["VI"]
+    _df.loc[_df.asset_country.isin(vi), "asset_country"] = "US"
 
 
 def read_masterdata(pre_existing_df=None, use_pams=False):
     df = maybe_load_masterdata(pre_existing_df, use_pams)
-    replace_into_fr(df)
+    replace_countries(df)
     # Remove rows without proper asset_country.
     # df = df[~pd.isna(df.asset_country)]
     # All sectors are:
