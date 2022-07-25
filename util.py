@@ -229,10 +229,10 @@ def MW2Gigatonnes_of_coal(x):
     return tc / 1e9
 
 
-def maybe_load_masterdata(pre_existing_df=None, use_pams=False):
+def maybe_load_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
     if use_pams:
         print("Reading from PAMS")
-        filename = "pams_total.csv.gz"
+        filename = f"pams_{pams_mode}.csv.gz"
         encoding = None
     else:
         print("Reading from Masterdata")
@@ -273,8 +273,8 @@ def replace_countries(_df):
     _df.loc[_df.asset_country.isin(vi), "asset_country"] = "US"
 
 
-def read_masterdata(pre_existing_df=None, use_pams=False):
-    df = maybe_load_masterdata(pre_existing_df, use_pams)
+def read_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
+    df = maybe_load_masterdata(pre_existing_df, use_pams, pams_mode)
     replace_countries(df)
     # Remove rows without proper asset_country.
     # df = df[~pd.isna(df.asset_country)]
