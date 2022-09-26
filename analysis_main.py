@@ -1615,7 +1615,7 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     vertical_lines = {
         51: "Biden administration, 51 $/tC02",
         61.4: "Lower estimate, Rennert et al. (2021), 61.4 $/tC02",
-        75: "IMF, 75 $/tC02",
+        80: "Pindyck (2019), 80 $/tCO2",
         114.9: "Mid estimate, Rennert et al. (2021), 114.9 $/tC02",
         168.4: "Upper estimate, Rennert et al. (2021), 168.4 $/tC02",
     }
