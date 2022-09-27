@@ -25,7 +25,7 @@ os.makedirs("plots", exist_ok=True)
 # Params that can be modified
 lcoe_mode = "solar+wind"
 # lcoe_mode="solar+wind+gas"
-ENABLE_NEW_METHOD = 1
+ENABLE_NEW_METHOD = 0
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 ENABLE_WRIGHTS_LAW = 1
@@ -67,6 +67,10 @@ print("Residual benefit", ENABLE_RESIDUAL_BENEFIT)
 print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
 print("WEIGHT_GAS", WEIGHT_GAS)
+
+# This temporary branch depends the output of temp_wright_analysis_v2, which
+# generates plots/temp_wright_unit_investment.json.
+dump = util.read_json("plots/temp_wright_unit_investment.json")
 
 if ENABLE_NEW_METHOD:
     assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
@@ -110,6 +114,20 @@ else:
 # Prepare lcoe
 # Unit is $/MWh
 global_lcoe_average = util.get_lcoe_info(lcoe_mode)
+
+
+def get_lcoe(scenario, year):
+    scenario = scenario.replace("Net Zero 2050", "NZ2050")
+    out = global_lcoe_average
+    if year > 2024 and scenario == "NZ2050":
+        # See util.py for the numbers
+        global_lcoe_solar = 0.057 * 1e3
+        global_lcoe_offshore_wind = 0.084 * 1e3
+        global_lcoe_onshore_wind = 0.039 * 1e3
+        out = global_lcoe_solar * 0.5 * dump[scenario]["solar"][str(year)] / dump[scenario]["solar"]["2024"]
+        out += global_lcoe_offshore_wind * 0.25 * dump[scenario]["offshore_wind"][str(year)] / dump[scenario]["offshore_wind"]["2024"]
+        out += global_lcoe_onshore_wind * 0.25 * dump[scenario]["onshore_wind"][str(year)] / dump[scenario]["onshore_wind"]["2024"]
+    return out
 
 processed_revenue.prepare_average_unit_profit(df)
 
@@ -745,11 +763,13 @@ def generate_cost1_output(
                 cost = aup * in_gj
             else:
                 assert rev_ren == "renewable"
-                cost = util.GJ2MWh(in_gj) * global_lcoe_average
+
+                cost = util.GJ2MWh(in_gj) * get_lcoe(scenario, year)
             return cost
 
         _c_sum_nonpower = calculate_cost("Coal", NGFS_PEG_YEAR)
         _c_sum_power = calculate_cost("Power", NGFS_PEG_YEAR)
+        lcoe_peg_year = get_lcoe(scenario, NGFS_PEG_YEAR)
         for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
             if (last_year == MID_YEAR) and y > MID_YEAR:
                 break
@@ -780,6 +800,8 @@ def generate_cost1_output(
                 v_p = fraction_increase_after_peg_year["Power"][y]
             # discount and v are scalar
             _c_sum_v = (_c_sum_nonpower * v_np).add(_c_sum_power * v_p, fill_value=0.0)
+            # Rescale to factor in LCOE learning
+            _c_sum_v *= get_lcoe(scenario, y) / lcoe_peg_year
             if (scenario == "Net Zero 2050") and y <= 2026:
                 # Sanity check, because we will use masterdata for CPS
                 # here.
@@ -937,7 +959,7 @@ def generate_cost1_output(
                 _df[f"_{year}_cost"] = (
                     _df.energy_type_specific_average_unit_profit * _gj
                 )
-                _df[f"_{year}_cost_renewable"] = util.GJ2MWh(_gj) * global_lcoe_average
+                _df[f"_{year}_cost_renewable"] = util.GJ2MWh(_gj) * get_lcoe(scenario, year)
                 _df[f"_{year}_GJ"] = _gj
                 grouped = _df.groupby("asset_country")
                 _c = grouped[f"_{year}_cost"].sum()
@@ -1111,6 +1133,7 @@ def generate_cost1_output(
                     cost_2022_to_pegyear_discounted_renewable,
                     "renewable",
                 )
+                raise Exception("Use get_lcoe")
                 discounted_production = (
                     sum_array_of_mixed_objs(cost_discounted_investment)
                     / global_lcoe_average
