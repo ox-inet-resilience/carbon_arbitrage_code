@@ -812,10 +812,11 @@ def generate_cost1_output(
         non_discounted_2022_to_pegyear,
         discounted_2022_to_pegyear,
         rev_ren,  # the value is either "revenue" or "renewable"
+        _cost_new_method
     ):
-        # We copy cost_new_method because it is going to be reused for
+        # We copy _cost_new_method because it is going to be reused for
         # different scenario and year range.
-        temp_cost_new_method = copy.deepcopy(cost_new_method)
+        temp_cost_new_method = copy.deepcopy(_cost_new_method)
 
         def calculate_gj(sector, year):
             if sector == "Coal":
@@ -1078,6 +1079,7 @@ def generate_cost1_output(
                     cost_2022_to_pegyear_non_discounted_renewable,
                     cost_2022_to_pegyear_discounted_renewable,
                     "renewable",
+                    cost_new_method,
                 )
             else:
                 (
