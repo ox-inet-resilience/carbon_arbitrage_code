@@ -119,9 +119,12 @@ irena = util.read_json("data/irena.json")
 # NGFS_renewable_additional_capacity_MODEL.json by running
 # data_preparation/prepare_world_wright_learning.py.
 # And then run misc/NGFS_renewable_additional_capacity.py
-NGFS_dynamic_weight = util.read_json(
-    f"data/NGFS_renewable_dynamic_weight_{util.NGFS_MODEL}.json"
-)
+if NGFS_RENEWABLE_WEIGHT == "dynamic_NGFS":
+    NGFS_dynamic_weight = util.read_json(
+        f"data/NGFS_renewable_dynamic_weight_{util.NGFS_MODEL}.json"
+    )
+else:
+    NGFS_dynamic_weight = None
 
 # We re-generate nonpower_coal, power_coal again now that df has "energy_type_specific_average_unit_profit".
 _, nonpower_coal, power_coal = util.read_masterdata(df)
