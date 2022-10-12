@@ -12,7 +12,7 @@ df = pd.read_csv(
 )
 
 
-def constrain(full_df, model, prtp):
+def constrain(full_df, model, prtp, ssp, rcp):
     _df = full_df.copy()
     # We constrain to one particular model, e.g. bhm_lr
     _df = _df[_df.run == model]
@@ -25,9 +25,9 @@ def constrain(full_df, model, prtp):
     # climate
     _df = _df[_df.climate == climate]
     # shared social economic pathway
-    _df = _df[_df.SSP == "SSP2"]
+    _df = _df[_df.SSP == ssp]
     # Radiative forcing
-    _df = _df[_df.RCP == "rcp85"]
+    _df = _df[_df.RCP == rcp]
     # Pure rate of time preference. NA means fix discounting.
     _df = _df[_df.prtp == prtp]
     eta = "NA"
@@ -37,49 +37,54 @@ def constrain(full_df, model, prtp):
         dr = "NA"
     _df = _df[_df.eta == eta]
     _df = _df[_df.dr == dr]
-    world_only = _df[_df.ISO3 == "WLD"].iloc[0]["50%"]
+    # world_only = _df[_df.ISO3 == "WLD"].iloc[0]["50%"]
     # Exclude world
     _df = _df[_df.ISO3 != "WLD"]
-    assert len(_df) > 0
+    assert len(_df) > 0, (model, ssp, rcp)
     assert len(_df) == len(set(_df.ISO3)), (len(_df), len(set(_df.ISO3)))
-    return _df, world_only
+    return _df
 
 
-bhm_lr_prtp_2, wld_lr_prtp_2 = constrain(df, "bhm_lr", "2")
+baseline = constrain(df, "bhm_lr", "2", "SSP2", "rcp85")
 # Sort based on this df
-bhm_lr_prtp_2 = bhm_lr_prtp_2.sort_values(by="50%", ascending=False)
-bhm_sr_prtp_2, wld_sr_prtp_2 = constrain(df, "bhm_sr", "2")
-# djo = constrain(df, "djo")
+baseline = baseline.sort_values(by="50%", ascending=False)
+fifty_percent_baseline = baseline["50%"].tolist()
 
 
 def get_scc_fifty(_df, country):
     return _df[_df.ISO3 == country].iloc[0]["50%"]
 
 
-# fifty_percent_djo = [get_scc_fifty(djo, country) for country in bhm_lr.ISO3]
-fifty_percent_lr_prtp_2 = bhm_lr_prtp_2["50%"].tolist()
-fifty_percent_sr_prtp_2 = [
-    get_scc_fifty(bhm_sr_prtp_2, country) for country in bhm_lr_prtp_2.ISO3
-]
+for model in ["bhm_lr", "bhm_sr"]:
+    plt.figure()
+    for ssp in ["SSP2", "SSP3", "SSP5"]:
+        for rcp in ["rcp85", "rcp60"]:
+            try:
+                val = constrain(df, model, "2", ssp, rcp)
+            except AssertionError:
+                print("Skipping", model, ssp, rcp)
+                continue
+            fifty_percent = [get_scc_fifty(val, country) for country in baseline.ISO3]
+            wld = sum(fifty_percent)
+            fifty_percent = [i * 100 / wld for i in fifty_percent]
 
-print("Total lr 2", sum(fifty_percent_lr_prtp_2), "WLD", wld_lr_prtp_2)
-print("Total sr 2", sum(fifty_percent_sr_prtp_2), "WLD", wld_sr_prtp_2)
-plt.figure()
-# xticks = list(range(len(fifty_percent_lr)))
-# plt.bar(xticks, fifty_percent_lr)
-plt.plot(fifty_percent_lr_prtp_2, label="Long run PRTP 2")
-plt.plot(fifty_percent_sr_prtp_2, label="Short run PRTP 2")
-# plt.plot(fifty_percent_djo, label="DJO, uncertain")
-plt.legend()
-plt.title("50%")
-plt.savefig("plots/country_specific_scc.png")
+            plt.plot(fifty_percent, label=f"PRTP 2, {ssp}, {rcp}")
+    plt.legend()
+    if model == "bhm_lr":
+        plt.title("Long run")
+    else:
+        plt.title("Short run")
+    plt.xlabel("Country")
+    plt.ylabel("Share of country-specific SCC relative to global SCC (%)")
+    plt.savefig(f"plots/country_specific_plot_scc_{model}.png")
 
 
 # Save the data
-iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
-iso3166_df = iso3166_df.set_index("alpha-3")
-alpha3_to_2 = iso3166_df["alpha-2"].to_dict()
-bhm_lr_prtp_2["ISO2"] = bhm_lr_prtp_2.ISO3.apply(lambda x: alpha3_to_2[x])
-mapper = bhm_lr_prtp_2.set_index("ISO2")["50%"].to_dict()
-with open("plots/country_specific_scc.json", "w") as f:
-    json.dump(mapper, f)
+if False:
+    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+    iso3166_df = iso3166_df.set_index("alpha-3")
+    alpha3_to_2 = iso3166_df["alpha-2"].to_dict()
+    baseline["ISO2"] = baseline.ISO3.apply(lambda x: alpha3_to_2[x])
+    mapper = baseline.set_index("ISO2")["50%"].to_dict()
+    with open("plots/country_specific_scc.json", "w") as f:
+        json.dump(mapper, f)
