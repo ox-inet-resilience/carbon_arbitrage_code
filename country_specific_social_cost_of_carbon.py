@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -71,3 +73,13 @@ plt.plot(fifty_percent_sr_prtp_2, label="Short run PRTP 2")
 plt.legend()
 plt.title("50%")
 plt.savefig("plots/country_specific_scc.png")
+
+
+# Save the data
+iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+iso3166_df = iso3166_df.set_index("alpha-3")
+alpha3_to_2 = iso3166_df["alpha-2"].to_dict()
+bhm_lr_prtp_2["ISO2"] = bhm_lr_prtp_2.ISO3.apply(lambda x: alpha3_to_2[x])
+mapper = bhm_lr_prtp_2.set_index("ISO2")["50%"].to_dict()
+with open("plots/country_specific_scc.json", "w") as f:
+    json.dump(mapper, f)
