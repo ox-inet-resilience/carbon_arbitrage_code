@@ -812,7 +812,7 @@ def generate_cost1_output(
         non_discounted_2022_to_pegyear,
         discounted_2022_to_pegyear,
         rev_ren,  # the value is either "revenue" or "renewable"
-        _cost_new_method
+        _cost_new_method,
     ):
         # We copy _cost_new_method because it is going to be reused for
         # different scenario and year range.
