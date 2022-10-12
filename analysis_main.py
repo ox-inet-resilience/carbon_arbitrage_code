@@ -1599,7 +1599,7 @@ def calculate_each_countries_cost_with_cache(
             country_level_cost = 0.0
             for e in yearly_cost_for_avoiding:
                 if isinstance(e, float):
-                    country_level_cost += e
+                    assert math.isclose(e, 0.0)
                 elif isinstance(e, dict):
                     country_level_cost += e[country_name]
                 else:
@@ -2712,6 +2712,440 @@ def do_website_sensitivity_analysis_opportunity_costs():
     util.write_small_json(dict(output), "plots/website_sensitivity_opportunity_costs_phase_out.json")
 
 
+def calculate_country_specific_scc_data(
+    unilateral_freerider_effect_country=None,
+    ext="",
+    unilateral=False,
+    cost_multiplier=0.1,
+    to_csv=True,
+):
+    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    costs_dict = calculate_each_countries_cost_with_cache(
+        chosen_s2_scenario, "plots/country_specific_cost.json", ignore_cache=True
+    )
+    out = run_cost1(x=1, to_csv=False, do_round=False)
+    benefit = out[
+        "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+    ][chosen_s2_scenario]
+
+    country_specific_scc = util.read_json("plots/country_specific_scc.json")
+    total_scc = sum(country_specific_scc.values())
+
+    (
+        iso3166_df,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    developING_country_shortnames = util.get_developing_countries()
+    emerging_country_shortnames = util.get_emerging_countries()
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    _, iso2_to_country_name = util.get_country_to_region()
+
+    unilateral_benefit = None
+    unilateral_emissions = None
+    levels = [
+        "Developed Countries",
+        "Developing Countries",
+        "Emerging Market Countries",
+    ]
+    isa_climate_club = unilateral_freerider_effect_country in (levels + regions)
+    cost_climate_club = None
+    benefit_climate_club = None
+    if unilateral:
+        # Generated from the Git branch unilateral_action_benefit
+        unilateral_benefit = util.read_json("plots/unilateral_benefit.json")
+        if isa_climate_club:
+            unilateral_emissions = 0.0
+            cost_climate_club = 0.0
+            benefit_climate_club = 0.0
+            if unilateral_freerider_effect_country in levels:
+                group = {
+                    "Developed Countries": developed_country_shortnames,
+                    "Developing Countries": developING_country_shortnames,
+                    "Emerging Market Countries": emerging_country_shortnames,
+                }[unilateral_freerider_effect_country]
+            else:
+                group = region_countries_map[unilateral_freerider_effect_country]
+            for country in group:
+                if country not in unilateral_benefit:
+                    # Skip if we don't have the data for it.
+                    continue
+                benefit_of_country_doing_the_action = unilateral_benefit[country]
+                unilateral_emissions += (
+                    benefit_of_country_doing_the_action / country_specific_scc[country]
+                )
+                benefit_climate_club += benefit_of_country_doing_the_action
+                cost_climate_club += costs_dict[country] * cost_multiplier
+        else:
+            benefit_of_country_doing_the_action = unilateral_benefit[
+                unilateral_freerider_effect_country
+            ]
+            unilateral_emissions = (
+                benefit_of_country_doing_the_action
+                / country_specific_scc[unilateral_freerider_effect_country]
+            )
+
+    names = defaultdict(list)
+    cs = defaultdict(list)
+    bs = defaultdict(list)
+    names_region = defaultdict(list)
+    cs_region = defaultdict(list)
+    bs_region = defaultdict(list)
+    no_cost = []
+    benefit_greater_than_cost = []
+    costly = []
+    table = pd.DataFrame(
+        columns=[
+            "iso2",
+            "country_name",
+            "net_benefit",
+            "benefit",
+            "cost",
+            "country_specific_scc",
+        ]
+    )
+    if isa_climate_club:
+        if unilateral_freerider_effect_country in levels:
+            cs[unilateral_freerider_effect_country].append(cost_climate_club)
+            bs[unilateral_freerider_effect_country].append(benefit_climate_club)
+            names[unilateral_freerider_effect_country].append(
+                unilateral_freerider_effect_country
+            )
+        else:
+            cs_region[unilateral_freerider_effect_country].append(cost_climate_club)
+            bs_region[unilateral_freerider_effect_country].append(benefit_climate_club)
+            names_region[unilateral_freerider_effect_country].append(
+                unilateral_freerider_effect_country
+            )
+
+    for country, cs_scc in country_specific_scc.items():
+        if country in ["NC", "FJ", "SB", "VU"]:
+            # Skipping:
+            # New Caledonia
+            # Fiji
+            # Solomon Islands
+            # Vanuatu
+            continue
+        if country == "NaN":
+            continue
+        if country not in costs_dict:
+            c = 0.0
+        else:
+            c = costs_dict[country] * cost_multiplier
+            if unilateral and unilateral_freerider_effect_country is not None:
+                if country != unilateral_freerider_effect_country:
+                    c = 0.0
+        cs_scc_scale = cs_scc / total_scc
+        if unilateral:
+            if country not in unilateral_benefit:
+                continue
+            if unilateral_freerider_effect_country is None:
+                b = unilateral_benefit[country]
+            else:
+                b = unilateral_emissions * cs_scc
+        else:
+            b = cs_scc_scale * benefit
+
+        net_benefit = b - c
+        table = pd.concat(
+            [
+                table,
+                pd.DataFrame(
+                    [
+                        {
+                            "iso2": country,
+                            "country_name": iso2_to_country_name[country],
+                            "net_benefit": net_benefit,
+                            "benefit": b,
+                            "cost": c,
+                            "country_specific_scc": cs_scc,
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+        if math.isclose(c, 0.0):
+            no_cost.append(country)
+        elif b >= c:
+            benefit_greater_than_cost.append(country)
+        else:
+            costly.append(country)
+        if country in developed_country_shortnames:
+            cs["Developed Countries"].append(c)
+            bs["Developed Countries"].append(b)
+            names["Developed Countries"].append(country)
+        elif country in developING_country_shortnames:
+            cs["Developing Countries"].append(c)
+            bs["Developing Countries"].append(b)
+            names["Developing Countries"].append(country)
+        elif country in emerging_country_shortnames:
+            cs["Emerging Market Countries"].append(c)
+            bs["Emerging Market Countries"].append(b)
+            names["Emerging Market Countries"].append(country)
+        else:
+            print("Skipping", country)
+
+        for region in regions:
+            if country in region_countries_map[region]:
+                cs_region[region].append(c)
+                bs_region[region].append(b)
+                names_region[region].append(country)
+                break
+    print("country-specific country count", len(country_specific_scc))
+    print("No cost", len(no_cost), no_cost)
+    print("benefit >= cost", len(benefit_greater_than_cost), benefit_greater_than_cost)
+    print("cost < benefit", len(costly), costly)
+
+    if to_csv:
+        table = table.sort_values(by="net_benefit", ascending=False)
+        table.to_csv(f"plots/country_specific_table{ext}.csv")
+    return cs, bs, names, cs_region, bs_region, names_region
+
+
+def do_country_specific_scc_part1():
+    cs_ten, bs_ten, names_ten, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=None,
+        cost_multiplier=0.1,
+        to_csv=False,
+    )
+    cs_100, bs_100, names_100, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=None,
+        cost_multiplier=1,
+        to_csv=False,
+    )
+
+    countries_shown = ["AU", "CN", "ID", "IN", "RU", "US", "ZA"]
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    for level, c in cs_100.items():
+        plt.plot(
+            c, bs_100[level], linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+        annotate(c, bs_100[level], names_100[level], filter_labels=countries_shown)
+    # 45 degree line
+    axs[0].axline([0, 0], [1, 1])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    axis_limit = 38
+    plt.ylim(0, axis_limit)
+    _, left_xmax = axs[0].get_xlim()
+    plt.title("100%")
+
+    plt.sca(axs[1])
+    for level, c in cs_ten.items():
+        plt.plot(
+            c, bs_ten[level], linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+        annotate(c, bs_ten[level], names_ten[level], filter_labels=countries_shown)
+    # 45 degree line
+    axs[1].axline([0, 0], [0.5, 0.5])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.title("10%")
+    plt.ylim(0, axis_limit)
+    plt.xlim(0, left_xmax)
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    # See https://stackoverflow.com/a/43439132
+    # To auto-scale the legend:
+    # 1. Do fig.legend(), with loc="center left", bbox_to_anchor=(0.9, 0.5)
+    # 2. In savefig, do bbox_inches="tight"
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.01),
+        ncol=len(by_label.values()),
+    )
+    plt.tight_layout()
+    plt.savefig("plots/scc_part1.png", bbox_inches="tight")
+
+
+def do_country_specific_scc_part2(first, second):
+    countries_shown = list(set(["CN", "IN", "US"] + [first, second]))
+    cs_first, bs_first, names_first, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=first,
+        unilateral=True,
+        cost_multiplier=0.1,
+        to_csv=False,
+    )
+    cs_second, bs_second, names_second, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=second,
+        unilateral=True,
+        cost_multiplier=0.1,
+        to_csv=False,
+    )
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    for level, c in cs_first.items():
+        plt.plot(
+            c, bs_first[level], linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+        annotate(c, bs_first[level], names_first[level], filter_labels=countries_shown)
+    # 45 degree line
+    axs[0].axline([0, 0], [0.05, 0.05])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.title(first)
+
+    plt.sca(axs[1])
+    for level, c in cs_second.items():
+        plt.plot(
+            c, bs_second[level], linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+        annotate(
+            c, bs_second[level], names_second[level], filter_labels=countries_shown
+        )
+    # 45 degree line
+    axs[1].axline([0, 0], [0.05, 0.05])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.title(second)
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.01),
+        ncol=len(by_label.values()),
+    )
+    plt.tight_layout()
+
+    plt.savefig(f"plots/scc_part2_{first}_{second}.png", bbox_inches="tight")
+
+
+def do_country_specific_scc_part3():
+    emerging = "Emerging Market Countries"
+    cs_emerging, bs_emerging, names_emerging, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=emerging,
+        unilateral=True,
+        cost_multiplier=0.1,
+        to_csv=False,
+    )
+    cs_emerging = dict(sorted(cs_emerging.items()))
+    bs_emerging = dict(sorted(bs_emerging.items()))
+    names_emerging = dict(sorted(names_emerging.items()))
+    developing = "Developing Countries"
+    cs_developing, bs_developing, names_developing, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=developing,
+        unilateral=True,
+        cost_multiplier=0.1,
+        to_csv=False,
+    )
+    cs_developing = dict(sorted(cs_developing.items()))
+    bs_developing = dict(sorted(bs_developing.items()))
+    names_developing = dict(sorted(names_developing.items()))
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    for level, c in cs_emerging.items():
+        if level == emerging:
+            idx = names_emerging[level].index(emerging)
+            total_c = c[idx]
+            total_b = bs_emerging[level][idx]
+        else:
+            total_c = sum(c)
+            total_b = sum(bs_emerging[level])
+        plt.plot(
+            total_c, total_b, linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+    # 45 degree line
+    axs[0].axline([0, 0], [0.05, 0.05])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.title(emerging)
+
+    plt.sca(axs[1])
+    for level, c in cs_developing.items():
+        if level == developing:
+            idx = names_developing[level].index(developing)
+            total_c = c[idx]
+            total_b = bs_developing[level][idx]
+        else:
+            total_c = sum(c)
+            total_b = sum(bs_developing[level])
+        plt.plot(
+            total_c, total_b, linewidth=0, marker="o", label=level, fillstyle="none"
+        )
+    # 45 degree line
+    axs[1].axline([0, 0], [0.05, 0.05])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.title(developing)
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.01),
+        ncol=len(by_label.values()),
+    )
+    plt.tight_layout()
+
+    plt.savefig("plots/scc_part3.png", bbox_inches="tight")
+
+
+def do_country_specific_scc(
+    unilateral_freerider_effect_country=None,
+    ext="",
+    unilateral=False,
+    cost_multiplier=0.1,
+):
+    print("Unilateral", unilateral)
+    print("Country doing the unilateral action", unilateral_freerider_effect_country)
+
+    cs, bs, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=unilateral_freerider_effect_country,
+        ext=ext,
+        unilateral=unilateral,
+        cost_multiplier=cost_multiplier,
+        to_csv=True,
+    )
+
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    for level, c in cs.items():
+        plt.plot(c, bs[level], linewidth=0, marker="o", label=level, fillstyle="none")
+    # 45 degree line
+    axs[0].axline([0, 0], [1, 1])
+    plt.legend()
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    axis_limit = 15
+    # plt.xlim(0, axis_limit)
+    # plt.ylim(0, axis_limit)
+    plt.sca(axs[1])
+    # plt.xlim(0, axis_limit)
+    # plt.ylim(0, axis_limit)
+    for region, c in cs_region.items():
+        plt.plot(
+            c,
+            bs_region[region],
+            linewidth=0,
+            marker="o",
+            label=region,
+            fillstyle="none",
+        )
+    # 45 degree line
+    axs[1].axline([0, 0], [1, 1])
+    plt.xlabel("PV country-specific costs (bln dollars)")
+    plt.ylabel("PV country-specific benefits (bln dollars)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"plots/country_specific_scatter{ext}.png")
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -2751,6 +3185,31 @@ if __name__ == "__main__":
         # do_website_sensitivity_analysis()
         # do_website_sensitivity_analysis_climate_financing()
         do_website_sensitivity_analysis_opportunity_costs()
+        exit()
+    if 1:
+        # country specific scc
+        # do_country_specific_scc_part1()
+        # do_country_specific_scc_part2("CN", "IN")
+        # do_country_specific_scc_part2("ID", "ZA")
+        do_country_specific_scc_part3()
+        exit()
+        do_country_specific_scc(unilateral=False)
+        exit()
+
+        levels = [
+            "Developed Countries",
+            "Developing Countries",
+            "Emerging Market Countries",
+        ]
+        selected_regions = ["Europe", "North America", "Asia", "Africa"]
+        for cost_multiplier in [0.1, 1]:
+            for group in levels + selected_regions:
+                do_country_specific_scc(
+                    group,
+                    ext=f"_{group}_{cost_multiplier}",
+                    unilateral=True,
+                    cost_multiplier=cost_multiplier,
+                )
         exit()
     if 1:
         run_3_level_scc()
