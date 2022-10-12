@@ -3,6 +3,7 @@ import json
 import math
 import os
 from collections import defaultdict
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +14,7 @@ import util
 from util import years_masterdata
 import processed_revenue
 from util import (
-    social_cost_of_carbon,
+    social_cost_of_carbon as original_scc,
     world_gdp_2020,
 )
 
@@ -99,6 +100,19 @@ def set_matplotlib_tick_spacing(tick_spacing):
 ngfss = util.read_ngfs_coal_and_power()
 
 df, nonpower_coal, power_coal = util.read_masterdata()
+# Important: we restrict to 1 country only so that the Wright's law learning is
+# only due to this country doing the unilateral action.
+one_country_name = sys.argv[1]
+df = df[df.asset_country == one_country_name]
+nonpower_coal = nonpower_coal[nonpower_coal.asset_country == one_country_name]
+power_coal = power_coal[power_coal.asset_country == one_country_name]
+country_specific_scc = util.read_json("plots/country_specific_scc.json")
+total_scc = sum(country_specific_scc.values())
+global social_cost_of_carbon
+if one_country_name not in country_specific_scc:
+    print("NA")
+    exit()
+social_cost_of_carbon = country_specific_scc[one_country_name] / total_scc * original_scc
 
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0
@@ -2537,7 +2551,21 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 0:
+    if 1:
+        last_year = int(sys.argv[2])
+        if last_year in [2030, 2035, 2070]:
+            MID_YEAR = last_year
+        else:
+            MID_YEAR = 2050
+        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False, return_yearly=True)
+        scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+        benefit = out[scenario]["benefit_non_discounted"]
+        avoided_emissions = benefit / (1e9 / 1e12 * social_cost_of_carbon)
+        print("OUTPUT1", json.dumps(list(avoided_emissions)))
+        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False, return_yearly=False)
+        print("OUTPUT2", out["Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"][scenario])
+        exit()
+    if 1:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
