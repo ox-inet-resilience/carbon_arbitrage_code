@@ -79,6 +79,17 @@ for model in ["bhm_lr", "bhm_sr"]:
     plt.savefig(f"plots/country_specific_plot_scc_{model}.png")
 
 
+if 1:
+    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+    alpha3_to_2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
+    alpha2_to_full_name = iso3166_df.set_index("alpha-2")["name"].to_dict()
+    baseline["ISO2"] = baseline.ISO3.apply(lambda x: alpha3_to_2[x])
+    total_scc = sum(fifty_percent_baseline)
+    baseline["share_of_scc"] = baseline["50%"] / total_scc * 100
+    baseline["country_name"] = baseline.ISO2.apply(lambda x: alpha2_to_full_name[x])
+    baseline[["country_name", "ISO2", "share_of_scc"]].to_csv("plots/country_specific_share_scc.csv")
+
+
 # Save the data
 if False:
     iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
