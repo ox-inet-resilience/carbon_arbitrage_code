@@ -2008,6 +2008,22 @@ def make_climate_financing_plot(
         json.dump(climate_financing_dict, f)
 
 
+def annotate(xs, ys, labels, filter_labels=None, no_zero_x=False, fontsize=None):
+    for x, y, label in zip(xs, ys, labels):
+        if (filter_labels is not None) and (label not in filter_labels):
+            continue
+        if no_zero_x and math.isclose(x, 0):
+            continue
+        plt.annotate(
+            label,
+            (x, y),
+            textcoords="offset points",  # how to position the text
+            xytext=(0, 5),  # distance from text to points (x,y)
+            ha="center",  # horizontal alignment
+            fontsize=fontsize,
+        )
+
+
 def make_climate_financing_SCATTER_plot():
     gdp_per_capita_dict = util.read_json("data/all_countries_gdp_per_capita_2020.json")
     # Taiwan in 2020
@@ -2071,6 +2087,8 @@ def make_climate_financing_SCATTER_plot():
 
         arbitrage_period = 1 + (2100 - (NGFS_PEG_YEAR + 1))
         print("Peg year", NGFS_PEG_YEAR, "arbitrage period", arbitrage_period)
+        plot_labels = []
+        filter_labels = []
         for country_shortname in shortnames:
             if country_shortname not in costs_dict:
                 # print(f"{country_shortname} is missing")
@@ -2078,7 +2096,9 @@ def make_climate_financing_SCATTER_plot():
             if country_shortname in ["TW", "XK"]:
                 print("Intentionally skipping", country_shortname)
                 continue
-            x.append(gdp_per_capita_dict[country_shortname])
+            x_val = gdp_per_capita_dict[country_shortname]
+            x.append(x_val)
+            plot_labels.append(country_shortname)
             if divide_by_marketcap:
                 mul_marketcap = (
                     1 / (gdp_marketcap_dict[country_shortname] * arbitrage_period) * 100
@@ -2102,7 +2122,10 @@ def make_climate_financing_SCATTER_plot():
                 )
             # End of sanity check
             y.append(val)
-        plt.scatter(x, y, label=label)
+            if not ((x_val <= 20_000) and (val <= 5)):
+                filter_labels.append(country_shortname)
+        plt.plot(x, y, label=label, linewidth=0, marker="o", fillstyle="none")
+        annotate(x, y, plot_labels, fontsize=10, filter_labels=filter_labels)
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     # By level of development
@@ -2747,7 +2770,7 @@ if __name__ == "__main__":
         do_website_sensitivity_analysis()
         # do_website_sensitivity_analysis_climate_financing()
         exit()
-    if 1:
+    if 0:
         # Run for 3 levels of social cost of carbon.
         global social_cost_of_carbon
         mode = "cao"
@@ -2814,8 +2837,9 @@ if __name__ == "__main__":
     # make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=True)
     # It is faster not to calculate residual benefit for climate financing.
     ENABLE_RESIDUAL_BENEFIT = 0
-    make_climate_financing_plot()
-    # make_climate_financing_SCATTER_plot()
+    # make_climate_financing_plot()
+    make_climate_financing_SCATTER_plot()
+    exit()
     # make_yearly_climate_financing_plot()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
     # Reenable residual benefit again
