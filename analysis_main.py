@@ -53,8 +53,8 @@ RHO_MODE = "default"
 ENABLE_BENEFIT_NET_GROWTH = 0
 BENEFIT_NET_GROWTH_RATE = 0.01
 # None means disabled
-WEIGHT_GAS = None
-# WEIGHT_GAS = 0.1
+# WEIGHT_GAS = None
+WEIGHT_GAS = 0.1
 # WEIGHT_GAS = 0.33
 
 print("Use new method:", ENABLE_NEW_METHOD)
@@ -98,7 +98,8 @@ df, nonpower_coal, power_coal = util.read_masterdata()
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0
 else:
-    weighted_emissions_factor_gas = util.calculate_weighted_emissions_factor_gas(df)
+    # weighted_emissions_factor_gas = util.calculate_weighted_emissions_factor_gas(df)
+    weighted_emissions_factor_gas = 0.0
 
 # Reduce df to have companies only that do coal (both power and nonpower).
 # Note that these companies may have non-coal rows.
@@ -1167,6 +1168,10 @@ def generate_cost1_output(
                 )
 
                 lcoe_gas = 69.8  # $/MWh
+                # Those 3 are actually nuclear
+                lcoe_gas = 70
+                # lcoe_gas = 90
+                # lcoe_gas = 185
                 cost_gas_investment = (
                     lcoe_gas * WEIGHT_GAS * discounted_production / 1e12
                 )
@@ -2428,7 +2433,8 @@ def run_3_level_scc():
         cao_name = "Costs of avoiding coal emissions (in trillion dollars)"
         cao_name_with_residual = cao_name
     print(cao_name)
-    for last_year in [2050, 2070, 2100]:
+    # for last_year in [2050, 2070, 2100]:
+    for last_year in [2100]:
         if last_year == 2070:
             MID_YEAR = 2070
         else:
