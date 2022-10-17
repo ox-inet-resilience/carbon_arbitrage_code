@@ -68,14 +68,10 @@ for model in ["bhm_lr", "bhm_sr"]:
             wld = sum(fifty_percent)
             fifty_percent = [i * 100 / wld for i in fifty_percent]
 
-            plt.plot(fifty_percent, label=f"PRTP 2, {ssp}, {rcp}")
-    plt.legend()
-    if model == "bhm_lr":
-        plt.title("Long run")
-    else:
-        plt.title("Short run")
+            plt.plot(fifty_percent, label=f"{ssp}, {rcp.upper()}")
+    plt.legend(title="Business-as-usual scenario")
     plt.xlabel("Country")
-    plt.ylabel("Share of country-specific SCC relative to global SCC (%)")
+    plt.ylabel("Country-specific SCC relative to global SCC (%)")
     plt.savefig(f"plots/country_specific_plot_scc_{model}.png")
 
 
