@@ -53,6 +53,7 @@ ENABLE_BENEFIT_NET_GROWTH = 0
 BENEFIT_NET_GROWTH_RATE = 0.01
 # This is used in Bruegel analysis. Might be deleted later.
 INVESTMENT_COST_DIVIDER = 1
+ENABLE_BATTERY_SHORT = True
 
 print("Renewable degradation:", ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
 print("30 year lifespan:", ENABLE_RENEWABLE_30Y_LIFESPAN)
@@ -61,6 +62,7 @@ print("Weight mode", NGFS_RENEWABLE_WEIGHT)
 print("Residual benefit", ENABLE_RESIDUAL_BENEFIT)
 print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
+print("BATTERY_SHORT", ENABLE_BATTERY_SHORT)
 
 
 assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
@@ -427,7 +429,16 @@ class InvestmentCostNewMethod:
                 global_installed_capacity_kW ** -self.gammas[tech]
             )
             self.alphas[tech] = alpha
+        # 1173 is in GWh
+        self.G_battery_short_2020 = util.MWh2GJ(1173 * 1e3)  # GJ
+        self.gamma_battery_short = -math.log2(1 - 0.253)
+        # The 310 is in $/kWh
+        self.alpha_2020_short_per_GJ = 310 / util.MWh2GJ(0.001)
+        self.alpha_battery_short = self.alpha_2020_short_per_GJ / (
+            self.G_battery_short_2020**-self.gamma_battery_short
+        )
         self.stocks_kW = {tech: {} for tech in self.techs}
+        self.stocks_GJ_battery_short = defaultdict(dict)
 
         # To be used in the full cost1 table calculation
         self.cost_non_discounted = []
@@ -485,6 +496,33 @@ class InvestmentCostNewMethod:
             weight = NGFS_dynamic_weight[tech][str(year)] / 100
         return weight
 
+    def calculate_ic_1country_battery_short(self, year, country_name, total_R):
+        multiplier_alpha_battery_short = 0.2 / 365
+        # GJ
+        R_battery_short = self.get_stock_battery_short(year, country_name)
+        D_battery_short = max(
+            0, total_R * multiplier_alpha_battery_short - R_battery_short
+        )
+
+        # Calculating unit_ic
+        stock_without_degradation = 0.0
+        for stock_year, stock_amount in self.stocks_GJ_battery_short.items():
+            if stock_year >= year:
+                break
+            stock_without_degradation += sum(stock_amount.values())
+        # GJ
+        cumulative_G = self.G_battery_short_2020 + stock_without_degradation
+        # $/GJ
+        if ENABLE_WRIGHTS_LAW:
+            unit_ic = self.alpha_battery_short * (cumulative_G**-self.gamma_battery_short)
+        else:
+            unit_ic = self.alpha_2020_short_per_GJ
+        # End of calculating unit_ic
+
+        investment_cost_battery_short = D_battery_short * unit_ic
+        self.stocks_GJ_battery_short[year][country_name] = D_battery_short
+        return investment_cost_battery_short
+
     def calculate_investment_cost_one_country(
         self, country_name, DeltaP, year, discount
     ):
@@ -500,6 +538,7 @@ class InvestmentCostNewMethod:
                     self.stocks_kW[tech][year][country_name] = 0.0
                 else:
                     self.stocks_kW[tech][year] = {country_name: 0.0}
+            self.stocks_GJ_battery_short[year][country_name] = 0.0
             return
         # in kW because installed_costs is in $/kW
         D_kW = self.GJ2kW(D)
@@ -517,6 +556,13 @@ class InvestmentCostNewMethod:
                 self.stocks_kW[tech][year][country_name] = G
             else:
                 self.stocks_kW[tech][year] = {country_name: G}
+        if ENABLE_BATTERY_SHORT:
+            investment_cost_battery_short = self.calculate_ic_1country_battery_short(
+                year, country_name, total_R
+            )
+            investment_cost += investment_cost_battery_short
+        else:
+            investment_cost_battery_short = 0
         self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
 
@@ -548,6 +594,22 @@ class InvestmentCostNewMethod:
                     out += s
             else:
                 # No lifespan checking is needed.
+                out += s
+        return out
+
+    def get_stock_battery_short(self, year, country_name):
+        out = 0.0
+        if len(self.stocks_GJ_battery_short) == 0:
+            return out
+        for stock_year, stock_amount in self.stocks_GJ_battery_short.items():
+            if stock_year >= year:
+                break
+            age = year - stock_year
+            s = stock_amount[country_name]
+            if ENABLE_RENEWABLE_30Y_LIFESPAN:
+                if age <= 12:
+                    out += s
+            else:
                 out += s
         return out
 
