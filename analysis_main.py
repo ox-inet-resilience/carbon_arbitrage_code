@@ -478,6 +478,16 @@ class InvestmentCostNewMethod:
         self.cached_wrights_law_investment_costs[tech][year] = ic
         return ic
 
+    def get_weight(self, tech, year):
+        if NGFS_RENEWABLE_WEIGHT == "static_50%":
+            weight = self.get_static_weight(tech)
+        elif NGFS_RENEWABLE_WEIGHT == "static_NGFS":
+            weight = self.weights_static_NGFS[tech]
+        else:
+            # Needs division by 100, because the unit is still in percent.
+            weight = NGFS_dynamic_weight[tech][str(year)] / 100
+        return weight
+
     def calculate_investment_cost_one_country(
         self, country_name, DeltaP, year, discount
     ):
@@ -500,13 +510,7 @@ class InvestmentCostNewMethod:
         investment_cost = 0.0
         for tech in self.techs:
             # in kW
-            if NGFS_RENEWABLE_WEIGHT == "static_50%":
-                weight = self.get_static_weight(tech)
-            elif NGFS_RENEWABLE_WEIGHT == "static_NGFS":
-                weight = self.weights_static_NGFS[tech]
-            else:
-                # Needs division by 100, because the unit is still in percent.
-                weight = NGFS_dynamic_weight[tech][str(year)] / 100
+            weight = self.get_weight(tech, year)
             G = weight * D_kW / self.capacity_factors[tech]
             installed_cost = self.installed_costs[tech]
             if ENABLE_WRIGHTS_LAW:
@@ -2771,7 +2775,7 @@ if __name__ == "__main__":
         do_website_sensitivity_analysis()
         # do_website_sensitivity_analysis_climate_financing()
         exit()
-    if 0:
+    if 1:
         # Run for 3 levels of social cost of carbon.
         global social_cost_of_carbon
         mode = "cao"
