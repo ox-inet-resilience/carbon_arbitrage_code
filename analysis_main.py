@@ -17,6 +17,27 @@ from util import (
     world_gdp_2020,
 )
 
+global_cost_non_discounted = {
+    "Current Policies ": None,
+    "Net Zero 2050": None,
+}
+global_cost_non_discounted_battery_short = {
+    "Current Policies ": None,
+    "Net Zero 2050": None,
+}
+global_cost_non_discounted_battery_long = {
+    "Current Policies ": None,
+    "Net Zero 2050": None,
+}
+global_cost_non_discounted_battery_pe = {
+    "Current Policies ": None,
+    "Net Zero 2050": None,
+}
+global_cost_non_discounted_battery_grid = {
+    "Current Policies ": None,
+    "Net Zero 2050": None,
+}
+
 
 # Ensure that plots directory exists
 os.makedirs("plots", exist_ok=True)
@@ -486,6 +507,10 @@ class InvestmentCostNewMethod:
         # To be used in the full cost1 table calculation
         self.cost_non_discounted = []
         self.cost_discounted = []
+        self.cost_non_discounted_battery_short = []
+        self.cost_non_discounted_battery_long = []
+        self.cost_non_discounted_battery_pe = []
+        self.cost_non_discounted_battery_grid = []
 
         self.cached_wrights_law_investment_costs = {
             "solar": {},
@@ -712,8 +737,16 @@ class InvestmentCostNewMethod:
             ic_battery_grid = 0
         self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
+        self.cost_non_discounted_battery_short[-1] += investment_cost_battery_short
+        self.cost_non_discounted_battery_long[-1] += investment_cost_battery_long
+        self.cost_non_discounted_battery_pe[-1] += ic_battery_pe
+        self.cost_non_discounted_battery_grid[-1] += ic_battery_grid
 
     def calculate_investment_cost(self, DeltaP, year, discount):
+        self.cost_non_discounted_battery_short.append(0.0)
+        self.cost_non_discounted_battery_long.append(0.0)
+        self.cost_non_discounted_battery_pe.append(0.0)
+        self.cost_non_discounted_battery_grid.append(0.0)
         if isinstance(DeltaP, float):
             assert math.isclose(DeltaP, 0)
             self.cost_non_discounted.append(0.0)
@@ -1137,6 +1170,12 @@ def generate_cost1_output(
             last_year + residual_benefits_years_offset,
             weighted_emissions_factor_by_country_2020,
         )
+        if last_year == 2100:
+            global_cost_non_discounted[scenario] = [sum(i.values()) if isinstance(i, dict) else i for i in temp_cost_new_method.cost_non_discounted]
+            global_cost_non_discounted_battery_short[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_short)
+            global_cost_non_discounted_battery_long[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_long)
+            global_cost_non_discounted_battery_pe[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_pe)
+            global_cost_non_discounted_battery_grid[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_grid)
         return (
             out_non_discounted,
             out_discounted,
@@ -2671,6 +2710,35 @@ def run_3_level_scc():
             print(" & ".join(caos_with_residual))
 
 
+def make_battery_plot():
+    # Battery plot
+    run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    years = range(2022, 2101)
+    scenario = "Net Zero 2050"
+    ic = global_cost_non_discounted[scenario]
+    ic_trillion = np.array(ic) / 1e12
+    ic_short = global_cost_non_discounted_battery_short[scenario]
+    ic_short_trillion = np.array(ic_short) / 1e12
+    ic_long = global_cost_non_discounted_battery_long[scenario]
+    ic_long_trillion = np.array(ic_long) / 1e12
+    ic_pe = global_cost_non_discounted_battery_pe[scenario]
+    ic_pe_trillion = np.array(ic_pe) / 1e12
+    ic_grid = global_cost_non_discounted_battery_grid[scenario]
+    ic_grid_trillion = np.array(ic_grid) / 1e12
+    ic_baseline_trillion = ic_trillion - ic_short_trillion - ic_long_trillion - ic_pe_trillion - ic_grid_trillion
+    plt.plot(years, ic_baseline_trillion, label="Main")
+    plt.plot(years, ic_short_trillion, label="Short")
+    plt.plot(years, ic_pe_trillion, label="PE")
+    plt.plot(years, ic_grid_trillion, label="Grid")
+    plt.plot(years, ic_long_trillion + ic_pe_trillion, label="Long+PE")
+    plt.plot(years, ic_baseline_trillion + ic_long_trillion + ic_pe_trillion, label="Main+Long+PE")
+    plt.plot(years, ic_trillion, label="All")
+    plt.legend()
+    plt.xlabel("Time")
+    plt.ylabel("Investment cost (trillion dollars)")
+    plt.savefig("plots/battery_investment_cost.png")
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -2703,6 +2771,9 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
+    if 1:
+        make_battery_plot()
+        exit()
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
