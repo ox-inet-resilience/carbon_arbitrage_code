@@ -462,6 +462,7 @@ class InvestmentCostNewMethod:
         return cumulative_G
 
     def _calculate_wrights_law(self, tech, year, cumulative_G):
+        # Equation WrightsLaw, i.e. 15
         return self.alphas[tech] * (cumulative_G ** -self.gammas[tech])
 
     def calculate_wrights_law_investment_cost(self, tech, year):
