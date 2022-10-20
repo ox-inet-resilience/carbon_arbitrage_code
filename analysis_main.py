@@ -2334,6 +2334,38 @@ def make_yearly_climate_financing_plot():
     plt.legend(title="Annual climate financing:")
     util.savefig("climate_financing_yearly_relative")
 
+    plt.figure()
+    benefit_relative_to_gdp = [
+        (0.12707470412 - 0.05845436389) * (1 - math.exp(-0.01 * (t - 2016))) * 100
+        for t in whole_years
+    ]
+    world_cost_relative = np.array(yearly_world_cost) * 100 / world_gdp_2020
+    plt.plot(
+        whole_years,
+        benefit_relative_to_gdp,
+        label="Global benefits (avoided climate damages)",
+    )
+    plt.plot(
+        whole_years,
+        world_cost_relative * 0.1,
+        label="Global public costs (10% of climate finance need)",
+    )
+    # Reset color cycler
+    plt.gca().set_prop_cycle(None)
+    # Skip blue
+    next(plt.gca()._get_lines.prop_cycler)
+    plt.plot(
+        whole_years,
+        world_cost_relative,
+        label="Global costs (100% of climate finance need)",
+        linestyle="dashed",
+    )
+    plt.legend()
+    plt.xlabel("Time")
+    plt.ylabel("% of GDP")
+    util.savefig("climate_financing_yearly_world")
+    plt.close()
+
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     chosen_s2_scenario_discounted = "2022-2100 2DII + Net Zero 2050 Scenario"
