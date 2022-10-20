@@ -1324,88 +1324,6 @@ def run_cost1(
     return both_dict
 
 
-def calculate_carbon_adjusted_earnings():
-    nonpower_grouped = nonpower_coal.groupby("company_id")
-    year = 2021
-
-    # nonpower emissions
-    def process(g):
-        tonnes_coal = g[f"_{year}"]
-        # emissions_factor unit tonnes of CO2 per tonnes of coal
-        emissions_of_g = (tonnes_coal * g.emissions_factor).sum()  # in tCO2
-        return emissions_of_g
-
-    nonpower_emissions = nonpower_grouped.apply(process)
-
-    # nonpower profits
-    def process(g):
-        tonnes_coal = g[f"_{year}"]
-        gj = util.coal2GJ(tonnes_coal)
-        return (gj * g.energy_type_specific_average_unit_profit).sum()
-
-    nonpower_profits = nonpower_grouped.apply(process)
-
-    power_grouped = power_coal.groupby("company_id")
-
-    # power emissions
-    def process(g):
-        mw_coal = g[f"_{year}"]
-        # the emissions_factor unit is "tonnes of CO2 per MWh"
-        emissions_of_g = (
-            mw_coal * util.hours_in_1year * g.emissions_factor
-        ).sum()  # in tCO2
-        return emissions_of_g
-
-    power_emissions = power_grouped.apply(process)
-
-    def process(g):
-        # In MW
-        mw_coal = g[f"_{year}"]
-        gj = util.MW2GJ(mw_coal)
-        return (gj * g.energy_type_specific_average_unit_profit).sum()
-
-    power_profits = power_grouped.apply(process)
-
-    emissions = nonpower_emissions.add(power_emissions, fill_value=0)
-    profits = nonpower_profits.add(power_profits, fill_value=0)
-    sorted_profit_index = profits.sort_values(ascending=False).index
-
-    plt.figure()
-    sorted_profits = profits.loc[sorted_profit_index]
-    number_of_nonzeros = len(sorted_profits[sorted_profits > 0])
-    cutoff = number_of_nonzeros
-    xticks = range(cutoff)
-    plt.fill_between(xticks, list(sorted_profits / 1e9)[:cutoff])
-    plt.yscale("log")
-    plt.xlabel("Coal companies")
-    plt.ylabel("Earnings (billion dollars)")
-    plt.savefig("plots/distribution_earnings.png")
-
-    plt.figure(dpi=600)
-    carbon_adjusted_profits = (
-        profits.loc[sorted_profit_index]
-        - emissions.loc[sorted_profit_index] * social_cost_of_carbon
-    )
-    carbon_adjusted_profits_with_cutoff = list(carbon_adjusted_profits / 1e9)[:cutoff]
-    plt.bar(xticks, carbon_adjusted_profits_with_cutoff)
-    plt.xlabel("Coal companies")
-    plt.ylabel("Earnings (billion dollars)")
-    plt.savefig("plots/distribution_earnings_carbon_adjusted.png")
-    print("Total number of coal companies", len(profits))
-    print(
-        "Number of positive carbon adjusted earnings",
-        len(carbon_adjusted_profits[carbon_adjusted_profits > 0]),
-    )
-    print("Out of", cutoff)
-
-    # Statistics
-    print("Mean", np.mean(carbon_adjusted_profits_with_cutoff))
-    print("Std", np.std(carbon_adjusted_profits_with_cutoff, ddof=1))
-    print("Median", np.median(carbon_adjusted_profits_with_cutoff))
-    print("Min", np.min(carbon_adjusted_profits_with_cutoff))
-    print("Max", np.max(carbon_adjusted_profits_with_cutoff))
-
-
 def prepare_per_company_emissions_and_profit(
     scenario, nonpower_coal, power_coal, summation_start_year
 ):
@@ -1481,99 +1399,6 @@ def prepare_per_company_emissions_and_profit(
     per_company_emissions.to_csv(emissions_filename)
     per_company_profit.to_csv(profit_filename)
     return per_company_emissions, per_company_profit
-
-
-def calculate_social_value_of_stranded_assets(year_2020_only=False):
-    scenario = "Current Policies "
-    summation_start_year = NGFS_PEG_YEAR_ORIGINAL + 1
-    print("Summation start year", summation_start_year)
-    if year_2020_only:
-        np_g = nonpower_coal.groupby("company_id")
-        p_g = power_coal.groupby("company_id")
-        np_e = np_g.apply(lambda g: (g._2020 * g.emissions_factor).sum())
-        p_e = p_g.apply(
-            lambda g: (g._2020 * g.emissions_factor).sum() * util.hours_in_1year
-        )
-        per_company_emissions = np_e.add(p_e, fill_value=0.0)
-        # Convert to df to make it consistent with the summed-over-years version.
-        per_company_emissions = pd.DataFrame(
-            {"0": per_company_emissions.values}, index=per_company_emissions.index
-        )
-        np_p = np_g.apply(
-            lambda g: (
-                util.coal2GJ(g._2020) * g.energy_type_specific_average_unit_profit
-            ).sum()
-        )
-        p_p = p_g.apply(
-            lambda g: (
-                util.MW2GJ(g._2020) * g.energy_type_specific_average_unit_profit
-            ).sum()
-        )
-        per_company_profit = np_p.add(p_p, fill_value=0.0)
-        # Convert to df to make it consistent with the summed-over-years version.
-        per_company_profit = pd.DataFrame(
-            {"0": per_company_profit.values}, index=per_company_profit.index
-        )
-    else:
-        (
-            per_company_emissions,
-            per_company_profit,
-        ) = prepare_per_company_emissions_and_profit(
-            scenario, nonpower_coal, power_coal, summation_start_year
-        )
-
-    sorted_profit_index = per_company_profit.sort_values(by="0", ascending=False).index
-
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    plt.sca(axs[0])
-    sorted_profits = per_company_profit.loc[sorted_profit_index]["0"]
-    number_of_nonzeros = len(sorted_profits[sorted_profits > 0])
-    print(
-        "Number of zero profits",
-        len(sorted_profits) - number_of_nonzeros,
-        "out of",
-        len(sorted_profits),
-    )
-    cutoff = number_of_nonzeros
-    xticks = range(cutoff)
-    if year_2020_only:
-        ylabel = "2020 earnings (million dollars)"
-        ylabel_social = "2020 carbon-adjusted earnings (million dollars)"
-        scale_mul = 1e3
-    else:
-        ylabel = "Stranded asset value (billion dollars)"
-        ylabel_social = "Social stranded asset value\n(billion dollars)"
-        scale_mul = 1
-    plt.fill_between(xticks, list(sorted_profits / 1e9 * scale_mul)[:cutoff])
-    plt.yscale("log")
-    plt.xlabel("Coal companies")
-    plt.ylabel(ylabel)
-    ext = "_2020_only" if year_2020_only else ""
-
-    plt.sca(axs[1])
-    social = (
-        per_company_profit.loc[sorted_profit_index]["0"]
-        - per_company_emissions.loc[sorted_profit_index]["0"] * social_cost_of_carbon
-    )
-    strange_outlier = social[social < -10_000 * 1e9]
-    social = social[social > -10_000 * 1e9]
-    social_with_cutoff = list(social / 1e9 * scale_mul)[:cutoff]
-    plt.fill_between(xticks, social_with_cutoff)
-    plt.xlabel("Coal companies")
-    plt.ylabel(ylabel_social)
-    plt.tight_layout()
-    plt.savefig(f"plots/distribution_stranded{ext}.png")
-    print("Total number of coal companies", len(per_company_profit))
-    print("Number of positive social stranded asset", len(social[social > 0]))
-    print("Out of", cutoff)
-    print("Positive social", social[social > 0])
-
-    # Statistics
-    print("Mean", np.mean(social_with_cutoff))
-    print("Std", np.std(social_with_cutoff, ddof=1))
-    print("Median", np.median(social_with_cutoff))
-    print("Min", np.min(social_with_cutoff))
-    print("Max", np.max(social_with_cutoff))
 
 
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
@@ -2710,27 +2535,6 @@ def do_website_sensitivity_analysis_climate_financing():
 
 if __name__ == "__main__":
     if 0:
-        print("# exp cost5")
-        both_coal = nonpower_coal.append(power_coal).reset_index()
-        all_coal_company_ids = set(both_coal.company_id)
-        print("Number of coal companies (nonpower & power)", len(all_coal_company_ids))
-        non_coal_oilgas_power_company_ids = set()
-        non_coal_oilgas_power_sectors = set()
-        for company_id in all_coal_company_ids:
-            rows_for_one_id = df[df.company_id == company_id]
-            for idx, row in rows_for_one_id.iterrows():
-                if row.sector not in ["Coal", "Oil&Gas", "Power"]:
-                    non_coal_oilgas_power_company_ids.add(row.company_id)
-                    non_coal_oilgas_power_sectors.add(row.sector)
-        print(
-            "Number of coal companies with sectors outside of Coal/Oil&Gas/Power:",
-            len(non_coal_oilgas_power_company_ids),
-        )
-        print("The sectors:", non_coal_oilgas_power_sectors)
-        print("Units of power sector", set(df[df.sector == "Power"].unit))
-        exit()
-
-    if 0:
         print("# exp cost6")
         # Figuring out all of the coal companies.
         nonpower_coal_unique = nonpower_coal.drop_duplicates(subset=["company_id"])
@@ -2758,45 +2562,6 @@ if __name__ == "__main__":
         )
         # both_coal_unique = nonpower_coal_unique.append(power_coal_unique).reset_index().drop_duplicates(subset=["company_id"])
         # both_coal_unique.set_index("company_id")["company_name"].to_csv("plots/both_coal.csv")
-        exit()
-
-    if 0:
-        # Calculating the top 5 coal producers in the US
-        both_coal = nonpower_coal.append(power_coal).reset_index()
-        coal_prod_em = {}
-        for idx, row in both_coal.iterrows():
-            if row.asset_country != "US":
-                continue
-            if row.sector == "Coal":
-                tonnes_coal = row._2021
-                gj = util.coal2GJ(tonnes_coal)
-                # In tCO2
-                em = tonnes_coal * row.emissions_factor
-            else:
-                mw_coal = row._2021
-                gj = util.MW2GJ(mw_coal)
-                # In tCO2
-                em = mw_coal * util.hours_in_1year * row.emissions_factor
-            if row.company_id not in coal_prod_em:
-                coal_prod_em[row.company_id] = {
-                    "prod": gj,
-                    "emissions": em,
-                    "name": row.company_name,
-                    "country": row.asset_country,
-                }
-            else:
-                coal_prod_em[row.company_id]["prod"] += gj
-                coal_prod_em[row.company_id]["emissions"] += em
-        print("Unit for prod: GJ; Unit for emissions: tCO2")
-        for measure in ["prod", "emissions"]:
-            print("Measure:", measure)
-            by_x_list = sorted(
-                coal_prod_em,
-                key=lambda x: coal_prod_em[x][measure],
-                reverse=True,
-            )
-            for i in range(5):
-                print(coal_prod_em[by_x_list[i]])
         exit()
 
     # calculate_capacity_investment_gamma()
@@ -2865,10 +2630,6 @@ if __name__ == "__main__":
                 # print("With residual:")
                 print(" & ".join(caos_with_residual))
         exit()
-    # plot_break_even_carbon_tax()
-    # calculate_carbon_adjusted_earnings()
-    # calculate_social_value_of_stranded_assets()
-    # calculate_social_value_of_stranded_assets(year_2020_only=True)
     # make_carbon_arbitrage_opportunity_plot()
     # exit()
     # make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=True)
