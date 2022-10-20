@@ -428,6 +428,7 @@ class InvestmentCostWithLearning:
         self.stocks_kW = {tech: {} for tech in self.techs}
         self.stocks_GJ_battery_short = defaultdict(dict)
         self.stocks_kW_battery_long = defaultdict(dict)
+        self.stocks_kW_battery_pe = {tech: defaultdict(dict) for tech in self.techs}
 
         # To be used in the full cost1 table calculation
         self.cost_non_discounted = []
@@ -539,6 +540,35 @@ class InvestmentCostWithLearning:
         self.stocks_kW_battery_long[year][country_name] = G_long
         return investment_cost_battery_long
 
+    def calculate_ic_1country_battery_pe(self, year, country_name, total_R):
+        # Based on calculate_total_R
+        R_pe = 0.0
+        for tech in self.techs:
+            S = self.get_stock_battery_pe(country_name, tech, year)
+            R = self.kW2GJ(S) * self.capacity_factors[tech]
+            R_pe += R
+        # End of based on calculate_total_R
+
+        psi = 0.7
+        coefficient = self.sigma_battery_long * (1 / psi - 1)
+        # GJ
+        D = max(0, total_R * coefficient - R_pe)
+        # kW
+        D_kW = self.GJ2kW(D)
+
+        ic = 0.0
+        for tech in self.techs:
+            weight = self.get_weight(tech, year)
+            # kW
+            G = weight * D_kW / self.capacity_factors[tech]
+            if ENABLE_WRIGHTS_LAW:
+                installed_cost = self.calculate_wrights_law_investment_cost(tech, year)
+            else:
+                installed_cost = self.installed_costs[tech]
+            ic += G * installed_cost
+            self.stocks_kW_battery_pe[tech][year][country_name] = G
+        return ic
+
     def calculate_investment_cost_one_country(
         self, country_name, DeltaP, year, discount
     ):
@@ -556,6 +586,8 @@ class InvestmentCostWithLearning:
                     self.stocks_kW[tech][year] = {country_name: 0.0}
             self.stocks_GJ_battery_short[year][country_name] = 0.0
             self.stocks_kW_battery_long[year][country_name] = 0.0
+            for tech in self.techs:
+                self.stocks_kW_battery_pe[tech][year][country_name] = 0.0
             return
         # in kW because installed_costs is in $/kW
         D_kW = self.GJ2kW(D)
@@ -585,8 +617,13 @@ class InvestmentCostWithLearning:
                 year, country_name, total_R
             )
             investment_cost += investment_cost_battery_long
+            ic_battery_pe = self.calculate_ic_1country_battery_pe(
+                year, country_name, total_R
+            )
+            investment_cost += ic_battery_pe
         else:
             investment_cost_battery_long = 0
+            ic_battery_pe = 0
         self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
 
@@ -653,6 +690,27 @@ class InvestmentCostWithLearning:
                 out += s
         return out
 
+    def get_stock_battery_pe(self, country_name, tech, year):
+        # This method is identitical to get_stock except that it uses stocks_kW_battery_pe
+        out = 0.0
+        if len(self.stocks_kW_battery_pe[tech]) == 0:
+            return out
+        for stock_year, stock_amount in self.stocks_kW_battery_pe[tech].items():
+            if stock_year >= year:
+                break
+            age = year - stock_year
+            s = stock_amount[country_name]
+            if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
+                s *= (1 - self.degradation_rate[tech]) ** age
+
+            if ENABLE_RENEWABLE_30Y_LIFESPAN:
+                if age <= RENEWABLE_LIFESPAN:
+                    out += s
+            else:
+                # No lifespan checking is needed.
+                out += s
+        return out
+
     def get_stock_without_degradation(self, tech, year):
         out = 0.0
         if len(self.stocks_kW[tech]) == 0:
@@ -660,7 +718,8 @@ class InvestmentCostWithLearning:
         for stock_year, stock_amount in self.stocks_kW[tech].items():
             if stock_year >= year:
                 break
-            out += sum(stock_amount.values())
+            stock_battery_pe = sum(self.stocks_kW_battery_pe[tech][stock_year].values())
+            out += sum(stock_amount.values()) + stock_battery_pe
         return out
 
     def zero_out_costs_and_stocks(self, peg_year):
