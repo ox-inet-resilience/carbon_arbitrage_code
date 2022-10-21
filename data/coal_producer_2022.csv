@@ -1,0 +1,62 @@
+asset_country,_2022,country_full_name,num_coal_workers,coal_wage_local_currency,num_coal_workers_source,coal_wage_source
+CN,1444443496.33535,China,3209000,154101,worldbank,salaryexpert.com
+US,814215716.491326,United States of America,47700,60661,worldbank,salaryexpert.com
+IN,753752680.16382,India,416240,645094,worldbank,salaryexpert.com
+AU,716607698.684774,Australia,50368,87237,worldbank,salaryexpert.com
+RU,647822761.6223,Russian Federation,150100,802981,worldbank,salaryexpert.com
+ID,521989695.40061,Indonesia,240041,232796612,worldbank,salaryexpert.com
+ZA,406042411.96914,South Africa,74827,352975,worldbank,salaryexpert.com
+DE,181557953.8,Germany,14932,49814,worldbank,salaryexpert.com
+KZ,107418446.05,Kazakhstan,29686,4051619,worldbank,salaryexpert.com
+PL,105056329.3,Poland,92601,84942,worldbank,salaryexpert.com
+TR,80279749.96,Turkey,47955,103152,worldbank,salaryexpert.com
+CO,77345025.7287,Colombia,44338,37501849,worldbank,salaryexpert.com
+GR,73469468.1,Greece,3496,26399,worldbank,salaryexpert.com
+CA,72396799.64,Canada,7845,69056,worldbank,salaryexpert.com
+UA,50855000.0,Ukraine,110822,230694,worldbank,salaryexpert.com
+VN,46050000.0,Viet Nam,86399,162357555,worldbank,salaryexpert.com
+MN,45685636.8,Mongolia,0,0,TODO,TODO
+BG,38495000.0,Bulgaria,21184,0,TODO,salaryexpert.com
+CZ,36755533.8,Czechia,0,0,TODO,TODO
+RS,36101000.0,Serbia,0,0,TODO,TODO
+RO,35419000.0,Romania,27055,63044,worldbank,salaryexpert.com
+TH,35196089.9,Thailand,861,548381,worldbank,salaryexpert.com
+BR,30292131.26,Brazil,0,73463,TODO,salaryexpert.com
+PH,19996696.2,Philippines,0,417064,TODO,salaryexpert.com
+MZ,19949340.66475,Mozambique,0,0,TODO,TODO
+BA,15772000.0,Bosnia and Herzegovina,0,0,TODO,TODO
+LA,15696348.96,Lao People's Democratic Republic,0,0,TODO,TODO
+UZ,14315000.0,Uzbekistan,0,0,TODO,TODO
+MX,13916000.0,Mexico,0,248858,TODO,salaryexpert.com
+ZW,12169898.4384,Zimbabwe,0,0,TODO,TODO
+GB,10955532.1,United Kingdom of Great Britain and Northern Ireland,699,36785,worldbank,salaryexpert.com
+XK,8058000.0,XK,0,0,TODO,TODO
+HU,7889000.0,Hungary,0,5340110,TODO,salaryexpert.com
+IR,7482000.0,Iran (Islamic Republic of),0,0,TODO,TODO
+MK,5407747.5328,North Macedonia,0,0,TODO,TODO
+PK,4866274.774,Pakistan,0,1171499,TODO,salaryexpert.com
+ES,4650000.0,Spain,0,35563,TODO,salaryexpert.com
+SI,4220000.0,Slovenia,0,0,TODO,TODO
+SK,3340000.0,Slovakia,0,19354,TODO,salaryexpert.com
+NZ,3112856.2,New Zealand,0,76497,TODO,salaryexpert.com
+ME,2842788.65,Montenegro,0,0,TODO,TODO
+BW,2765990.4,Botswana,0,0,TODO,TODO
+TJ,2223000.0,Tajikistan,0,0,TODO,TODO
+CL,2182410.45,Chile,0,15170200,TODO,salaryexpert.com
+VE,1773000.0,Venezuela (Bolivarian Republic of),0,0,TODO,TODO
+MM,1645341.0,Myanmar,0,0,TODO,TODO
+AR,1637000.0,Argentina,0,1591493,TODO,salaryexpert.com
+TZ,1573053.76,"Tanzania, United Republic of",0,0,TODO,TODO
+ZM,1528517.555,Zambia,0,0,TODO,TODO
+GE,1472000.0,Georgia,0,20620,TODO,salaryexpert.com
+JP,899000.0,Japan,0,5323366,TODO,salaryexpert.com
+KG,888000.0,Kyrgyzstan,0,0,TODO,TODO
+BD,572000.0,Bangladesh,0,0,TODO,TODO
+MW,389000.0,Malawi,0,0,TODO,TODO
+NE,314000.0,Niger,0,0,TODO,TODO
+NO,228000.0,Norway,0,535199,TODO,salaryexpert.com
+PE,141087.0,Peru,0,36525,TODO,salaryexpert.com
+ET,37000.0,Ethiopia,0,0,TODO,TODO
+CD,4000.0,"Congo, Democratic Republic of the",0,0,TODO,TODO
+NG,0.0,Nigeria,0,0,TODO,TODO
+MG,0.0,Madagascar,0,0,TODO,TODO
