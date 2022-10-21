@@ -1,4 +1,11 @@
+import math
+
 import pandas as pd
+import matplotlib.pyplot as plt
+
+import processed_revenue
+import util
+from util import years_masterdata
 
 # g = nonpower_coal.groupby("asset_country")["_2022"].sum().sort_values(ascending=False).to_frame()
 # g["country_full_name"] = g.apply(lambda x: alpha2_to_full_name.get(x.name, x.name), axis=1)
@@ -9,11 +16,6 @@ import pandas as pd
 iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
 alpha3_to_alpha2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
 alpha2_to_full_name = iso3166_df.set_index("alpha-2")["name"].to_dict()
-# delete this
-# df_currency = pd.read_csv("data/oecd_currency_exchange_rate_2021.csv")
-# df_currency["alpha-2"] = df_currency.LOCATION.apply(lambda x: alpha3_to_alpha2.get(x, x))
-# cur_exchange = df_currency.set_index("alpha-2")["Value"].to_dict()
-# end of delete this
 
 df = pd.read_csv("data/coal_producer_2022.csv")
 # Sanity check -- no zero salary
@@ -85,22 +87,96 @@ cur_exchange = dict(
 )
 
 # Wage
-df["coal_wage_usd"] = df.apply(lambda row: row.coal_wage_local_currency * cur_exchange[row.asset_country], axis=1)
-df = df.sort_values(by="coal_wage_usd", ascending=False)
-df[["asset_country", "coal_wage_usd"]].to_csv("plots/coal_wage_usd.csv")
-exit()
+df["coal_wage_usd"] = df.apply(
+    lambda row: row.coal_wage_local_currency * cur_exchange[row.asset_country], axis=1
+)
+# df = df.sort_values(by="coal_wage_usd", ascending=False)
+# df[["asset_country", "coal_wage_usd"]].to_csv("plots/coal_wage_usd.csv")
+wage_usd_dict = df.set_index("asset_country")["coal_wage_usd"].to_dict()
 
-has_data = df[df.num_coal_workers_source == "worldbank"]
-no_data = df[df.num_coal_workers_source == "TODO"]
 
-P_total = df._2022.sum()
-P_covered = has_data._2022.sum()
-num_workers_has_data = has_data.num_coal_workers.sum()
+def prepare_num_workers_dict(df):
+    # Number of workers
+    is_covered = df[df.num_coal_workers_source == "worldbank"]
+    P_total = df._2022.sum()
+    P_covered = is_covered._2022.sum()
+    num_workers_is_covered = is_covered.num_coal_workers.sum()
 
-def f(row):
-    if row.num_coal_workers_source == "worldbank":
-        return row.num_coal_workers
-    return int((4.7e6 - num_workers_has_data) * row._2022 / (P_total - P_covered))
-df["num_coal_workers"] = df.apply(f, axis=1)
-df["num_coal_workers_source"] = df.num_coal_workers_source.apply(lambda x: x.replace("TODO", "estimated"))
-df.to_csv("plots/coal_producer_2022_estimated.csv")
+    def f(row):
+        if row.num_coal_workers_source == "worldbank":
+            return row.num_coal_workers
+        return int((4.7e6 - num_workers_is_covered) * row._2022 / (P_total - P_covered))
+
+    df["num_coal_workers"] = df.apply(f, axis=1)
+    df["num_coal_workers_source"] = df.num_coal_workers_source.apply(
+        lambda x: x.replace("TODO", "estimated")
+    )
+    # df.to_csv("plots/coal_producer_2022_estimated.csv")
+    num_coal_workers_dict = df.set_index("asset_country")["num_coal_workers"].to_dict()
+    return num_coal_workers_dict
+
+
+num_coal_workers_dict = prepare_num_workers_dict(df)
+
+# Data analysis part
+RHO_MODE = "default"
+NGFS_PEG_YEAR = 2023
+scenario = "Net Zero 2050"
+_, nonpower_coal, _ = util.read_masterdata()
+ngfss = util.read_ngfs_coal_and_power()
+rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+countries = list(set(nonpower_coal.asset_country))
+
+grouped = nonpower_coal.groupby("asset_country")
+total_production_by_year_masterdata = []
+for year in years_masterdata:
+    tonnes_coal = grouped[f"_{year}"].sum()
+    production = tonnes_coal / 1e9  # convert to giga tonnes of coal
+    total_production_by_year_masterdata.append(production)
+
+total_production_peg_year = total_production_by_year_masterdata[NGFS_PEG_YEAR - 2022]
+years_masterdata_up_to_peg = list(range(2022, NGFS_PEG_YEAR + 1))
+fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
+    ngfss, "Coal", scenario, start_year=NGFS_PEG_YEAR
+)
+array_of_coal_production = total_production_by_year_masterdata[
+    : len(years_masterdata_up_to_peg)
+] + [
+    total_production_peg_year * v_np
+    for v_np in fraction_increase_after_peg_year.values()
+]
+
+
+def get_j_num_workers_lost_job(country, t):
+    num_workers_2022 = num_coal_workers_dict[country]
+    production_2022 = array_of_coal_production[0][country]
+    production_t = array_of_coal_production[t - 2022][country]
+    production_t_minus_1 = array_of_coal_production[t - 1 - 2022][country]
+    if math.isclose(production_2022, 0):
+        return 0
+    return num_workers_2022 * (production_t_minus_1 - production_t) / production_2022
+
+
+opportunity_cost_series = []
+years = range(2023, 2101)
+for t in years:
+    oc = 0.0
+    for country in countries:
+        j_lost_job = get_j_num_workers_lost_job(country, t)
+        wage = wage_usd_dict[country]
+        oc += j_lost_job * 5 * wage
+    # Division by 1e9 converts dollars to billion dollars
+    opportunity_cost_series.append(oc / 1e9)
+
+# i + 1, because we start from 2023
+pv_opportunity_cost = sum(
+    oc * util.calculate_discount(rho, i + 1)
+    for i, oc in enumerate(opportunity_cost_series)
+)
+print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
+
+plt.figure()
+plt.plot(years, opportunity_cost_series)
+plt.xlabel("Time")
+plt.ylabel("Compensation for lost wage (billion dollars)")
+plt.savefig("plots/coal_worker_compensation.png")
