@@ -1,6 +1,6 @@
 asset_country,_2022,country_full_name,num_coal_workers,coal_wage_local_currency,num_coal_workers_source,coal_wage_source
-CN,1444443496.33535,China,3209000,154101,worldbank,salaryexpert.com
-US,814215716.491326,United States of America,47700,60661,worldbank,salaryexpert.com
+CN,1444443496.33535,China,3209000,154101,worldbank,https://www.salaryexpert.com/salary/job/coal-miner/china
+US,814215716.491326,United States of America,47700,60661,worldbank,https://www.salaryexpert.com/salary/job/coal-miner/united-states
 IN,753752680.16382,India,416240,645094,worldbank,salaryexpert.com
 AU,716607698.684774,Australia,50368,87237,worldbank,salaryexpert.com
 RU,647822761.6223,Russian Federation,150100,802981,worldbank,salaryexpert.com
@@ -15,48 +15,48 @@ GR,73469468.1,Greece,3496,26399,worldbank,salaryexpert.com
 CA,72396799.64,Canada,7845,69056,worldbank,salaryexpert.com
 UA,50855000.0,Ukraine,110822,230694,worldbank,salaryexpert.com
 VN,46050000.0,Viet Nam,86399,162357555,worldbank,salaryexpert.com
-MN,45685636.8,Mongolia,0,0,TODO,TODO
-BG,38495000.0,Bulgaria,21184,0,TODO,salaryexpert.com
-CZ,36755533.8,Czechia,0,0,TODO,TODO
-RS,36101000.0,Serbia,0,0,TODO,TODO
+MN,45685636.8,Mongolia,0,848957.5,TODO,https://www.paylab.com/mn/salaryinfo/mining-metallurgy
+BG,38495000.0,Bulgaria,0,21184,TODO,salaryexpert.com
+CZ,36755533.8,Czechia,0,544528,TODO,salaryexpert.com
+RS,36101000.0,Serbia,0,1125753.60,TODO,https://www.equaltimes.org/getting-serbia-s-much-needed?lang=en#.Y1Izri2z1Bw(1EUR=117.266RSD)
 RO,35419000.0,Romania,27055,63044,worldbank,salaryexpert.com
 TH,35196089.9,Thailand,861,548381,worldbank,salaryexpert.com
 BR,30292131.26,Brazil,0,73463,TODO,salaryexpert.com
 PH,19996696.2,Philippines,0,417064,TODO,salaryexpert.com
-MZ,19949340.66475,Mozambique,0,0,TODO,TODO
-BA,15772000.0,Bosnia and Herzegovina,0,0,TODO,TODO
-LA,15696348.96,Lao People's Democratic Republic,0,0,TODO,TODO
-UZ,14315000.0,Uzbekistan,0,0,TODO,TODO
+MZ,19949340.66475,Mozambique,0,60000,TODO,https://www.payscale.com/research/MZ/Industry=Coal_Mining/Salary
+BA,15772000.0,Bosnia and Herzegovina,0,10200,TODO,https://www.rferl.org/a/bosnia-coal-miners-strike/31575713.html
+LA,15696348.96,Lao People's Democratic Republic,0,57355416,TODO,https://www.paylab.com/la/salaryinfo/mining-metallurgy
+UZ,14315000.0,Uzbekistan,0,3500000,TODO,https://www.ishhaqi.uz/en/salaryinfo/mining-metallurgy/miner
 MX,13916000.0,Mexico,0,248858,TODO,salaryexpert.com
-ZW,12169898.4384,Zimbabwe,0,0,TODO,TODO
+ZW,12169898.4384,Zimbabwe,0,2171761.90,TODO,https://www.averagesalarysurvey.com/miner/zimbabwe
 GB,10955532.1,United Kingdom of Great Britain and Northern Ireland,699,36785,worldbank,salaryexpert.com
-XK,8058000.0,XK,0,0,TODO,TODO
+XK,8058000.0,XK,0,5076,TODO,https://www.riinvestinstitute.org/En/riinvest-story/226/personal-income-by-sector-in-kosovo-who-pays-and-how-much/
 HU,7889000.0,Hungary,0,5340110,TODO,salaryexpert.com
-IR,7482000.0,Iran (Islamic Republic of),0,0,TODO,TODO
-MK,5407747.5328,North Macedonia,0,0,TODO,TODO
+IR,7482000.0,Iran (Islamic Republic of),0,4800000,TODO,https://www.mining.com/photos-iran-coal-miners-toiling-for-15-a-day-46796/
+MK,5407747.5328,North Macedonia,0,420000,TODO,https://www.mojaplata.mk/en/salaryinfo/mining-metallurgy/miner
 PK,4866274.774,Pakistan,0,1171499,TODO,salaryexpert.com
 ES,4650000.0,Spain,0,35563,TODO,salaryexpert.com
-SI,4220000.0,Slovenia,0,0,TODO,TODO
+SI,4220000.0,Slovenia,0,21360,TODO,https://www.salaryexplorer.com/salary-survey.php?loc=198&loctype=1&job=39&jobtype=1
 SK,3340000.0,Slovakia,0,19354,TODO,salaryexpert.com
 NZ,3112856.2,New Zealand,0,76497,TODO,salaryexpert.com
-ME,2842788.65,Montenegro,0,0,TODO,TODO
-BW,2765990.4,Botswana,0,0,TODO,TODO
-TJ,2223000.0,Tajikistan,0,0,TODO,TODO
+ME,2842788.65,Montenegro,0,9600,TODO,https://montenegro.paylab.com/en/salaryinfo/mining-metallurgy/miner
+BW,2765990.4,Botswana,0,84407,TODO,https://www.averagesalarysurvey.com/coal-miner/botswana
+TJ,2223000.0,Tajikistan,0,126000,TODO,https://www.salaryexplorer.com/salary-survey.php?loc=213&loctype=1&job=39&jobtype=1
 CL,2182410.45,Chile,0,15170200,TODO,salaryexpert.com
-VE,1773000.0,Venezuela (Bolivarian Republic of),0,0,TODO,TODO
-MM,1645341.0,Myanmar,0,0,TODO,TODO
+VE,1773000.0,Venezuela (Bolivarian Republic of),0,125750,TODO,http://www.salaryexplorer.com/salary-survey.php?loc=235&loctype=1&job=571&jobtype=3
+MM,1645341.0,Myanmar,0,6312396,TODO,https://myanmar.paylab.com/en/salaryinfo/mining-metallurgy
 AR,1637000.0,Argentina,0,1591493,TODO,salaryexpert.com
-TZ,1573053.76,"Tanzania, United Republic of",0,0,TODO,TODO
-ZM,1528517.555,Zambia,0,0,TODO,TODO
+TZ,1573053.76,"Tanzania, United Republic of",0,14820000,TODO,http://www.salaryexplorer.com/salary-survey.php?loc=214&loctype=1&job=571&jobtype=3
+ZM,1528517.555,Zambia,0,78000,TODO,https://www.paylab.com/zm/salaryinfo/mining-metallurgy
 GE,1472000.0,Georgia,0,20620,TODO,salaryexpert.com
 JP,899000.0,Japan,0,5323366,TODO,salaryexpert.com
-KG,888000.0,Kyrgyzstan,0,0,TODO,TODO
-BD,572000.0,Bangladesh,0,0,TODO,TODO
-MW,389000.0,Malawi,0,0,TODO,TODO
-NE,314000.0,Niger,0,0,TODO,TODO
+KG,888000.0,Kyrgyzstan,0,264588,TODO,https://www.paylab.com/kg/salaryinfo/mining-metallurgy
+BD,572000.0,Bangladesh,0,280800,TODO,http://www.salaryexplorer.com/salary-survey.php?loc=18&loctype=1&job=39&jobtype=1
+MW,389000.0,Malawi,0,5402034,TODO,https://www.paylab.com/mw/salaryinfo/mining-metallurgy
+NE,314000.0,Niger,0,1805562,TODO,https://nigeria.paylab.com/salaryinfo/mining-metallurgy
 NO,228000.0,Norway,0,535199,TODO,salaryexpert.com
 PE,141087.0,Peru,0,36525,TODO,salaryexpert.com
-ET,37000.0,Ethiopia,0,0,TODO,TODO
-CD,4000.0,"Congo, Democratic Republic of the",0,0,TODO,TODO
-NG,0.0,Nigeria,0,0,TODO,TODO
-MG,0.0,Madagascar,0,0,TODO,TODO
+ET,37000.0,Ethiopia,0,102132,TODO,https://www.paylab.com/et/salaryinfo/mining-metallurgy
+CD,4000.0,"Congo, Democratic Republic of the",0,5124000,TODO,https://www.salaryexplorer.com/salary-survey.php?loc=50&loctype=1&job=39&jobtype=1
+NG,0.0,Nigeria,0,2405562,TODO,https://nigeria.paylab.com/salaryinfo/mining-metallurgy
+MG,0.0,Madagascar,0,14160000,TODO,http://www.salaryexplorer.com/salary-survey.php?loc=128&loctype=1&job=39&jobtype=1
