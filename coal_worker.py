@@ -178,15 +178,15 @@ pv_wage_lost = sum(
 
 opportunity_cost_series = wage_lost_series * 5
 pv_opportunity_cost = pv_wage_lost * 5
-print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
+print("PV opportunity cost", pv_opportunity_cost / 1e3, "trillion dollars")
 
 for ir in [2014.60, 7231, 6009, 20863.18]:
     print(
         "IC retraining USA",
         ir,
         "Retraining cost",
-        pv_wage_lost * ir / wage_usd_dict["US"],
-        "billion dollars",
+        pv_wage_lost * ir / wage_usd_dict["US"] / 1e3,
+        "trillion dollars",
     )
 
 plt.figure()
