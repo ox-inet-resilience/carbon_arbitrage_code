@@ -2221,6 +2221,189 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     util.savefig("climate_financing_sensitivity", tight=True)
 
 
+def do_cf_battery_yearly():
+    chosen_s2_scenario_discounted = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario_non_discounted = (
+        chosen_s2_scenario_discounted + " NON-DISCOUNTED"
+    )
+
+    whole_years = range(2022, 2100 + 1)
+
+    def calculate_yearly_world_cost(s2_scenario):
+        yearly_costs_dict = calculate_yearly_costs_dict(s2_scenario)
+        # Calculating the cost for the whole world
+        yearly_world_cost = np.zeros(len(whole_years))
+        for v in yearly_costs_dict.values():
+            yearly_world_cost += np.array(v)
+        return yearly_world_cost
+
+    def _get_year_range_cost(year_start, year_end, yearly_world_cost):
+        return sum(yearly_world_cost[year_start - 2022 : year_end + 1 - 2022])
+
+    labels = [
+        "30Y, D, E",
+        "30Y, D, E, S",
+        "30Y, D, E, L",
+        "30Y, D, E, O",
+        "30Y, D, E, S+L",
+        "30Y, D, E, S+L+O",
+        "30Y, D, no E, S+L+O",
+    ]
+    import coal_worker
+    cw_out = coal_worker.calculate("default", full_version=True)
+    retraining_series = cw_out["wage_lost_series"] * coal_worker.ic_usa / coal_worker.wage_usd_dict["US"]
+    # Set 2022 value to 0
+    retraining_series = np.insert(retraining_series, 0, 0)
+    opportunity_cost_series = cw_out["opportunity_cost_series"]
+    opportunity_cost_series = np.insert(opportunity_cost_series, 0, 0)
+
+    # Just for bar chart and original
+    data_for_barchart = {
+        (NGFS_PEG_YEAR + 1, 2050): {},
+        (2051, 2070): {},
+        (2071, 2100): {},
+    }
+    label_map_original = {
+        "30Y": "30Y, D, E",
+        "30Y_noE": "30Y, D, no E",
+        "LCOE": "LCOE proxy",
+        "50Y": "50Y, D, E",
+        "200Y": "Lifetime by D, E",
+    }
+
+    def reset():
+        global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, ENABLE_BATTERY_SHORT, ENABLE_BATTERY_LONG, ENABLE_BATTERY_GRID
+        ENABLE_NEW_METHOD = 1
+        ENABLE_WRIGHTS_LAW = 1
+        RENEWABLE_LIFESPAN = 30
+        ENABLE_BATTERY_SHORT = False
+        ENABLE_BATTERY_LONG = False
+        ENABLE_BATTERY_GRID = False
+
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, ENABLE_BATTERY_SHORT, ENABLE_BATTERY_LONG
+    for key, label in label_map_original.items():
+        reset()
+        if key == "LCOE":
+            ENABLE_NEW_METHOD = 0
+        elif key.endswith("Y"):
+            RENEWABLE_LIFESPAN = int(key[:-1])
+        else:
+            assert key == "30Y_noE"
+            ENABLE_WRIGHTS_LAW = 0
+
+        yearly = calculate_yearly_world_cost(chosen_s2_scenario_non_discounted)
+        linestyle = "-" if label == "30Y, D, E" else "dotted"
+        plt.plot(
+            whole_years,
+            yearly,
+            label=label,
+            linestyle=linestyle,
+            linewidth=2.5,
+        )
+
+        yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario_discounted)
+        for year_start, year_end in [
+            (NGFS_PEG_YEAR + 1, 2050),
+            (2051, 2070),
+            (2071, 2100),
+        ]:
+            aggregate = _get_year_range_cost(year_start, year_end, yearly_discounted)
+            data_for_barchart[(year_start, year_end)][label] = aggregate
+    plt.xlabel("Time")
+    plt.ylabel("Global annual climate financing\n(trillion dollars)")
+    plt.legend(
+        bbox_to_anchor=(0.5, -0.2),
+        loc="upper center",
+        ncol=2,
+    )
+    reset()
+    # End just for bar chart and original
+
+    # Battery only
+    plt.sca(axs[1])
+    fname = "plots/cf_battery_cache.json"
+    if os.path.isfile(fname):
+        yearly_all, extra_data_for_barchart = util.read_json(fname)
+    else:
+        extra_data_for_barchart = {
+            f"{NGFS_PEG_YEAR + 1}-2050": {},
+            "2051-2070": {},
+            "2071-2100": {},
+        }
+        yearly_all = {}
+        for label in labels:
+            ENABLE_WRIGHTS_LAW = "no E" not in label
+            ENABLE_BATTERY_SHORT = "S" in label
+            ENABLE_BATTERY_LONG = "L" in label
+
+            yearly = calculate_yearly_world_cost(chosen_s2_scenario_non_discounted)
+            if "O" in label:
+                # Division by 1e3 converts to trillion dollars
+                yearly += opportunity_cost_series / 1e3
+                yearly += retraining_series / 1e3
+            yearly_all[label] = list(yearly)
+
+            yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario_discounted)
+            for year_start, year_end in [
+                (NGFS_PEG_YEAR + 1, 2050),
+                (2051, 2070),
+                (2071, 2100),
+            ]:
+                aggregate = _get_year_range_cost(year_start, year_end, yearly_discounted)
+                extra_data_for_barchart[f"{year_start}-{year_end}"][label] = aggregate
+        with open(fname, "w") as f:
+            json.dump([yearly_all, extra_data_for_barchart], f)
+    for label in labels:
+        linestyle = "-" if label == "30Y, D, E" else "dotted"
+        if label != "30Y, D, no E, S+L+O":
+            plt.plot(
+                whole_years,
+                yearly_all[label],
+                label=label,
+                linestyle=linestyle,
+                linewidth=2.5,
+            )
+
+    plt.xlabel("Time")
+    plt.ylabel("Global annual climate financing\n(trillion dollars)")
+    plt.legend(
+        bbox_to_anchor=(0.5, -0.2),
+        loc="upper center",
+        ncol=2,
+    )
+    plt.tight_layout()
+
+    util.savefig("cf_battery_yearly", tight=True)
+
+    # Bar plot
+    plt.figure()
+    # Merge the barchart data
+    for k in data_for_barchart:
+        k_str = f"{k[0]}-{k[1]}"
+        for _k, _v in extra_data_for_barchart[k_str].items():
+            data_for_barchart[k][_k] = _v
+    xticks = None
+    stacked_bar_data = []
+    for year_pair, data in data_for_barchart.items():
+        xticks = list(data.keys())
+        stacked_bar_data.append((f"{year_pair[0]}-{year_pair[1]}", list(data.values())))
+    util.plot_stacked_bar(
+        xticks,
+        stacked_bar_data,
+    )
+    # For separating the baseline
+    plt.axvline(0.5, color="gray", linestyle="dashed")
+    # For separating the battery ones
+    plt.axvline((4 + 5) / 2, color="gray", linestyle="dashed")
+    plt.xticks(xticks, rotation=90, ha="center")
+    plt.ylabel("PV global climate financing\n(trillion dollars)")
+    plt.legend(loc="upper center")
+    plt.tight_layout()
+    util.savefig("cf_battery_pv")
+
+
 def calculate_capacity_investment_gamma():
     from scipy import stats
 
@@ -2387,6 +2570,8 @@ if __name__ == "__main__":
         print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
     if 1:
+        # Battery yearly
+        # do_cf_battery_yearly()
         make_battery_plot()
         exit()
     if 1:
