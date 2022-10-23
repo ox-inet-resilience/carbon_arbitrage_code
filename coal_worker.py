@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -158,22 +159,35 @@ def get_j_num_workers_lost_job(country, t):
 
 
 opportunity_cost_series = []
+wage_lost_series = []
 years = range(2023, 2101)
 for t in years:
-    oc = 0.0
+    wl = 0.0
     for country in countries:
         j_lost_job = get_j_num_workers_lost_job(country, t)
         wage = wage_usd_dict[country]
-        oc += j_lost_job * 5 * wage
+        wl += j_lost_job * wage
     # Division by 1e9 converts dollars to billion dollars
-    opportunity_cost_series.append(oc / 1e9)
+    wage_lost_series.append(wl / 1e9)
+wage_lost_series = np.array(wage_lost_series)
 
 # i + 1, because we start from 2023
-pv_opportunity_cost = sum(
-    oc * util.calculate_discount(rho, i + 1)
-    for i, oc in enumerate(opportunity_cost_series)
+pv_wage_lost = sum(
+    wl * util.calculate_discount(rho, i + 1) for i, wl in enumerate(wage_lost_series)
 )
+
+opportunity_cost_series = wage_lost_series * 5
+pv_opportunity_cost = pv_wage_lost * 5
 print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
+
+for ir in [2014.60, 7231, 6009, 20863.18]:
+    print(
+        "IC retraining USA",
+        ir,
+        "Retraining cost",
+        pv_wage_lost * ir / wage_usd_dict["US"],
+        "billion dollars",
+    )
 
 plt.figure()
 plt.plot(years, opportunity_cost_series)
