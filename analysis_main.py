@@ -2265,9 +2265,9 @@ def make_yearly_climate_financing_plot():
     scc_na_fraction = sum(country_specific_scc_dict.get(c, 0.0) for c in na) / sum(
         country_specific_scc_dict.values()
     )
-    scc_europe_fraction = sum(country_specific_scc_dict.get(c, 0.0) for c in europe) / sum(
-        country_specific_scc_dict.values()
-    )
+    scc_europe_fraction = sum(
+        country_specific_scc_dict.get(c, 0.0) for c in europe
+    ) / sum(country_specific_scc_dict.values())
     benefit_na = benefit_world_relative * scc_na_fraction * world_gdp_2020 / gdp_na
     benefit_europe = (
         benefit_world_relative * scc_europe_fraction * world_gdp_2020 / gdp_europe
@@ -2569,7 +2569,9 @@ def do_website_sensitivity_analysis():
                                 x=1, to_csv=False, do_round=True, plot_yearly=False
                             )
 
-                            _scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+                            _scenario = (
+                                f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+                            )
 
                             fn_output = defaultdict(dict)
                             for k, v in measure_map.items():
@@ -2709,7 +2711,9 @@ def do_website_sensitivity_analysis_opportunity_costs():
     for param in params:
         fn(param)
 
-    util.write_small_json(dict(output), "plots/website_sensitivity_opportunity_costs_phase_out.json")
+    util.write_small_json(
+        dict(output), "plots/website_sensitivity_opportunity_costs_phase_out.json"
+    )
 
 
 def calculate_country_specific_scc_data(
@@ -2799,7 +2803,9 @@ def calculate_country_specific_scc_data(
     table = pd.DataFrame(
         columns=[
             "iso2",
-            "country_name",
+            # Commented out so for the website purpose, so that we use
+            # consistent country naming according to ISO 3166.
+            # "country_name",
             "net_benefit",
             "benefit",
             "cost",
@@ -2856,7 +2862,9 @@ def calculate_country_specific_scc_data(
                     [
                         {
                             "iso2": country,
-                            "country_name": iso2_to_country_name[country],
+                            # Commented out so for the website purpose, so that we use
+                            # consistent country naming according to ISO 3166.
+                            # "country_name": iso2_to_country_name[country],
                             "net_benefit": net_benefit,
                             "benefit": b,
                             "cost": c,
@@ -2902,7 +2910,9 @@ def calculate_country_specific_scc_data(
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
-        table.to_csv(f"plots/country_specific_table{ext}.csv")
+        table.to_csv(
+            f"plots/country_specific_table{ext}.csv", index=False, float_format="%.4f"
+        )
     return cs, bs, names, cs_region, bs_region, names_region
 
 
@@ -3025,7 +3035,14 @@ def do_country_specific_scc_part2(first, second):
 
 def do_country_specific_scc_part3():
     emerging = "Emerging Market Countries"
-    cs_emerging, bs_emerging, names_emerging, _, _, _ = calculate_country_specific_scc_data(
+    (
+        cs_emerging,
+        bs_emerging,
+        names_emerging,
+        _,
+        _,
+        _,
+    ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=emerging,
         unilateral=True,
         cost_multiplier=0.1,
@@ -3035,7 +3052,14 @@ def do_country_specific_scc_part3():
     bs_emerging = dict(sorted(bs_emerging.items()))
     names_emerging = dict(sorted(names_emerging.items()))
     developing = "Developing Countries"
-    cs_developing, bs_developing, names_developing, _, _, _ = calculate_country_specific_scc_data(
+    (
+        cs_developing,
+        bs_developing,
+        names_developing,
+        _,
+        _,
+        _,
+    ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=developing,
         unilateral=True,
         cost_multiplier=0.1,
@@ -3146,6 +3170,45 @@ def do_country_specific_scc(
     plt.savefig(f"plots/country_specific_scatter{ext}.png")
 
 
+def do_country_specific_scc_part4():
+    # We save to CSV so that the data is shown in the website.
+    cs, bs, _, _, _, _ = calculate_country_specific_scc_data(
+        unilateral_freerider_effect_country=None,
+        ext="_part4",
+        unilateral=False,
+        cost_multiplier=1,
+        to_csv=True,
+    )
+
+    plt.figure()
+    ax = plt.gca()
+
+    def mul_1000(x):
+        return [i * 1e3 for i in x]
+
+    # Multiplication by 1000 converts to billion dollars
+    for level, c in cs.items():
+        plt.plot(
+            mul_1000(c),
+            mul_1000(bs[level]),
+            linewidth=0,
+            marker="o",
+            label=level,
+            fillstyle="none",
+        )
+    # 45 degree line
+    ax.axline([0, 0], [1, 1])
+    plt.xlabel("PV country costs (bln dollars)")
+    plt.ylabel("PV country benefits (bln dollars)")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    axis_limit = 45_000
+    plt.xlim(5e-2, axis_limit)
+    plt.ylim(5e-2, axis_limit)
+    plt.legend()
+    plt.savefig("plots/country_specific_scatter_part4.png")
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -3181,7 +3244,7 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 1:
+    if 0:
         # do_website_sensitivity_analysis()
         # do_website_sensitivity_analysis_climate_financing()
         do_website_sensitivity_analysis_opportunity_costs()
@@ -3191,9 +3254,9 @@ if __name__ == "__main__":
         # do_country_specific_scc_part1()
         # do_country_specific_scc_part2("CN", "IN")
         # do_country_specific_scc_part2("ID", "ZA")
-        do_country_specific_scc_part3()
-        exit()
-        do_country_specific_scc(unilateral=False)
+        # do_country_specific_scc_part3()
+        do_country_specific_scc_part4()
+        # do_country_specific_scc(unilateral=False, cost_multiplier=0.1, ext="_0.1")
         exit()
 
         levels = [
