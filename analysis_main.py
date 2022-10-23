@@ -2212,11 +2212,11 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
         return sum(yearly_world_cost[year_start - 2022 : year_end + 1 - 2022])
 
     label_map = {
-        "30Y": "30Y lifetime, D, E",
-        "30Y_noE": "30Y lifetime, D, no E",
-        "50Y": "50Y lifetime, D, E",
-        "200Y": "Lifetime dictated\nby D, E",
-        "LCOE": "LCOE proxy\ninvestment costs",
+        "30Y": "30Y, D, E",
+        "30Y_noE": "30Y, D, no E",
+        "50Y": "50Y, D, E",
+        "200Y": "Lifetime\nby D, E",
+        "LCOE": "LCOE proxy",
     }
 
     def reset():
