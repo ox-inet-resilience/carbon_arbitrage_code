@@ -15,7 +15,7 @@ import math
 import util
 import processed_revenue
 
-# The default value is 75 here.
+# The default value is 80 here.
 social_cost_of_carbon = util.social_cost_of_carbon
 # This is the coal phase out scenario
 scenario = "Net Zero 2050"
