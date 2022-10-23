@@ -60,6 +60,7 @@ WEIGHT_GAS = None
 INVESTMENT_COST_DIVIDER = 1
 ENABLE_BATTERY_SHORT = True
 ENABLE_BATTERY_LONG = True
+ENABLE_BATTERY_GRID = False
 
 print("Use new method:", ENABLE_NEW_METHOD)
 print("Renewable degradation:", ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
@@ -689,6 +690,26 @@ class InvestmentCostNewMethod:
         else:
             investment_cost_battery_long = 0
             ic_battery_pe = 0
+        if ENABLE_BATTERY_GRID:
+            # 4.14 is in $/GJ
+            _cgrid = 4.14
+            i_grid_s2 = total_R * _cgrid
+            grid_scenario = "pessimistic"
+            grid_scenario = "bau"
+            grid_scenario = "phaseout"
+            if grid_scenario == "pessimistic":
+                ic_battery_grid = i_grid_s2
+            elif grid_scenario == "bau":
+                i_grid_s1 = 280e9
+                ic_battery_grid = max(0, i_grid_s2 - i_grid_s1)
+            else:
+                assert grid_scenario == "phaseout"
+                raise Exception("TODO")
+                ic_battery_grid = max(0, i_grid_s2 - _cgrid * f_coal * S_coal)
+
+            investment_cost += ic_battery_grid
+        else:
+            ic_battery_grid = 0
         self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
 
