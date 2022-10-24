@@ -2910,9 +2910,7 @@ def calculate_country_specific_scc_data(
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
-        table.to_csv(
-            f"plots/country_specific_table{ext}.csv", index=False, float_format="%.4f"
-        )
+        table.to_csv(f"plots/country_specific_table{ext}.csv", index=False, float_format="%.5f")
     return cs, bs, names, cs_region, bs_region, names_region
 
 
@@ -3209,6 +3207,403 @@ def do_country_specific_scc_part4():
     plt.savefig("plots/country_specific_scatter_part4.png")
 
 
+def do_country_specific_scc_part5():
+    unilateral = True
+    regions = [
+        "Asia",
+        "Africa",
+        "North America",
+        "Latin America & the Carribean",
+        "Europe",
+        "Australia & New Zealand",
+    ]
+
+    cost_multiplier = 1
+    fname = "plots/country_specific_data_part5.json"
+    if os.path.isfile(fname):
+        content = util.read_json(fname)
+        cs_region_combined = content["unilateral_cost"]
+        bs_region_combined = content["unilateral_benefit"]
+        zerocost = content["freeloader_benefit"]
+        global_benefit_by_region = content["global_benefit"]
+    else:
+        cs_region_combined = {}
+        bs_region_combined = {}
+        zerocost = {}
+        # We round everything to 6 digits, and so the precision is thousand dollars.
+        def do_round(x):
+            return round(x, 6)
+
+        for group in regions:
+            unilateral_freerider_effect_country = group
+            _, _, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
+                unilateral_freerider_effect_country=unilateral_freerider_effect_country,
+                ext="",
+                unilateral=unilateral,
+                cost_multiplier=cost_multiplier,
+                to_csv=False,
+            )
+            cs_region_combined[group] = do_round(sum(cs_region[group]))
+            bs_region_combined[group] = do_round(sum(bs_region[group]))
+            # group is the country doing the unilateral action, while the
+            # regions inside the dict is the one who gets benefit with zero
+            # cost.
+            zerocost[group] = {k: do_round(sum(v)) for k, v in bs_region.items() if k != group}
+
+        # This code chunk is used to calculate global_benefit_by_region
+        # Calculating global emissions avoided
+        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+        property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+        global_benefit = out[property][chosen_s2_scenario]
+        scc_dict = (
+            pd.read_csv("plots/country_specific_table.csv")
+            .set_index("iso2")["country_specific_scc"]
+            .to_dict()
+        )
+        unscaled_global_scc = sum(scc_dict.values())
+        iso3166_df = util.read_iso3166()
+        region_countries_map, _ = prepare_regions_for_climate_financing(iso3166_df)
+        global_benefit_by_region = {}
+        # End of global_benefit_by_region preparation
+
+        for region, c in cs_region_combined.items():
+            countries = region_countries_map[region]
+            scc_scale = sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
+            # Benefit to 1 region if everyone in the world takes action
+            global_benefit_by_region[region] = do_round(global_benefit * scc_scale)
+
+        with open(fname, "w") as f:
+            json.dump({
+                "unilateral_cost": cs_region_combined,
+                "unilateral_benefit": bs_region_combined,
+                "freeloader_benefit": zerocost,
+                "global_benefit": global_benefit_by_region,
+            }, f)
+
+    # For conversion from trillion to billion dollars
+    def mul_1000(x):
+        return [i * 1e3 for i in x]
+
+    def mul_1000_scalar(x):
+        return x * 1e3
+
+    right = 2.5
+    fig, axs = plt.subplots(
+        1,
+        2,
+        figsize=(4 * (1 + right) / right, 4),
+        gridspec_kw={"width_ratios": [1, right]},
+    )
+    ax = axs[1]
+    plt.sca(ax)
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    # Unilateral benefit
+    for region, c in cs_region_combined.items():
+        label = region
+        plt.plot(
+            mul_1000_scalar(c),
+            mul_1000_scalar(bs_region_combined[region]),
+            linewidth=0,
+            marker="o",
+            label=label,
+            fillstyle="none",
+        )
+        benefit = bs_region_combined[region]
+        break_even_scc = c * util.social_cost_of_carbon / benefit
+
+        print(
+            "self",
+            region,
+            "cost",
+            c,
+            "benefit",
+            benefit,
+            "break-even scc",
+            break_even_scc,
+        )
+
+    # We plot the global benefit
+    ax.set_prop_cycle(None)
+    for region, c in cs_region_combined.items():
+        plt.plot(
+            mul_1000_scalar(c),
+            mul_1000_scalar(global_benefit_by_region[region]),
+            linewidth=0,
+            marker="o",
+        )
+
+    print("Freeloader benefit", zerocost)
+    print("Unilateral benefit", bs_region_combined)
+    print("Global benefit", global_benefit_by_region)
+
+    # 45 degree line
+    ax.axline([0.1, 0.1], [1, 1])
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    y_min, y_max = ax.get_ylim()
+    axis_limit = y_max + 4
+    plt.xlim(20, axis_limit)
+    plt.ylim(20, axis_limit)
+    plt.xlabel("PV country costs (bln dollars)")
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=2,
+    )
+    plt.tight_layout()
+
+    # zerocost
+    ax = axs[0]
+    plt.sca(ax)
+    ax.set_yscale("log")
+    plt.ylim(20, axis_limit)
+    transposed = defaultdict(list)
+    transposed_xs = defaultdict(list)
+    markersize = 8
+    for i, (group, content) in enumerate(zerocost.items()):
+        xs = [i / 5 for _ in range(len(content))]
+        plt.plot(
+            xs,
+            mul_1000(content.values()),
+            linewidth=0,
+            marker="o",
+            label=group,
+            fillstyle="none",
+            markersize=markersize,
+        )
+        for k, v in content.items():
+            transposed[k].append(v)
+            transposed_xs[k].append(i / 5)
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    for k in zerocost:
+        plt.plot(
+            transposed_xs[k],
+            mul_1000(transposed[k]),
+            linewidth=0,
+            marker="o",
+            label=f"{k} t",
+            # fillstyle="none",
+            markersize=markersize * 0.3,
+        )
+
+    # Finishing touch
+    x_min, x_max = ax.get_xlim()
+    x_min -= 0.1
+    x_max *= 1.45
+    x_mid = (x_min + x_max) / 2
+    plt.xlim(x_min, x_max)
+    ax.set_yticklabels([])
+    plt.xticks([x_mid], [0])
+    plt.subplots_adjust(wspace=0)
+    plt.ylabel("PV country benefits (bln dollars)")
+
+    plt.savefig("plots/country_specific_scatter_part5.png", bbox_inches="tight")
+
+
+def do_country_specific_scc_part6():
+    unilateral = True
+
+    top9 = "CN US IN AU RU ID ZA DE KZ".split()
+
+    (
+        _,
+        iso3166_df_alpha2,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+
+    cost_multiplier = 1
+    fname = "plots/country_specific_data_part6.json"
+    if os.path.isfile(fname):
+        content = util.read_json(fname)
+        cs_combined = content["unilateral_cost"]
+        bs_combined = content["unilateral_benefit"]
+        zerocost = content["freeloader_benefit"]
+        global_benefit_by_country = content["global_benefit"]
+    else:
+        cs_combined = {}
+        bs_combined = {}
+        zerocost = {}
+        # We round everything to 6 digits, and so the precision is thousand dollars.
+        for country_doing_action in top9:
+            unilateral_freerider_effect_country = country_doing_action
+            cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
+                unilateral_freerider_effect_country=unilateral_freerider_effect_country,
+                ext="",
+                unilateral=unilateral,
+                cost_multiplier=cost_multiplier,
+                to_csv=False,
+            )
+            for level, level_names in names.items():
+                if country_doing_action not in level_names:
+                    continue
+                location = level_names.index(country_doing_action)
+                cs_combined[country_doing_action] = round(cs[level][location], 6)
+                bs_combined[country_doing_action] = round(bs[level][location], 6)
+            # Calculating zerocost
+            _dict = {}
+            for level, level_names in names.items():
+                location = None
+                if country_doing_action in level_names:
+                    location = level_names.index(country_doing_action)
+                if location is None:
+                    # The country doing the action is not part of the `level` group,
+                    # as such, all the countries here are all freeloaders.
+                    for i, c in enumerate(level_names):
+                        assert c not in _dict
+                        _dict[c] = round(bs[level][i], 6)
+                else:
+                    for i, c in enumerate(level_names):
+                        assert c not in _dict
+                        if i == location:
+                            continue
+                        _dict[c] = round(bs[level][i], 6)
+            zerocost[country_doing_action] = _dict
+
+        # This code chunk is used to calculate global_benefit_by_country
+        # Calculating global emissions avoided
+        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+        property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+        global_benefit = out[property][chosen_s2_scenario]
+        scc_dict = (
+            pd.read_csv("plots/country_specific_table.csv")
+            .set_index("iso2")["country_specific_scc"]
+            .to_dict()
+        )
+        unscaled_global_scc = sum(scc_dict.values())
+        iso3166_df = util.read_iso3166()
+        region_countries_map, _ = prepare_regions_for_climate_financing(iso3166_df)
+        global_benefit_by_country = {}
+        # End of global_benefit_by_country preparation
+
+        for group, c in cs_combined.items():
+            # Benefit to 1 country if everyone in the world takes action
+            global_benefit_by_country[group] = (
+                global_benefit * scc_dict[group] / unscaled_global_scc
+            )
+
+        with open(fname, "w") as f:
+            json.dump({
+                "unilateral_cost": cs_combined,
+                "unilateral_benefit": bs_combined,
+                "freeloader_benefit": zerocost,
+                "global_benefit": global_benefit_by_country,
+            }, f)
+
+    # For conversion from trillion to billion dollars
+    def mul_1000(x):
+        return [i * 1e3 for i in x]
+
+    def mul_1000_scalar(x):
+        return x * 1e3
+
+    right = 2.5
+    fig, axs = plt.subplots(
+        1,
+        2,
+        figsize=(4 * (1 + right) / right, 4),
+        gridspec_kw={"width_ratios": [1, right]},
+    )
+    ax = axs[1]
+    plt.sca(ax)
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    fillstyle = "none"
+    for group, c in cs_combined.items():
+        label = alpha2_to_full_name[group]
+        if label is not None:
+            label = label.replace("United States of America", "USA")
+        plt.plot(
+            mul_1000_scalar(c),
+            mul_1000_scalar(bs_combined[group]),
+            linewidth=0,
+            marker="o",
+            label=label,
+            fillstyle=fillstyle,
+        )
+        benefit = bs_combined[group]
+        break_even_scc = c * util.social_cost_of_carbon / benefit
+        print(
+            "self",
+            group,
+            "cost",
+            c,
+            "benefit",
+            benefit,
+            "break-even scc",
+            break_even_scc,
+        )
+
+    print("Unilateral benefit", bs_combined)
+    print("Global benefit", global_benefit_by_country)
+
+    # We plot the global benefit
+    ax.set_prop_cycle(None)
+    for group, c in cs_combined.items():
+        plt.plot(
+            mul_1000_scalar(c),
+            mul_1000_scalar(global_benefit_by_country[group]),
+            linewidth=0,
+            marker="o",
+        )
+
+    # 45 degree line
+    ax.axline([0.1, 0.1], [1, 1])
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    plt.xlabel("PV country costs (bln dollars)")
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=3,
+    )
+    plt.tight_layout()
+    y_min_ori, y_max_ori = ax.get_ylim()
+
+    # zerocost
+    ax = axs[0]
+    plt.sca(ax)
+    ax.set_yscale("log")
+    for i, (k, v) in enumerate(zerocost.items()):
+        plt.plot(
+            [i / 5 for _ in range(len(v))],
+            mul_1000(v.values()),
+            linewidth=0,
+            marker="o",
+            label=k,
+            fillstyle="none",
+            markersize=4.8,
+        )
+    y_min_zero, y_max_zero = ax.get_ylim()
+    y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
+
+    plt.ylim(y_min, y_max)
+
+    # Finishing touch
+    x_min, x_max = ax.get_xlim()
+    x_min -= 0.1
+    x_max *= 1.45
+    x_mid = (x_min + x_max) / 2
+    plt.xlim(x_min, x_max)
+    ax.set_yticklabels([])
+    plt.xticks([x_mid], [0])
+    plt.subplots_adjust(wspace=0)
+    plt.ylabel("PV country benefits (bln dollars)")
+
+    # Rescale original plot to match zerocost range
+    plt.sca(axs[1])
+    plt.xlim(y_min, y_max)
+    plt.ylim(y_min, y_max)
+
+    plt.savefig("plots/country_scc_part6.png", bbox_inches="tight")
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -3255,7 +3650,9 @@ if __name__ == "__main__":
         # do_country_specific_scc_part2("CN", "IN")
         # do_country_specific_scc_part2("ID", "ZA")
         # do_country_specific_scc_part3()
-        do_country_specific_scc_part4()
+        # do_country_specific_scc_part4()
+        do_country_specific_scc_part5()
+        do_country_specific_scc_part6()
         # do_country_specific_scc(unilateral=False, cost_multiplier=0.1, ext="_0.1")
         exit()
 
