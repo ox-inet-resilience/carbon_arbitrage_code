@@ -2240,6 +2240,49 @@ def make_yearly_climate_financing_plot():
     util.savefig("climate_financing_yearly_world")
     plt.close()
 
+    # benefit and cost for NA and Europe
+    gdp_marketcap_dict = util.read_json("data/all_countries_gdp_marketcap_2020.json")
+    na = region_countries_map["North America"]
+    europe = region_countries_map["Europe"]
+    gdp_na = 0.0
+    for c in na:
+        _gdp = gdp_marketcap_dict.get(c, 0.0)
+        if not np.isnan(_gdp):
+            gdp_na += _gdp
+    gdp_na /= 1e12
+    yearly_cost_na = _get_yearly_cost(na) / gdp_na * 100
+    gdp_europe = 0.0
+    for c in europe:
+        _gdp = gdp_marketcap_dict.get(c, 0.0)
+        if not np.isnan(_gdp):
+            gdp_europe += _gdp
+    gdp_europe /= 1e12
+    yearly_cost_europe = _get_yearly_cost(europe) / gdp_europe * 100
+    benefit_world_relative = np.array(benefit_relative_to_gdp)
+    country_specific_scc_dict = util.read_json("plots/country_specific_scc.json")
+    scc_na_fraction = sum(country_specific_scc_dict.get(c, 0.0) for c in na) / sum(
+        country_specific_scc_dict.values()
+    )
+    scc_europe_fraction = sum(country_specific_scc_dict.get(c, 0.0) for c in europe) / sum(
+        country_specific_scc_dict.values()
+    )
+    benefit_na = benefit_world_relative * scc_na_fraction * world_gdp_2020 / gdp_na
+    benefit_europe = (
+        benefit_world_relative * scc_europe_fraction * world_gdp_2020 / gdp_europe
+    )
+    plt.figure()
+    plt.plot(whole_years, yearly_cost_na * 0.1, label="NA public costs")
+    plt.plot(whole_years, yearly_cost_na, label="NA costs")
+    plt.plot(whole_years, benefit_na, label="NA benefits")
+    plt.plot(whole_years, yearly_cost_europe * 0.1, label="Europe public costs")
+    plt.plot(whole_years, yearly_cost_europe, label="Europe costs")
+    plt.plot(whole_years, benefit_europe, label="Europe benefits")
+    plt.legend()
+    plt.xlabel("Time")
+    plt.ylabel("% of GDP")
+    util.savefig("climate_financing_yearly_na_europe")
+    plt.close()
+
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     chosen_s2_scenario_discounted = "2022-2100 2DII + Net Zero 2050 Scenario"
@@ -2685,9 +2728,10 @@ if __name__ == "__main__":
     # It is faster not to calculate residual benefit for climate financing.
     ENABLE_RESIDUAL_BENEFIT = 0
     # make_climate_financing_plot()
-    make_climate_financing_SCATTER_plot()
+    # make_climate_financing_SCATTER_plot()
+    # exit()
+    make_yearly_climate_financing_plot()
     exit()
-    # make_yearly_climate_financing_plot()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
     # Reenable residual benefit again
     ENABLE_RESIDUAL_BENEFIT = 1
