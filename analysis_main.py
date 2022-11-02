@@ -37,6 +37,9 @@ global_cost_non_discounted_battery_grid = {
     "Current Policies ": None,
     "Net Zero 2050": None,
 }
+global_unit_ic = None
+global_battery_unit_ic = None
+global_cumulative_G = None
 
 
 # Ensure that plots directory exists
@@ -511,11 +514,23 @@ class InvestmentCostNewMethod:
         self.cost_non_discounted_battery_long = []
         self.cost_non_discounted_battery_pe = []
         self.cost_non_discounted_battery_grid = []
+        self.battery_unit_ic = {
+            "short": {},
+            "long": {},
+        }
 
         self.cached_wrights_law_investment_costs = {
             "solar": {},
             "onshore_wind": {},
             "offshore_wind": {},
+        }
+
+        self.cached_cumulative_G = {
+            "solar": {},
+            "onshore_wind": {},
+            "offshore_wind": {},
+            "short": {},
+            "long": {},
         }
 
     def get_static_weight(self, tech):
@@ -565,6 +580,7 @@ class InvestmentCostNewMethod:
             ] + self.get_stock_without_degradation(tech, year)
         ic = self._calculate_wrights_law(tech, year, cumulative_G)
         self.cached_wrights_law_investment_costs[tech][year] = ic
+        self.cached_cumulative_G[tech][year] = cumulative_G
         return ic
 
     def get_weight(self, tech, year):
@@ -599,6 +615,8 @@ class InvestmentCostNewMethod:
         else:
             unit_ic = self.alpha_2020_short_per_GJ
         # End of calculating unit_ic
+        self.battery_unit_ic["short"][year] = unit_ic
+        self.cached_cumulative_G["short"][year] = cumulative_G
 
         investment_cost_battery_short = D_battery_short * unit_ic
         self.stocks_GJ_battery_short[year][country_name] = D_battery_short
@@ -626,6 +644,8 @@ class InvestmentCostNewMethod:
         else:
             unit_ic = self.alpha_2020_long_per_kW
         # End of calculating unit_ic
+        self.battery_unit_ic["long"][year] = unit_ic
+        self.cached_cumulative_G["long"][year] = cumulative_G
 
         investment_cost_battery_long = G_long * unit_ic
         self.stocks_kW_battery_long[year][country_name] = G_long
@@ -1176,6 +1196,11 @@ def generate_cost1_output(
             global_cost_non_discounted_battery_long[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_long)
             global_cost_non_discounted_battery_pe[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_pe)
             global_cost_non_discounted_battery_grid[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_grid)
+            if scenario == "Net Zero 2050":
+                global global_battery_unit_ic, global_unit_ic, global_cumulative_G
+                global_battery_unit_ic = temp_cost_new_method.battery_unit_ic
+                global_unit_ic = temp_cost_new_method.cached_wrights_law_investment_costs
+                global_cumulative_G = temp_cost_new_method.cached_cumulative_G
         return (
             out_non_discounted,
             out_discounted,
@@ -2922,6 +2947,57 @@ def make_battery_plot():
     plt.savefig("plots/battery_investment_cost.png")
 
 
+def make_battery_unit_ic_plot():
+    run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    years = range(2024, 2101)
+
+    def convert_unit(arr):
+        # Convert from $/GJ to $/kWh
+        return [i / (util.GJ2MWh(1) * 1e3) for i in arr]
+
+    def kW2TW(arr):
+        return [i / 1e9 for i in arr]
+
+    def GJ2TW(arr):
+        return [util.GJ2MW(i) / 1e6 for i in arr]
+
+    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+    plt.sca(axs[0])
+    plt.plot(years, global_unit_ic["solar"].values(), label="Solar")
+    plt.plot(years, global_unit_ic["onshore_wind"].values(), label="Wind onshore")
+    plt.plot(years, global_unit_ic["offshore_wind"].values(), label="Wind offshore")
+    # Need to convert $/GJ to $/kWh
+    plt.plot(years, convert_unit(global_battery_unit_ic["short"].values()), label="Short")
+    plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
+    plt.xlabel("Time")
+    plt.ylabel("Unit investment cost ($/kW)")
+    plt.sca(axs[1])
+    plt.plot(years, kW2TW(global_cumulative_G["solar"].values()), label="Solar")
+    plt.plot(years, kW2TW(global_cumulative_G["onshore_wind"].values()), label="Wind onshore")
+    plt.plot(years, kW2TW(global_cumulative_G["offshore_wind"].values()), label="Wind offshore")
+    # Need to convert GJ to TW
+    print("short", GJ2TW(global_cumulative_G["short"].values()))
+    print("long", kW2TW(global_cumulative_G["long"].values()))
+    plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
+    plt.plot(years, kW2TW(global_cumulative_G["long"].values()), label="Long")
+    plt.xlabel("Time")
+    plt.ylabel("Cumulative installed capacity (TW)")
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
+        ncol=5,
+    )
+    plt.tight_layout()
+    plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
+    plt.close()
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -2957,7 +3033,8 @@ if __name__ == "__main__":
     if 1:
         # Battery yearly
         # do_cf_battery_yearly()
-        make_battery_plot()
+        # make_battery_plot()
+        make_battery_unit_ic_plot()
         exit()
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
