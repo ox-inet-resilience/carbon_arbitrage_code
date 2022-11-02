@@ -760,10 +760,14 @@ def get_emerging_countries():
     return emerging_shortnames
 
 
+def read_iso3166():
+    return pd.read_csv("data/country_ISO-3166_with_region.csv")
+
+
 def prepare_from_climate_financing_data():
     # Data source:
     # https://github.com/lukes/ISO-3166-Countries-with-Regional-Codes/blob/master/all/all.csv
-    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+    iso3166_df = read_iso3166()
     iso3166_df_alpha2 = iso3166_df.set_index("alpha-2")
 
     developed_gdp = pd.read_csv("data/GDP-Developed-World.csv", thousands=",")
