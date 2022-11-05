@@ -2492,10 +2492,6 @@ def do_website_sensitivity_analysis():
                                 MID_YEAR = 2070
                             else:
                                 MID_YEAR = 2050
-                            conditions = {
-                                "Net Zero 2050 (NGFS global scenario)": f"2022-{last_year} 2DII + Net Zero 2050 Scenario",
-                                "Halt to coal production": f"2022-{last_year} 2DII + Current Policies  Scenario",
-                            }
 
                             ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
                             RENEWABLE_LIFESPAN = lifetime
@@ -2511,15 +2507,12 @@ def do_website_sensitivity_analysis():
                             out = run_cost1(
                                 x=1, to_csv=False, do_round=True, plot_yearly=False
                             )
+
+                            _scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+
                             fn_output = defaultdict(dict)
                             for k, v in measure_map.items():
-                                for (
-                                    condition_key,
-                                    condition_value,
-                                ) in conditions.items():
-                                    fn_output[k][condition_key] = out[v][
-                                        condition_value
-                                    ]
+                                fn_output[k] = out[v][_scenario]
                             all_scs_output[str(sc)] = fn_output
 
                         util.run_parallel(fn, social_costs, ())
@@ -2538,23 +2531,11 @@ def common_set_website_sensitiviy_analysis_params(
     lifetime = param["lifetime"]
     coal_replacement = param["coal_replacement"]
     last_year = param.get("last_year", 2100)
-    s2_scenario = param["s2_scenario"]
 
     if last_year == 2070:
         MID_YEAR = 2070
     else:
         MID_YEAR = 2050
-
-    discount = " NON-DISCOUNTED" if "NON-DISCOUNTED" in s2_scenario else ""
-    if "Net Zero 2050 (NGFS global scenario)" in s2_scenario:
-        chosen_s2_scenario = (
-            f"2022-{last_year} 2DII + Net Zero 2050 Scenario" + discount
-        )
-    else:
-        assert "Halt to coal production" in s2_scenario
-        chosen_s2_scenario = (
-            f"2022-{last_year} 2DII + Current Policies  Scenario" + discount
-        )
 
     ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
     RENEWABLE_LIFESPAN = lifetime
@@ -2564,7 +2545,6 @@ def common_set_website_sensitiviy_analysis_params(
         "onshore_wind": weights[1],
         "offshore_wind": weights[2],
     }
-    return chosen_s2_scenario
 
 
 def do_website_sensitivity_analysis_climate_financing():
@@ -2582,34 +2562,32 @@ def do_website_sensitivity_analysis_climate_financing():
         rho_mode_map,
     ) = initialize_website_sensitivity_analysis_params()
 
-    s2_scenarios = ["Net Zero 2050 (NGFS global scenario)", "Halt to coal production"]
-
     params_flat = []
     for learning_curve in learning_curve_map:
         for lifetime in lifetimes:
             for coal_replacement in coal_replacements:
-                for s2_scenario in s2_scenarios:
-                    params_flat.append(
-                        {
-                            "learning_curve": learning_curve,
-                            "lifetime": lifetime,
-                            "coal_replacement": coal_replacement,
-                            # Important: must be non-discounted
-                            "s2_scenario": s2_scenario + " NON-DISCOUNTED",
-                        }
-                    )
+                params_flat.append(
+                    {
+                        "learning_curve": learning_curve,
+                        "lifetime": lifetime,
+                        "coal_replacement": coal_replacement,
+                    }
+                )
 
     print("Total number of params", len(params_flat))
 
     output = mp.Manager().dict()
 
     def fn(param):
-        chosen_s2_scenario = common_set_website_sensitiviy_analysis_params(
+        common_set_website_sensitiviy_analysis_params(
             param, learning_curve_map, coal_replacements
         )
         param_key = "_".join(str(v) for v in param.values())
 
-        yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
+        # Important: must be non-discounted
+        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
+
+        yearly_costs_dict = calculate_yearly_costs_dict(s2_scenario)
         # Reduce the floating precision to save space
         yearly_costs_dict = {
             k: [float(f"{i:.8f}") for i in v] for k, v in yearly_costs_dict.items()
