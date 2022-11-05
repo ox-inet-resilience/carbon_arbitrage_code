@@ -2429,7 +2429,7 @@ def initialize_website_sensitivity_analysis_params():
         "investment_cost": "Investment costs in renewable energy (in trillion dollars)",
     }
 
-    social_costs = list(range(25, 400 + 1, 25))
+    social_costs = list(range(20, 300 + 1, 20))
     time_horizons = [2050, 2070, 2100]
     # For these dicts, the keys are usually the string value as shown in the
     # demonstration website
