@@ -119,13 +119,20 @@ def prepare_num_workers_dict(df):
 
 num_coal_workers_dict = prepare_num_workers_dict(df)
 
+# Website sensitivity params
+rho_mode_map = {
+    "0%": "0%",
+    "2.8% (WACC)": "default",
+    "3.6% (WACC, average risk-premium 100 years)": "100year",
+    "5%": "5%",
+    "8%": "8%",
+}
+# End of website sensitivity params
+
 # Data analysis part
-RHO_MODE = "default"
-NGFS_PEG_YEAR = 2023
-scenario = "Net Zero 2050"
+years = range(2023, 2101)
 _, nonpower_coal, _ = util.read_masterdata()
 ngfss = util.read_ngfs_coal_and_power()
-rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
 countries = list(set(nonpower_coal.asset_country))
 
 grouped = nonpower_coal.groupby("asset_country")
@@ -135,62 +142,114 @@ for year in years_masterdata:
     production = tonnes_coal / 1e9  # convert to giga tonnes of coal
     total_production_by_year_masterdata.append(production)
 
-total_production_peg_year = total_production_by_year_masterdata[NGFS_PEG_YEAR - 2022]
-years_masterdata_up_to_peg = list(range(2022, NGFS_PEG_YEAR + 1))
-fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
-    ngfss, "Coal", scenario, start_year=NGFS_PEG_YEAR
-)
-array_of_coal_production = total_production_by_year_masterdata[
-    : len(years_masterdata_up_to_peg)
-] + [
-    total_production_peg_year * v_np
-    for v_np in fraction_increase_after_peg_year.values()
-]
 
+def calculate(rho_mode, do_plot=False):
+    scenario = "Net Zero 2050"
+    NGFS_PEG_YEAR = 2023
 
-def get_j_num_workers_lost_job(country, t):
-    num_workers_2022 = num_coal_workers_dict[country]
-    production_2022 = array_of_coal_production[0][country]
-    production_t = array_of_coal_production[t - 2022][country]
-    production_t_minus_1 = array_of_coal_production[t - 1 - 2022][country]
-    if math.isclose(production_2022, 0):
-        return 0
-    return num_workers_2022 * (production_t_minus_1 - production_t) / production_2022
+    rho = util.calculate_rho(processed_revenue.beta, rho_mode=rho_mode)
+    total_production_peg_year = total_production_by_year_masterdata[
+        NGFS_PEG_YEAR - 2022
+    ]
+    years_masterdata_up_to_peg = list(range(2022, NGFS_PEG_YEAR + 1))
+    fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
+        ngfss, "Coal", scenario, start_year=NGFS_PEG_YEAR
+    )
+    array_of_coal_production = total_production_by_year_masterdata[
+        : len(years_masterdata_up_to_peg)
+    ] + [
+        total_production_peg_year * v_np
+        for v_np in fraction_increase_after_peg_year.values()
+    ]
 
+    def get_j_num_workers_lost_job(country, t):
+        num_workers_2022 = num_coal_workers_dict[country]
+        production_2022 = array_of_coal_production[0][country]
+        production_t = array_of_coal_production[t - 2022][country]
+        production_t_minus_1 = array_of_coal_production[t - 1 - 2022][country]
+        if math.isclose(production_2022, 0):
+            return 0
+        return (
+            num_workers_2022 * (production_t_minus_1 - production_t) / production_2022
+        )
 
-opportunity_cost_series = []
-wage_lost_series = []
-years = range(2023, 2101)
-for t in years:
-    wl = 0.0
-    for country in countries:
-        j_lost_job = get_j_num_workers_lost_job(country, t)
-        wage = wage_usd_dict[country]
-        wl += j_lost_job * wage
-    # Division by 1e9 converts dollars to billion dollars
-    wage_lost_series.append(wl / 1e9)
-wage_lost_series = np.array(wage_lost_series)
+    wage_lost_series = []
+    wage_lost_series_by_country = []
+    for t in years:
+        wl = 0.0
+        wl_dict = {}
+        for country in countries:
+            j_lost_job = get_j_num_workers_lost_job(country, t)
+            wage = wage_usd_dict[country]
+            val = j_lost_job * wage
+            wl += val
+            wl_dict[country] = val
+        # Division by 1e12 converts dollars to trillion dollars
+        wage_lost_series.append(wl / 1e12)
+        wage_lost_series_by_country.append({k: v / 1e12 for k, v in wl_dict.items()})
+    wage_lost_series = np.array(wage_lost_series)
 
-# i + 1, because we start from 2023
-pv_wage_lost = sum(
-    wl * util.calculate_discount(rho, i + 1) for i, wl in enumerate(wage_lost_series)
-)
-
-opportunity_cost_series = wage_lost_series * 5
-pv_opportunity_cost = pv_wage_lost * 5
-print("PV opportunity cost", pv_opportunity_cost / 1e3, "trillion dollars")
-
-for ir in [2014.60, 7231, 6009, 20863.18]:
-    print(
-        "IC retraining USA",
-        ir,
-        "Retraining cost",
-        pv_wage_lost * ir / wage_usd_dict["US"] / 1e3,
-        "trillion dollars",
+    # i + 1, because we start from 2023
+    pv_wage_lost = sum(
+        wl * util.calculate_discount(rho, i + 1)
+        for i, wl in enumerate(wage_lost_series)
     )
 
-plt.figure()
-plt.plot(years, opportunity_cost_series)
-plt.xlabel("Time")
-plt.ylabel("Compensation for lost wage (billion dollars)")
-plt.savefig("plots/coal_worker_compensation.png")
+    ic_usa = 7231
+
+    opportunity_cost_by_country = {}
+    retraining_cost_by_country = {}
+    rhos = [util.calculate_discount(rho, i + 1) for i in range(len(wage_lost_series))]
+    for country in countries:
+        opportunity_cost_by_country[country] = sum(
+            wage_lost_series_by_country[i][country] * 5 * _r
+            for i, _r in enumerate(rhos)
+        )
+        retraining_cost_by_country[country] = sum(
+            wage_lost_series_by_country[i][country] * ic_usa / wage_usd_dict["US"] * _r
+            for i, _r in enumerate(rhos)
+        )
+
+    retraining_cost = pv_wage_lost * ic_usa / wage_usd_dict["US"]
+    pv_opportunity_cost = pv_wage_lost * 5  # trillion dollars
+
+    # Sanity check
+    assert math.isclose(
+        retraining_cost,
+        sum(retraining_cost_by_country.values()),
+    )
+    assert math.isclose(
+        pv_opportunity_cost,
+        sum(opportunity_cost_by_country.values()),
+    )
+
+    if do_plot:
+        print("PV opportunity cost", pv_opportunity_cost, "trillion dollars")
+        print(
+            "IC retraining USA",
+            ic_usa,
+            "Retraining cost",
+            retraining_cost,
+            "trillion dollars",
+        )
+
+        opportunity_cost_series = wage_lost_series * 5
+        plt.figure()
+        plt.plot(years, opportunity_cost_series)
+        plt.xlabel("Time")
+        plt.ylabel("Compensation for lost wage (billion dollars)")
+        plt.savefig("plots/coal_worker_compensation.png")
+
+    return {
+        "compensation workers for lost wages": opportunity_cost_by_country,
+        "retraining costs": retraining_cost_by_country,
+    }
+
+
+# calculate("default", do_plot=True)
+
+# To be used in greatcarbonarbitrage.com
+out = {}
+for key, rho_mode in rho_mode_map.items():
+    out[key] = calculate(rho_mode)
+util.write_small_json(out, "plots/coal_worker_sensitivity_analysis.json")
