@@ -152,7 +152,6 @@ def common_set_website_sensitiviy_analysis_params(
 
 
 def do_website_sensitivity_analysis_climate_financing():
-    raise Exception("You must run this in the 'battery' Git branch")
     analysis_main.ENABLE_RESIDUAL_BENEFIT = 0
 
     (
@@ -165,17 +164,21 @@ def do_website_sensitivity_analysis_climate_financing():
         rho_mode_map,
     ) = initialize_website_sensitivity_analysis_params()
 
+    battery_modes = ["Not included", "Short-term storage", "Short-term + long-term storage"]
+
     params_flat = []
     for learning_curve in learning_curve_map:
         for lifetime in lifetimes:
             for coal_replacement in coal_replacements:
-                params_flat.append(
-                    {
-                        "learning_curve": learning_curve,
-                        "lifetime": lifetime,
-                        "coal_replacement": coal_replacement,
-                    }
-                )
+                for battery_mode in battery_modes:
+                    params_flat.append(
+                        {
+                            "learning_curve": learning_curve,
+                            "lifetime": lifetime,
+                            "coal_replacement": coal_replacement,
+                            "battery_mode": battery_mode
+                        }
+                    )
 
     print("Total number of params", len(params_flat))
 
@@ -185,6 +188,19 @@ def do_website_sensitivity_analysis_climate_financing():
         common_set_website_sensitiviy_analysis_params(
             param, learning_curve_map, coal_replacements
         )
+
+        battery_mode = param["battery_mode"]
+        if battery_mode == "Not included":
+            analysis_main.ENABLE_BATTERY_SHORT = False
+            analysis_main.ENABLE_BATTERY_LONG = False
+        elif battery_mode == "Short-term storage":
+            analysis_main.ENABLE_BATTERY_SHORT = True
+            analysis_main.ENABLE_BATTERY_LONG = False
+        else:
+            assert battery_mode == "Short-term + long-term storage"
+            analysis_main.ENABLE_BATTERY_SHORT = True
+            analysis_main.ENABLE_BATTERY_LONG = True
+
         param_key = "_".join(str(v) for v in param.values())
 
         # Important: must be non-discounted
