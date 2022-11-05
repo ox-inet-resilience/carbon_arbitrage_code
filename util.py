@@ -68,6 +68,11 @@ def read_json(filename):
     return obj
 
 
+def write_small_json(content, filename):
+    with open(filename, "w") as f:
+        json.dump(content, f, separators=(",", ":"))
+
+
 def get_unique_id(include_date=True):
     git_rev_hash = (
         subprocess.check_output("git rev-parse HEAD".split()).decode("utf-8").strip()
