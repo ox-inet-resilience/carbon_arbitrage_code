@@ -2548,9 +2548,9 @@ def common_set_website_sensitiviy_analysis_params(
 
 
 def do_website_sensitivity_analysis_climate_financing():
+    raise Exception("You must run this in the 'battery' Git branch")
     global ENABLE_RESIDUAL_BENEFIT
     ENABLE_RESIDUAL_BENEFIT = 0
-    os.makedirs("plots/climate_financing", exist_ok=True)
 
     (
         measure_map,
