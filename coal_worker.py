@@ -184,9 +184,9 @@ def calculate(rho_mode, do_plot=False):
             val = j_lost_job * wage
             wl += val
             wl_dict[country] = val
-        # Division by 1e12 converts dollars to trillion dollars
-        wage_lost_series.append(wl / 1e12)
-        wage_lost_series_by_country.append({k: v / 1e12 for k, v in wl_dict.items()})
+        # Division by 1e9 converts dollars to billion dollars
+        wage_lost_series.append(wl / 1e9)
+        wage_lost_series_by_country.append({k: v / 1e9 for k, v in wl_dict.items()})
     wage_lost_series = np.array(wage_lost_series)
 
     # i + 1, because we start from 2023
@@ -211,7 +211,7 @@ def calculate(rho_mode, do_plot=False):
         )
 
     retraining_cost = pv_wage_lost * ic_usa / wage_usd_dict["US"]
-    pv_opportunity_cost = pv_wage_lost * 5  # trillion dollars
+    pv_opportunity_cost = pv_wage_lost * 5  # billion dollars
 
     # Sanity check
     assert math.isclose(
@@ -224,13 +224,13 @@ def calculate(rho_mode, do_plot=False):
     )
 
     if do_plot:
-        print("PV opportunity cost", pv_opportunity_cost, "trillion dollars")
+        print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
         print(
             "IC retraining USA",
             ic_usa,
             "Retraining cost",
             retraining_cost,
-            "trillion dollars",
+            "billion dollars",
         )
 
         opportunity_cost_series = wage_lost_series * 5
