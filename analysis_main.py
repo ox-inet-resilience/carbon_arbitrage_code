@@ -2603,6 +2603,54 @@ def do_website_sensitivity_analysis_climate_financing():
     ENABLE_RESIDUAL_BENEFIT = 1
 
 
+def do_website_sensitivity_analysis_opportunity_costs():
+
+    (
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        rho_mode_map,
+    ) = initialize_website_sensitivity_analysis_params()
+
+    params = list(rho_mode_map.keys())
+    print("Total number of params", len(params))
+
+    output = {}
+
+    def fn(param):
+        global RHO_MODE
+        RHO_MODE = rho_mode_map[param]
+
+        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+
+        out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
+        yearly_opportunity_costs = out[s2_scenario]["opportunity_cost"]
+        country_names = list(yearly_opportunity_costs[-1].keys())
+        yearly_oc_dict = {}
+        for country_name in country_names:
+            country_level_oc = []
+            for e in yearly_opportunity_costs:
+                # Multiplication by 1e3 converts trillion to billion
+                if isinstance(e, float):
+                    country_level_oc.append(e * 1e3)
+                elif isinstance(e, dict):
+                    country_level_oc.append(e[country_name] * 1e3)
+                else:
+                    # Pandas series
+                    country_level_oc.append(e.loc[country_name] * 1e3)
+            yearly_oc_dict[country_name] = country_level_oc
+
+        output[param] = yearly_oc_dict
+
+    for param in params:
+        fn(param)
+
+    util.write_small_json(dict(output), "plots/website_sensitivity_opportunity_costs_phase_out.json")
+
+
 if __name__ == "__main__":
     if 0:
         print("# exp cost6")
@@ -2638,9 +2686,10 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 0:
-        do_website_sensitivity_analysis()
+    if 1:
+        # do_website_sensitivity_analysis()
         # do_website_sensitivity_analysis_climate_financing()
+        do_website_sensitivity_analysis_opportunity_costs()
         exit()
     if 1:
         # Run for 3 levels of social cost of carbon.
