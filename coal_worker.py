@@ -96,6 +96,11 @@ df["coal_wage_usd"] = df.apply(
 wage_usd_dict = df.set_index("asset_country")["coal_wage_usd"].to_dict()
 
 
+def reduce_precision(dictionary):
+    # Reduce precision to save space of the JSON output
+    return {k: float(f"{v:.8f}") for k, v in dictionary.items()}
+
+
 def prepare_num_workers_dict(df):
     # Number of workers
     is_covered = df[df.num_coal_workers_source == "worldbank"]
@@ -241,12 +246,14 @@ def calculate(rho_mode, do_plot=False):
         plt.savefig("plots/coal_worker_compensation.png")
 
     return {
-        "compensation workers for lost wages": opportunity_cost_by_country,
-        "retraining costs": retraining_cost_by_country,
+        "compensation workers for lost wages": reduce_precision(
+            opportunity_cost_by_country
+        ),
+        "retraining costs": reduce_precision(retraining_cost_by_country),
     }
 
 
-# calculate("default", do_plot=True)
+calculate("default", do_plot=True)
 
 # To be used in greatcarbonarbitrage.com
 out = {}
