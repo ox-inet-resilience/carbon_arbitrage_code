@@ -2624,7 +2624,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
         global RHO_MODE
         RHO_MODE = rho_mode_map[param]
 
-        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
 
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
         yearly_opportunity_costs = out[s2_scenario]["opportunity_cost"]
