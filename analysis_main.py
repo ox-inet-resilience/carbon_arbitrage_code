@@ -1583,6 +1583,8 @@ def prepare_regions_for_climate_financing(iso3166_df):
 def calculate_each_countries_cost_with_cache(
     chosen_s2_scenario, cache_json_path, ignore_cache=False
 ):
+    # IMPORTANT: the chosen s2 scenario indicates whether the yearly cost for
+    # avoiding is discounted or not.
     use_cache = not ignore_cache
     if use_cache and os.path.isfile(cache_json_path):
         print("Cached climate financing json found. Reading...")
