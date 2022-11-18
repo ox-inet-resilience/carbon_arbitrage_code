@@ -95,6 +95,11 @@ ngfss = util.read_ngfs_coal_and_power()
 
 df, nonpower_coal, power_coal = util.read_masterdata()
 
+top9 = "CN US IN AU RU ID ZA DE KZ".split()
+df = df[df.asset_country.isin(top9)]
+nonpower_coal = nonpower_coal[nonpower_coal.asset_country.isin(top9)]
+power_coal = power_coal[power_coal.asset_country.isin(top9)]
+
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0
 else:
@@ -2495,7 +2500,7 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 0:
+    if 1:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
     if 1:
