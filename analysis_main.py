@@ -95,6 +95,14 @@ ngfss = util.read_ngfs_coal_and_power()
 
 df, nonpower_coal, power_coal = util.read_masterdata()
 
+iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+africa_countries = list(iso3166_df[iso3166_df.region == "Africa"]["alpha-2"])
+df = df[df.asset_country.isin(africa_countries)]
+nonpower_coal = nonpower_coal[nonpower_coal.asset_country.isin(africa_countries)]
+power_coal = power_coal[power_coal.asset_country.isin(africa_countries)]
+# To figure out top 9 African countries by production in 2022
+# print(nonpower_coal.groupby("asset_country")["_2022"].sum().sort_values(ascending=False))
+
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0
 else:
@@ -2495,7 +2503,7 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 0:
+    if 1:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
     if 1:
