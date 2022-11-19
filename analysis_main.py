@@ -2719,12 +2719,9 @@ def do_website_sensitivity_analysis_opportunity_costs():
 def calculate_country_specific_scc_data(
     unilateral_freerider_effect_country=None,
     ext="",
-    unilateral=False,
     to_csv=True,
     do_beyond_61_countries_from_masterdata=False,
 ):
-    if unilateral_freerider_effect_country is None:
-        assert not unilateral
     chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
     costs_dict = calculate_each_countries_cost_with_cache(
         chosen_s2_scenario, "plots/country_specific_cost.json", ignore_cache=True
@@ -2760,7 +2757,7 @@ def calculate_country_specific_scc_data(
     isa_climate_club = unilateral_freerider_effect_country in (levels + regions)
     cost_climate_club = None
     benefit_climate_club = None
-    if unilateral:
+    if unilateral_freerider_effect_country is not None:
         # Generated from the Git branch unilateral_action_benefit
         unilateral_benefit = util.read_json("plots/unilateral_benefit_trillion.json")
         if isa_climate_club:
@@ -2845,14 +2842,11 @@ def calculate_country_specific_scc_data(
             c = 0.0
         else:
             c = costs_dict[country]
-            if unilateral and unilateral_freerider_effect_country is not None:
+            if unilateral_freerider_effect_country is not None:
                 if country != unilateral_freerider_effect_country:
                     c = 0.0
         cs_scc_scale = cs_scc / total_scc
-        if unilateral:
-            if unilateral_freerider_effect_country is None:
-                raise Exception("MUST NEVER HAPPEN")
-                # b = unilateral_benefit[country]
+        if unilateral_freerider_effect_country is not None:
             if (not do_beyond_61_countries_from_masterdata) and (country not in unilateral_benefit):
                 continue
             # Freeloader benefit
@@ -2934,7 +2928,6 @@ def do_country_specific_scc_part3():
         _,
     ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=emerging,
-        unilateral=True,
         to_csv=False,
     )
     cs_emerging = dict(sorted(cs_emerging.items()))
@@ -2950,7 +2943,6 @@ def do_country_specific_scc_part3():
         _,
     ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=developing,
-        unilateral=True,
         to_csv=False,
     )
     cs_developing = dict(sorted(cs_developing.items()))
@@ -3013,8 +3005,7 @@ def do_country_specific_scc_part4():
     cs, bs, _, _, _, _ = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=None,
         ext="_part4",
-        unilateral=False,
-        to_csv=True,
+        to_csv=False,
     )
 
     plt.figure()
@@ -3047,7 +3038,6 @@ def do_country_specific_scc_part4():
 
 
 def do_country_specific_scc_part5():
-    unilateral = True
     regions = [
         "Asia",
         "Africa",
@@ -3077,7 +3067,6 @@ def do_country_specific_scc_part5():
             _, _, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
                 unilateral_freerider_effect_country=unilateral_freerider_effect_country,
                 ext="",
-                unilateral=unilateral,
                 to_csv=False,
             )
             cs_region_combined[group] = do_round(sum(cs_region[group]))
@@ -3241,8 +3230,6 @@ def do_country_specific_scc_part5():
 
 
 def do_country_specific_scc_part6():
-    unilateral = True
-
     top9 = "CN US IN AU RU ID ZA DE KZ".split()
 
     (
@@ -3271,7 +3258,6 @@ def do_country_specific_scc_part6():
             cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
                 unilateral_freerider_effect_country=unilateral_freerider_effect_country,
                 ext="",
-                unilateral=unilateral,
                 to_csv=False,
             )
             for level, level_names in names.items():
@@ -3455,7 +3441,6 @@ def do_country_specific_scc_part7():
     cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=country_doing_action,
         ext="",
-        unilateral=True,
         to_csv=False,
         do_beyond_61_countries_from_masterdata=True,
     )
