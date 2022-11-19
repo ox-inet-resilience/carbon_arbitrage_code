@@ -2924,123 +2924,6 @@ def calculate_country_specific_scc_data(
     return cs, bs, names, cs_region, bs_region, names_region
 
 
-def do_country_specific_scc_part1():
-    cs_ten, bs_ten, names_ten, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=None,
-        cost_multiplier=0.1,
-        to_csv=False,
-    )
-    cs_100, bs_100, names_100, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=None,
-        cost_multiplier=1,
-        to_csv=False,
-    )
-
-    countries_shown = ["AU", "CN", "ID", "IN", "RU", "US", "ZA"]
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    plt.sca(axs[0])
-    for level, c in cs_100.items():
-        plt.plot(
-            c, bs_100[level], linewidth=0, marker="o", label=level, fillstyle="none"
-        )
-        annotate(c, bs_100[level], names_100[level], filter_labels=countries_shown)
-    # 45 degree line
-    axs[0].axline([0, 0], [1, 1])
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    axis_limit = 38
-    plt.ylim(0, axis_limit)
-    _, left_xmax = axs[0].get_xlim()
-    plt.title("100%")
-
-    plt.sca(axs[1])
-    for level, c in cs_ten.items():
-        plt.plot(
-            c, bs_ten[level], linewidth=0, marker="o", label=level, fillstyle="none"
-        )
-        annotate(c, bs_ten[level], names_ten[level], filter_labels=countries_shown)
-    # 45 degree line
-    axs[1].axline([0, 0], [0.5, 0.5])
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    plt.title("10%")
-    plt.ylim(0, axis_limit)
-    plt.xlim(0, left_xmax)
-
-    # Deduplicate labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    # See https://stackoverflow.com/a/43439132
-    # To auto-scale the legend:
-    # 1. Do fig.legend(), with loc="center left", bbox_to_anchor=(0.9, 0.5)
-    # 2. In savefig, do bbox_inches="tight"
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.01),
-        ncol=len(by_label.values()),
-    )
-    plt.tight_layout()
-    plt.savefig("plots/scc_part1.png", bbox_inches="tight")
-
-
-def do_country_specific_scc_part2(first, second):
-    countries_shown = list(set(["CN", "IN", "US"] + [first, second]))
-    cs_first, bs_first, names_first, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=first,
-        unilateral=True,
-        cost_multiplier=0.1,
-        to_csv=False,
-    )
-    cs_second, bs_second, names_second, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=second,
-        unilateral=True,
-        cost_multiplier=0.1,
-        to_csv=False,
-    )
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    plt.sca(axs[0])
-    for level, c in cs_first.items():
-        plt.plot(
-            c, bs_first[level], linewidth=0, marker="o", label=level, fillstyle="none"
-        )
-        annotate(c, bs_first[level], names_first[level], filter_labels=countries_shown)
-    # 45 degree line
-    axs[0].axline([0, 0], [0.05, 0.05])
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    plt.title(first)
-
-    plt.sca(axs[1])
-    for level, c in cs_second.items():
-        plt.plot(
-            c, bs_second[level], linewidth=0, marker="o", label=level, fillstyle="none"
-        )
-        annotate(
-            c, bs_second[level], names_second[level], filter_labels=countries_shown
-        )
-    # 45 degree line
-    axs[1].axline([0, 0], [0.05, 0.05])
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    plt.title(second)
-
-    # Deduplicate labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.01),
-        ncol=len(by_label.values()),
-    )
-    plt.tight_layout()
-
-    plt.savefig(f"plots/scc_part2_{first}_{second}.png", bbox_inches="tight")
-
-
 def do_country_specific_scc_part3():
     emerging = "Emerging Market Countries"
     (
@@ -3821,9 +3704,6 @@ if __name__ == "__main__":
         exit()
     if 1:
         # country specific scc
-        # do_country_specific_scc_part1()
-        # do_country_specific_scc_part2("CN", "IN")
-        # do_country_specific_scc_part2("ID", "ZA")
         # do_country_specific_scc_part3()
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
