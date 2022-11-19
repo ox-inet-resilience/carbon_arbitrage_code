@@ -3008,54 +3008,6 @@ def do_country_specific_scc_part3():
     plt.savefig("plots/scc_part3.png", bbox_inches="tight")
 
 
-def do_country_specific_scc(
-    unilateral_freerider_effect_country=None,
-    ext="",
-    unilateral=False,
-):
-    print("Unilateral", unilateral)
-    print("Country doing the unilateral action", unilateral_freerider_effect_country)
-
-    cs, bs, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=unilateral_freerider_effect_country,
-        ext=ext,
-        unilateral=unilateral,
-        to_csv=True,
-    )
-
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    plt.sca(axs[0])
-    for level, c in cs.items():
-        plt.plot(c, bs[level], linewidth=0, marker="o", label=level, fillstyle="none")
-    # 45 degree line
-    axs[0].axline([0, 0], [1, 1])
-    plt.legend()
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    axis_limit = 15
-    # plt.xlim(0, axis_limit)
-    # plt.ylim(0, axis_limit)
-    plt.sca(axs[1])
-    # plt.xlim(0, axis_limit)
-    # plt.ylim(0, axis_limit)
-    for region, c in cs_region.items():
-        plt.plot(
-            c,
-            bs_region[region],
-            linewidth=0,
-            marker="o",
-            label=region,
-            fillstyle="none",
-        )
-    # 45 degree line
-    axs[1].axline([0, 0], [1, 1])
-    plt.xlabel("PV country-specific costs (bln dollars)")
-    plt.ylabel("PV country-specific benefits (bln dollars)")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"plots/country_specific_scatter{ext}.png")
-
-
 def do_country_specific_scc_part4():
     # We save to CSV so that the data is shown in the website.
     cs, bs, _, _, _, _ = calculate_country_specific_scc_data(
@@ -3698,21 +3650,6 @@ if __name__ == "__main__":
         # do_country_specific_scc_part5()
         do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
-        # do_country_specific_scc(unilateral=False)
-        exit()
-
-        levels = [
-            "Developed Countries",
-            "Developing Countries",
-            "Emerging Market Countries",
-        ]
-        selected_regions = ["Europe", "North America", "Asia", "Africa"]
-        for group in levels + selected_regions:
-            do_country_specific_scc(
-                group,
-                ext=f"_{group}",
-                unilateral=True,
-            )
         exit()
     if 1:
         run_3_level_scc()
