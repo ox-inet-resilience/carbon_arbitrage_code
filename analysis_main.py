@@ -2720,7 +2720,6 @@ def calculate_country_specific_scc_data(
     unilateral_freerider_effect_country=None,
     ext="",
     unilateral=False,
-    cost_multiplier=0.1,
     to_csv=True,
     do_beyond_61_countries_from_masterdata=False,
 ):
@@ -2785,7 +2784,7 @@ def calculate_country_specific_scc_data(
                     benefit_of_country_doing_the_action / country_specific_scc[country]
                 )
                 benefit_climate_club += benefit_of_country_doing_the_action
-                cost_climate_club += costs_dict[country] * cost_multiplier
+                cost_climate_club += costs_dict[country]
         else:
             benefit_of_country_doing_the_action = unilateral_benefit[
                 unilateral_freerider_effect_country
@@ -2845,7 +2844,7 @@ def calculate_country_specific_scc_data(
         if country not in costs_dict:
             c = 0.0
         else:
-            c = costs_dict[country] * cost_multiplier
+            c = costs_dict[country]
             if unilateral and unilateral_freerider_effect_country is not None:
                 if country != unilateral_freerider_effect_country:
                     c = 0.0
@@ -2936,7 +2935,6 @@ def do_country_specific_scc_part3():
     ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=emerging,
         unilateral=True,
-        cost_multiplier=0.1,
         to_csv=False,
     )
     cs_emerging = dict(sorted(cs_emerging.items()))
@@ -2953,7 +2951,6 @@ def do_country_specific_scc_part3():
     ) = calculate_country_specific_scc_data(
         unilateral_freerider_effect_country=developing,
         unilateral=True,
-        cost_multiplier=0.1,
         to_csv=False,
     )
     cs_developing = dict(sorted(cs_developing.items()))
@@ -3015,7 +3012,6 @@ def do_country_specific_scc(
     unilateral_freerider_effect_country=None,
     ext="",
     unilateral=False,
-    cost_multiplier=0.1,
 ):
     print("Unilateral", unilateral)
     print("Country doing the unilateral action", unilateral_freerider_effect_country)
@@ -3024,7 +3020,6 @@ def do_country_specific_scc(
         unilateral_freerider_effect_country=unilateral_freerider_effect_country,
         ext=ext,
         unilateral=unilateral,
-        cost_multiplier=cost_multiplier,
         to_csv=True,
     )
 
@@ -3067,7 +3062,6 @@ def do_country_specific_scc_part4():
         unilateral_freerider_effect_country=None,
         ext="_part4",
         unilateral=False,
-        cost_multiplier=1,
         to_csv=True,
     )
 
@@ -3111,7 +3105,6 @@ def do_country_specific_scc_part5():
         "Australia & New Zealand",
     ]
 
-    cost_multiplier = 1
     fname = "plots/country_specific_data_part5.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
@@ -3133,7 +3126,6 @@ def do_country_specific_scc_part5():
                 unilateral_freerider_effect_country=unilateral_freerider_effect_country,
                 ext="",
                 unilateral=unilateral,
-                cost_multiplier=cost_multiplier,
                 to_csv=False,
             )
             cs_region_combined[group] = do_round(sum(cs_region[group]))
@@ -3310,7 +3302,6 @@ def do_country_specific_scc_part6():
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
-    cost_multiplier = 1
     fname = "plots/country_specific_data_part6.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
@@ -3329,7 +3320,6 @@ def do_country_specific_scc_part6():
                 unilateral_freerider_effect_country=unilateral_freerider_effect_country,
                 ext="",
                 unilateral=unilateral,
-                cost_multiplier=cost_multiplier,
                 to_csv=False,
             )
             for level, level_names in names.items():
@@ -3514,7 +3504,6 @@ def do_country_specific_scc_part7():
         unilateral_freerider_effect_country=country_doing_action,
         ext="",
         unilateral=True,
-        cost_multiplier=1,
         to_csv=False,
         do_beyond_61_countries_from_masterdata=True,
     )
@@ -3709,7 +3698,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part5()
         do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
-        # do_country_specific_scc(unilateral=False, cost_multiplier=0.1, ext="_0.1")
+        # do_country_specific_scc(unilateral=False)
         exit()
 
         levels = [
@@ -3718,14 +3707,12 @@ if __name__ == "__main__":
             "Emerging Market Countries",
         ]
         selected_regions = ["Europe", "North America", "Asia", "Africa"]
-        for cost_multiplier in [0.1, 1]:
-            for group in levels + selected_regions:
-                do_country_specific_scc(
-                    group,
-                    ext=f"_{group}_{cost_multiplier}",
-                    unilateral=True,
-                    cost_multiplier=cost_multiplier,
-                )
+        for group in levels + selected_regions:
+            do_country_specific_scc(
+                group,
+                ext=f"_{group}",
+                unilateral=True,
+            )
         exit()
     if 1:
         run_3_level_scc()
