@@ -2411,6 +2411,65 @@ def calculate_capacity_investment_gamma():
         util.savefig(f"gamma_{tech}")
 
 
+def run_3_level_scc():
+    # Run for 3 levels of social cost of carbon.
+    global social_cost_of_carbon, MID_YEAR
+    mode = "cao"
+    # mode = "cao_relative"
+    # mode = "cost"
+    # mode = "benefit"
+    if mode == "cao":
+        cao_name = "Carbon arbitrage opportunity (in trillion dollars)"
+        cao_name_with_residual = (
+            "Carbon arbitrage including residual benefit (in trillion dollars)"
+        )
+    elif mode == "cao_relative":
+        cao_name = "Carbon arbitrage opportunity relative to world GDP (%)"
+        cao_name_with_residual = (
+            "Carbon arbitrage including residual benefit relative to world GDP (%)"
+        )
+    elif mode == "cost":
+        cao_name = "Costs of avoiding coal emissions (in trillion dollars)"
+        cao_name_with_residual = cao_name
+    elif mode == "benefit":
+        cao_name = "Benefits of avoiding coal emissions (in trillion dollars)"
+        cao_name_with_residual = cao_name
+    print(cao_name)
+    for last_year in [2050, 2070, 2100]:
+        if last_year == 2070:
+            MID_YEAR = 2070
+        else:
+            MID_YEAR = 2050
+        caos = []
+        caos_with_residual = []
+        condition = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+        # condition = f"2022-{last_year} 2DII + Current Policies  Scenario"
+        scs = [
+            util.social_cost_of_carbon_lower_bound,
+            util.social_cost_of_carbon_imf,
+            util.social_cost_of_carbon_upper_bound,
+        ]
+        for sc in scs:
+            util.social_cost_of_carbon = sc
+            social_cost_of_carbon = sc  # noqa: F811
+            out = run_cost1(x=1, to_csv=False, do_round=True, plot_yearly=False)
+            cao = out[cao_name][condition]
+            caos.append(f"{cao:.2f}")
+            cao_with_residual = out[cao_name_with_residual][condition]
+            caos_with_residual.append(f"{cao_with_residual:.2f}")
+        if "Net Zero 2050" in condition:
+            info = "NZ2050"
+        elif "Current Policies" in condition:
+            info = "CPS"
+        else:
+            raise Exception(f"condition not expected: {condition}")
+        print(last_year, info, "with residual:")
+        # print(" & ".join(caos))
+        if ENABLE_RESIDUAL_BENEFIT and (cao_name != cao_name_with_residual):
+            # print("With residual:")
+            print(" & ".join(caos_with_residual))
+
+
 # For website sensitivity analysis
 def nested_dict(n, _type):
     if n == 1:
@@ -2694,62 +2753,7 @@ if __name__ == "__main__":
         do_website_sensitivity_analysis_opportunity_costs()
         exit()
     if 1:
-        # Run for 3 levels of social cost of carbon.
-        global social_cost_of_carbon
-        mode = "cao"
-        # mode = "cao_relative"
-        # mode = "cost"
-        # mode = "benefit"
-        if mode == "cao":
-            cao_name = "Carbon arbitrage opportunity (in trillion dollars)"
-            cao_name_with_residual = (
-                "Carbon arbitrage including residual benefit (in trillion dollars)"
-            )
-        elif mode == "cao_relative":
-            cao_name = "Carbon arbitrage opportunity relative to world GDP (%)"
-            cao_name_with_residual = (
-                "Carbon arbitrage including residual benefit relative to world GDP (%)"
-            )
-        elif mode == "cost":
-            cao_name = "Costs of avoiding coal emissions (in trillion dollars)"
-            cao_name_with_residual = cao_name
-        elif mode == "benefit":
-            cao_name = "Benefits of avoiding coal emissions (in trillion dollars)"
-            cao_name_with_residual = cao_name
-        print(cao_name)
-        for last_year in [2050, 2070, 2100]:
-            if last_year == 2070:
-                MID_YEAR = 2070
-            else:
-                MID_YEAR = 2050
-            caos = []
-            caos_with_residual = []
-            condition = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
-            # condition = f"2022-{last_year} 2DII + Current Policies  Scenario"
-            scs = [
-                util.social_cost_of_carbon_lower_bound,
-                util.social_cost_of_carbon_imf,
-                util.social_cost_of_carbon_upper_bound,
-            ]
-            for sc in scs:
-                util.social_cost_of_carbon = sc
-                social_cost_of_carbon = sc  # noqa: F811
-                out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
-                cao = out[cao_name][condition]
-                caos.append(f"{cao:.2f}")
-                cao_with_residual = out[cao_name_with_residual][condition]
-                caos_with_residual.append(f"{cao_with_residual:.2f}")
-            if "Net Zero 2050" in condition:
-                info = "NZ2050"
-            elif "Current Policies" in condition:
-                info = "CPS"
-            else:
-                raise Exception(f"condition not expected: {condition}")
-            print(last_year, info, "with residual:")
-            # print(" & ".join(caos))
-            if ENABLE_RESIDUAL_BENEFIT and (cao_name != cao_name_with_residual):
-                # print("With residual:")
-                print(" & ".join(caos_with_residual))
+        run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
     # exit()
