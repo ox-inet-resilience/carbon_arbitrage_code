@@ -2717,7 +2717,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
 
 
 def calculate_country_specific_scc_data(
-    unilateral_freerider_effect_country=None,
+    unilateral_actor=None,
     ext="",
     to_csv=True,
     do_beyond_61_countries_from_masterdata=False,
@@ -2754,24 +2754,24 @@ def calculate_country_specific_scc_data(
         "Developing Countries",
         "Emerging Market Countries",
     ]
-    isa_climate_club = unilateral_freerider_effect_country in (levels + regions)
+    isa_climate_club = unilateral_actor in (levels + regions)
     cost_climate_club = None
     benefit_climate_club = None
-    if unilateral_freerider_effect_country is not None:
+    if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
         unilateral_benefit = util.read_json("plots/unilateral_benefit_trillion.json")
         if isa_climate_club:
             unilateral_emissions = 0.0
             cost_climate_club = 0.0
             benefit_climate_club = 0.0
-            if unilateral_freerider_effect_country in levels:
+            if unilateral_actor in levels:
                 group = {
                     "Developed Countries": developed_country_shortnames,
                     "Developing Countries": developING_country_shortnames,
                     "Emerging Market Countries": emerging_country_shortnames,
-                }[unilateral_freerider_effect_country]
+                }[unilateral_actor]
             else:
-                group = region_countries_map[unilateral_freerider_effect_country]
+                group = region_countries_map[unilateral_actor]
             for country in group:
                 if country not in unilateral_benefit:
                     # Skip if we don't have the data for it.
@@ -2784,14 +2784,14 @@ def calculate_country_specific_scc_data(
                 cost_climate_club += costs_dict[country]
         else:
             benefit_of_country_doing_the_action = unilateral_benefit[
-                unilateral_freerider_effect_country
+                unilateral_actor
             ]
             unilateral_emissions = (
                 benefit_of_country_doing_the_action
-                / country_specific_scc[unilateral_freerider_effect_country]
+                / country_specific_scc[unilateral_actor]
             )
     # From "trillion" tCO2 to Giga tCO2
-    print("emissions Giga tCO2", unilateral_freerider_effect_country, unilateral_emissions * 1e3)
+    print("emissions Giga tCO2", unilateral_actor, unilateral_emissions * 1e3)
 
     names = defaultdict(list)
     cs = defaultdict(list)
@@ -2815,17 +2815,17 @@ def calculate_country_specific_scc_data(
         ]
     )
     if isa_climate_club:
-        if unilateral_freerider_effect_country in levels:
-            cs[unilateral_freerider_effect_country].append(cost_climate_club)
-            bs[unilateral_freerider_effect_country].append(benefit_climate_club)
-            names[unilateral_freerider_effect_country].append(
-                unilateral_freerider_effect_country
+        if unilateral_actor in levels:
+            cs[unilateral_actor].append(cost_climate_club)
+            bs[unilateral_actor].append(benefit_climate_club)
+            names[unilateral_actor].append(
+                unilateral_actor
             )
         else:
-            cs_region[unilateral_freerider_effect_country].append(cost_climate_club)
-            bs_region[unilateral_freerider_effect_country].append(benefit_climate_club)
-            names_region[unilateral_freerider_effect_country].append(
-                unilateral_freerider_effect_country
+            cs_region[unilateral_actor].append(cost_climate_club)
+            bs_region[unilateral_actor].append(benefit_climate_club)
+            names_region[unilateral_actor].append(
+                unilateral_actor
             )
 
     for country, cs_scc in country_specific_scc.items():
@@ -2842,16 +2842,16 @@ def calculate_country_specific_scc_data(
             c = 0.0
         else:
             c = costs_dict[country]
-            if unilateral_freerider_effect_country is not None:
-                if country != unilateral_freerider_effect_country:
+            if unilateral_actor is not None:
+                if country != unilateral_actor:
                     c = 0.0
         cs_scc_scale = cs_scc / total_scc
-        if unilateral_freerider_effect_country is not None:
+        if unilateral_actor is not None:
             if (not do_beyond_61_countries_from_masterdata) and (country not in unilateral_benefit):
                 continue
             # Freeloader benefit
             b = unilateral_emissions * cs_scc
-            if unilateral_freerider_effect_country == country:
+            if unilateral_actor == country:
                 # Sanity check for the country doing the action
                 assert math.isclose(b, benefit_of_country_doing_the_action)
         else:
@@ -2927,7 +2927,7 @@ def do_country_specific_scc_part3():
         _,
         _,
     ) = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=emerging,
+        unilateral_actor=emerging,
         to_csv=False,
     )
     cs_emerging = dict(sorted(cs_emerging.items()))
@@ -2942,7 +2942,7 @@ def do_country_specific_scc_part3():
         _,
         _,
     ) = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=developing,
+        unilateral_actor=developing,
         to_csv=False,
     )
     cs_developing = dict(sorted(cs_developing.items()))
@@ -3003,7 +3003,7 @@ def do_country_specific_scc_part3():
 def do_country_specific_scc_part4():
     # We save to CSV so that the data is shown in the website.
     cs, bs, _, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=None,
+        unilateral_actor=None,
         ext="_part4",
         to_csv=False,
     )
@@ -3063,9 +3063,9 @@ def do_country_specific_scc_part5():
             return round(x, 6)
 
         for group in regions:
-            unilateral_freerider_effect_country = group
+            unilateral_actor = group
             _, _, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
-                unilateral_freerider_effect_country=unilateral_freerider_effect_country,
+                unilateral_actor=unilateral_actor,
                 ext="",
                 to_csv=False,
             )
@@ -3254,9 +3254,9 @@ def do_country_specific_scc_part6():
         zerocost = {}
         # We round everything to 6 digits, and so the precision is thousand dollars.
         for country_doing_action in top9:
-            unilateral_freerider_effect_country = country_doing_action
+            unilateral_actor = country_doing_action
             cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
-                unilateral_freerider_effect_country=unilateral_freerider_effect_country,
+                unilateral_actor=unilateral_actor,
                 ext="",
                 to_csv=False,
             )
@@ -3439,7 +3439,7 @@ def do_country_specific_scc_part7():
 
     country_doing_action = "ID"
     cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
-        unilateral_freerider_effect_country=country_doing_action,
+        unilateral_actor=country_doing_action,
         ext="",
         to_csv=False,
         do_beyond_61_countries_from_masterdata=True,
