@@ -3283,18 +3283,11 @@ def do_country_specific_scc_part6():
                 location = None
                 if country_doing_action in level_names:
                     location = level_names.index(country_doing_action)
-                if location is None:
-                    # The country doing the action is not part of the `level` group,
-                    # as such, all the countries here are all freeloaders.
-                    for i, c in enumerate(level_names):
-                        assert c not in _dict
-                        _dict[c] = round(bs[level][i], 6)
-                else:
-                    for i, c in enumerate(level_names):
-                        assert c not in _dict
-                        if i == location:
-                            continue
-                        _dict[c] = round(bs[level][i], 6)
+                for i, c in enumerate(level_names):
+                    assert c not in _dict
+                    if i == location:
+                        continue
+                    _dict[c] = round(bs[level][i], 6)
             zerocost[country_doing_action] = _dict
 
         # This code chunk is used to calculate global_benefit_by_country
@@ -3642,9 +3635,9 @@ if __name__ == "__main__":
     if 1:
         # country specific scc
         # do_country_specific_scc_part3()
-        do_country_specific_scc_part4()
+        # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
+        do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
         exit()
     if 1:
