@@ -73,17 +73,22 @@ def calculate_country_specific_scc_data(
                     # Skip if we don't have the data for it.
                     continue
                 benefit_of_country_doing_the_action = unilateral_benefit[country]
-                unilateral_emissions += (
-                    benefit_of_country_doing_the_action / country_specific_scc[country]
+                scc = (
+                    country_specific_scc[country]
+                    / total_scc
+                    * util.social_cost_of_carbon
                 )
+                unilateral_emissions += benefit_of_country_doing_the_action / scc
                 benefit_climate_club += benefit_of_country_doing_the_action
                 cost_climate_club += costs_dict[country]
         else:
             benefit_of_country_doing_the_action = unilateral_benefit[unilateral_actor]
-            unilateral_emissions = (
-                benefit_of_country_doing_the_action
-                / country_specific_scc[unilateral_actor]
+            scc = (
+                country_specific_scc[unilateral_actor]
+                / total_scc
+                * util.social_cost_of_carbon
             )
+            unilateral_emissions = benefit_of_country_doing_the_action / scc
     # From "trillion" tCO2 to Giga tCO2
     # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions * 1e3)
 
@@ -118,7 +123,7 @@ def calculate_country_specific_scc_data(
             bs_region[unilateral_actor].append(benefit_climate_club)
             names_region[unilateral_actor].append(unilateral_actor)
 
-    for country, cs_scc in country_specific_scc.items():
+    for country, unscaled_scc in country_specific_scc.items():
         if country in ["NC", "FJ", "SB", "VU"]:
             # Skipping, because they are in Oceania:
             # New Caledonia
@@ -135,7 +140,7 @@ def calculate_country_specific_scc_data(
             if unilateral_actor is not None:
                 if country != unilateral_actor:
                     c = 0.0
-        cs_scc_scale = cs_scc / total_scc
+        cs_scc_scale = unscaled_scc / total_scc
         if unilateral_actor is not None:
             # Unilateral action
             if (not do_beyond_61_countries_from_masterdata) and (
@@ -143,7 +148,8 @@ def calculate_country_specific_scc_data(
             ):
                 continue
             # Freeloader benefit
-            b = unilateral_emissions * cs_scc
+            scc = util.social_cost_of_carbon * cs_scc_scale
+            b = unilateral_emissions * scc
             if unilateral_actor == country:
                 # Sanity check for the country doing the action
                 assert math.isclose(b, benefit_of_country_doing_the_action)
@@ -165,7 +171,7 @@ def calculate_country_specific_scc_data(
                             "net_benefit": net_benefit,
                             "benefit": b,
                             "cost": c,
-                            "country_specific_scc": cs_scc,
+                            "country_specific_scc": unscaled_scc,
                         }
                     ]
                 ),
@@ -293,7 +299,7 @@ def do_country_specific_scc_part3():
     )
     plt.tight_layout()
 
-    plt.savefig("plots/scc_part3.png", bbox_inches="tight")
+    plt.savefig("plots/country_specific_scatter_part3.png", bbox_inches="tight")
 
 
 def do_country_specific_scc_part4():
@@ -889,8 +895,8 @@ if __name__ == "__main__":
     if 1:
         # country specific scc
         do_country_specific_scc_part3()
-        # do_country_specific_scc_part4()
-        # do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
-        # do_country_specific_scc_part7()
+        do_country_specific_scc_part4()
+        do_country_specific_scc_part5()
+        do_country_specific_scc_part6()
+        do_country_specific_scc_part7()
         exit()
