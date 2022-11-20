@@ -2727,7 +2727,7 @@ def calculate_country_specific_scc_data(
         chosen_s2_scenario, "plots/country_specific_cost.json", ignore_cache=True
     )
     out = run_cost1(x=1, to_csv=False, do_round=False)
-    benefit = out[
+    global_benefit = out[
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     ][chosen_s2_scenario]
 
@@ -2791,7 +2791,7 @@ def calculate_country_specific_scc_data(
                 / country_specific_scc[unilateral_actor]
             )
     # From "trillion" tCO2 to Giga tCO2
-    print("emissions Giga tCO2", unilateral_actor, unilateral_emissions * 1e3)
+    # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions * 1e3)
 
     names = defaultdict(list)
     cs = defaultdict(list)
@@ -2830,7 +2830,7 @@ def calculate_country_specific_scc_data(
 
     for country, cs_scc in country_specific_scc.items():
         if country in ["NC", "FJ", "SB", "VU"]:
-            # Skipping:
+            # Skipping, because they are in Oceania:
             # New Caledonia
             # Fiji
             # Solomon Islands
@@ -2847,6 +2847,7 @@ def calculate_country_specific_scc_data(
                     c = 0.0
         cs_scc_scale = cs_scc / total_scc
         if unilateral_actor is not None:
+            # Unilateral action
             if (not do_beyond_61_countries_from_masterdata) and (country not in unilateral_benefit):
                 continue
             # Freeloader benefit
@@ -2855,7 +2856,8 @@ def calculate_country_specific_scc_data(
                 # Sanity check for the country doing the action
                 assert math.isclose(b, benefit_of_country_doing_the_action)
         else:
-            b = cs_scc_scale * benefit
+            # Global action
+            b = cs_scc_scale * global_benefit
 
         net_benefit = b - c
         table = pd.concat(
@@ -3002,11 +3004,20 @@ def do_country_specific_scc_part3():
 
 def do_country_specific_scc_part4():
     # We save to CSV so that the data is shown in the website.
-    cs, bs, _, _, _, _ = calculate_country_specific_scc_data(
+    cs, bs, _, _, bs_region, _ = calculate_country_specific_scc_data(
         unilateral_actor=None,
         ext="_part4",
         to_csv=False,
     )
+
+    # Sanity check
+    # The actual full global benefit is 114.04380627502013, but it is less
+    # because we skip NC, FJ, SB, VU, and NaN country in the
+    # country_specific_scc.json
+    actual_global_benefit = sum(sum(b) for b in bs.values())
+    assert math.isclose(actual_global_benefit, 113.9984096511258), actual_global_benefit
+    actual_global_benefit = sum(sum(b) for b in bs_region.values())
+    assert math.isclose(actual_global_benefit, 113.97973133450103), actual_global_benefit
 
     plt.figure()
     ax = plt.gca()
@@ -3631,9 +3642,9 @@ if __name__ == "__main__":
     if 1:
         # country specific scc
         # do_country_specific_scc_part3()
-        # do_country_specific_scc_part4()
+        do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
+        # do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
         exit()
     if 1:
