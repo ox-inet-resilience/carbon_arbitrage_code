@@ -3048,6 +3048,14 @@ def do_country_specific_scc_part4():
     plt.savefig("plots/country_specific_scatter_part4.png")
 
 
+def calculate_global_benefit():
+    out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+    global_benefit = out[property][chosen_s2_scenario]
+    return global_benefit
+
+
 def do_country_specific_scc_part5():
     regions = [
         "Asia",
@@ -3088,16 +3096,8 @@ def do_country_specific_scc_part5():
             zerocost[group] = {k: do_round(sum(v)) for k, v in bs_region.items() if k != group}
 
         # This code chunk is used to calculate global_benefit_by_region
-        # Calculating global emissions avoided
-        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
-        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
-        property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
-        global_benefit = out[property][chosen_s2_scenario]
-        scc_dict = (
-            pd.read_csv("plots/country_specific_table.csv")
-            .set_index("iso2")["country_specific_scc"]
-            .to_dict()
-        )
+        global_benefit = calculate_global_benefit()
+        scc_dict = util.read_json("plots/country_specific_scc.json")
         unscaled_global_scc = sum(scc_dict.values())
         iso3166_df = util.read_iso3166()
         region_countries_map, _ = prepare_regions_for_climate_financing(iso3166_df)
@@ -3291,19 +3291,9 @@ def do_country_specific_scc_part6():
             zerocost[country_doing_action] = _dict
 
         # This code chunk is used to calculate global_benefit_by_country
-        # Calculating global emissions avoided
-        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
-        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
-        property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
-        global_benefit = out[property][chosen_s2_scenario]
-        scc_dict = (
-            pd.read_csv("plots/country_specific_table.csv")
-            .set_index("iso2")["country_specific_scc"]
-            .to_dict()
-        )
+        global_benefit = calculate_global_benefit()
+        scc_dict = util.read_json("plots/country_specific_scc.json")
         unscaled_global_scc = sum(scc_dict.values())
-        iso3166_df = util.read_iso3166()
-        region_countries_map, _ = prepare_regions_for_climate_financing(iso3166_df)
         global_benefit_by_country = {}
         # End of global_benefit_by_country preparation
 
@@ -3489,16 +3479,8 @@ def do_country_specific_scc_part7():
     print(zerocost)
 
     # This code chunk is used to calculate global_benefit_by_country
-    # Calculating global emissions avoided
-    out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
-    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
-    property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
-    global_benefit = out[property][chosen_s2_scenario]
-    scc_dict = (
-        pd.read_csv("plots/country_specific_table.csv")
-        .set_index("iso2")["country_specific_scc"]
-        .to_dict()
-    )
+    global_benefit = calculate_global_benefit()
+    scc_dict = util.read_json("plots/country_specific_scc.json")
     unscaled_global_scc = sum(scc_dict.values())
     # End of global_benefit_by_country preparation
 
