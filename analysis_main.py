@@ -2759,7 +2759,7 @@ def calculate_country_specific_scc_data(
     benefit_climate_club = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        unilateral_benefit = util.read_json("plots/unilateral_benefit_trillion.json")
+        unilateral_benefit = util.read_json("cache/unilateral_benefit_trillion.json")
         if isa_climate_club:
             unilateral_emissions = 0.0
             cost_climate_club = 0.0
@@ -3058,7 +3058,7 @@ def do_country_specific_scc_part5():
         "Australia & New Zealand",
     ]
 
-    fname = "plots/country_specific_data_part5.json"
+    fname = "cache/country_specific_data_part5.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
         cs_region_combined = content["unilateral_cost"]
@@ -3252,7 +3252,7 @@ def do_country_specific_scc_part6():
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
-    fname = "plots/country_specific_data_part6.json"
+    fname = "cache/country_specific_data_part6.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
         cs_combined = content["unilateral_cost"]
@@ -3433,7 +3433,7 @@ def do_country_specific_scc_part6():
     plt.xlim(y_min, y_max)
     plt.ylim(y_min, y_max)
 
-    plt.savefig("plots/country_scc_part6.png", bbox_inches="tight")
+    plt.savefig("plots/country_specific_scatter_part6.png", bbox_inches="tight")
 
 
 def do_country_specific_scc_part7():
