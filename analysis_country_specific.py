@@ -9,6 +9,7 @@ import pandas as pd
 import util
 import analysis_main
 
+
 def calculate_country_specific_scc_data(
     unilateral_actor=None,
     ext="",
@@ -37,7 +38,9 @@ def calculate_country_specific_scc_data(
     ) = util.prepare_from_climate_financing_data()
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
-    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
+        iso3166_df
+    )
     _, iso2_to_country_name = util.get_country_to_region()
 
     unilateral_benefit = None
@@ -76,9 +79,7 @@ def calculate_country_specific_scc_data(
                 benefit_climate_club += benefit_of_country_doing_the_action
                 cost_climate_club += costs_dict[country]
         else:
-            benefit_of_country_doing_the_action = unilateral_benefit[
-                unilateral_actor
-            ]
+            benefit_of_country_doing_the_action = unilateral_benefit[unilateral_actor]
             unilateral_emissions = (
                 benefit_of_country_doing_the_action
                 / country_specific_scc[unilateral_actor]
@@ -111,15 +112,11 @@ def calculate_country_specific_scc_data(
         if unilateral_actor in levels:
             cs[unilateral_actor].append(cost_climate_club)
             bs[unilateral_actor].append(benefit_climate_club)
-            names[unilateral_actor].append(
-                unilateral_actor
-            )
+            names[unilateral_actor].append(unilateral_actor)
         else:
             cs_region[unilateral_actor].append(cost_climate_club)
             bs_region[unilateral_actor].append(benefit_climate_club)
-            names_region[unilateral_actor].append(
-                unilateral_actor
-            )
+            names_region[unilateral_actor].append(unilateral_actor)
 
     for country, cs_scc in country_specific_scc.items():
         if country in ["NC", "FJ", "SB", "VU"]:
@@ -141,7 +138,9 @@ def calculate_country_specific_scc_data(
         cs_scc_scale = cs_scc / total_scc
         if unilateral_actor is not None:
             # Unilateral action
-            if (not do_beyond_61_countries_from_masterdata) and (country not in unilateral_benefit):
+            if (not do_beyond_61_countries_from_masterdata) and (
+                country not in unilateral_benefit
+            ):
                 continue
             # Freeloader benefit
             b = unilateral_emissions * cs_scc
@@ -208,7 +207,9 @@ def calculate_country_specific_scc_data(
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
-        table.to_csv(f"plots/country_specific_table{ext}.csv", index=False, float_format="%.5f")
+        table.to_csv(
+            f"plots/country_specific_table{ext}.csv", index=False, float_format="%.5f"
+        )
     return cs, bs, names, cs_region, bs_region, names_region
 
 
@@ -310,7 +311,9 @@ def do_country_specific_scc_part4():
     actual_global_benefit = sum(sum(b) for b in bs.values())
     assert math.isclose(actual_global_benefit, 113.9984096511258), actual_global_benefit
     actual_global_benefit = sum(sum(b) for b in bs_region.values())
-    assert math.isclose(actual_global_benefit, 113.97973133450103), actual_global_benefit
+    assert math.isclose(
+        actual_global_benefit, 113.97973133450103
+    ), actual_global_benefit
 
     plt.figure()
     ax = plt.gca()
@@ -387,30 +390,39 @@ def do_country_specific_scc_part5():
             # group is the country doing the unilateral action, while the
             # regions inside the dict is the one who gets benefit with zero
             # cost.
-            zerocost[group] = {k: do_round(sum(v)) for k, v in bs_region.items() if k != group}
+            zerocost[group] = {
+                k: do_round(sum(v)) for k, v in bs_region.items() if k != group
+            }
 
         # This code chunk is used to calculate global_benefit_by_region
         global_benefit = calculate_global_benefit()
         scc_dict = util.read_json("plots/country_specific_scc.json")
         unscaled_global_scc = sum(scc_dict.values())
         iso3166_df = util.read_iso3166()
-        region_countries_map, _ = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
+        region_countries_map, _ = analysis_main.prepare_regions_for_climate_financing(
+            iso3166_df
+        )
         global_benefit_by_region = {}
         # End of global_benefit_by_region preparation
 
         for region, c in cs_region_combined.items():
             countries = region_countries_map[region]
-            scc_scale = sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
+            scc_scale = (
+                sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
+            )
             # Benefit to 1 region if everyone in the world takes action
             global_benefit_by_region[region] = do_round(global_benefit * scc_scale)
 
         with open(fname, "w") as f:
-            json.dump({
-                "unilateral_cost": cs_region_combined,
-                "unilateral_benefit": bs_region_combined,
-                "freeloader_benefit": zerocost,
-                "global_benefit": global_benefit_by_region,
-            }, f)
+            json.dump(
+                {
+                    "unilateral_cost": cs_region_combined,
+                    "unilateral_benefit": bs_region_combined,
+                    "freeloader_benefit": zerocost,
+                    "global_benefit": global_benefit_by_region,
+                },
+                f,
+            )
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -598,12 +610,15 @@ def do_country_specific_scc_part6():
             )
 
         with open(fname, "w") as f:
-            json.dump({
-                "unilateral_cost": cs_combined,
-                "unilateral_benefit": bs_combined,
-                "freeloader_benefit": zerocost,
-                "global_benefit": global_benefit_by_country,
-            }, f)
+            json.dump(
+                {
+                    "unilateral_cost": cs_combined,
+                    "unilateral_benefit": bs_combined,
+                    "freeloader_benefit": zerocost,
+                    "global_benefit": global_benefit_by_country,
+                },
+                f,
+            )
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -780,7 +795,9 @@ def do_country_specific_scc_part7():
 
     # Benefit to 1 country if everyone in the world takes action
     # Billion dollars
-    global_benefit_country = global_benefit * scc_dict[country_doing_action] / unscaled_global_scc * 1e3
+    global_benefit_country = (
+        global_benefit * scc_dict[country_doing_action] / unscaled_global_scc * 1e3
+    )
 
     right = 2.5
     fig, axs = plt.subplots(
@@ -871,9 +888,9 @@ def do_country_specific_scc_part7():
 if __name__ == "__main__":
     if 1:
         # country specific scc
-        # do_country_specific_scc_part3()
+        do_country_specific_scc_part3()
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
+        # do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
         exit()
