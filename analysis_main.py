@@ -365,9 +365,6 @@ def calculate_cost1_info(
         "Total emissions avoided including residual (GtCO2)": maybe_round2(
             do_round, saved_non_discounted + residual_emissions
         ),
-        "Benefits of avoiding coal emissions (in trillion dollars)": maybe_round2(
-            do_round, benefit_non_discounted
-        ),
         "Costs of avoiding coal emissions (in trillion dollars)": maybe_round2(
             do_round, cost_discounted
         ),
@@ -2430,9 +2427,6 @@ def run_3_level_scc():
         )
     elif mode == "cost":
         cao_name = "Costs of avoiding coal emissions (in trillion dollars)"
-        cao_name_with_residual = cao_name
-    elif mode == "benefit":
-        cao_name = "Benefits of avoiding coal emissions (in trillion dollars)"
         cao_name_with_residual = cao_name
     print(cao_name)
     for last_year in [2050, 2070, 2100]:
