@@ -305,7 +305,7 @@ def do_country_specific_scc_part3():
     )
     plt.tight_layout()
 
-    plt.savefig("plots/country_specific_scatter_part3.png", bbox_inches="tight")
+    util.savefig("country_specific_scatter_part3", tight=True)
 
 
 def do_country_specific_scc_part4():
@@ -353,7 +353,7 @@ def do_country_specific_scc_part4():
     plt.xlim(5e-2, axis_limit)
     plt.ylim(5e-2, axis_limit)
     plt.legend()
-    plt.savefig("plots/country_specific_scatter_part4.png")
+    util.savefig("country_specific_scatter_part4")
 
 
 def calculate_global_benefit():
@@ -571,7 +571,7 @@ def do_country_specific_scc_part5():
     plt.subplots_adjust(wspace=0)
     plt.ylabel("PV country benefits (bln dollars)")
 
-    plt.savefig("plots/country_specific_scatter_part5.png", bbox_inches="tight")
+    util.savefig("country_specific_scatter_part5", tight=True)
 
 
 def do_country_specific_scc_part6():
@@ -753,7 +753,7 @@ def do_country_specific_scc_part6():
     plt.xlim(y_min, y_max)
     plt.ylim(y_min, y_max)
 
-    plt.savefig("plots/country_specific_scatter_part6.png", bbox_inches="tight")
+    util.savefig("country_specific_scatter_part6", tight=True)
 
 
 def do_country_specific_scc_part7():
@@ -910,7 +910,7 @@ def do_country_specific_scc_part7():
     )
     # plt.tight_layout()
 
-    plt.savefig("plots/country_specific_scatter_part7.png", bbox_inches="tight")
+    util.savefig("country_specific_scatter_part7", tight=True)
 
 
 if __name__ == "__main__":
