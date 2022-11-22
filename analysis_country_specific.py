@@ -90,7 +90,10 @@ def calculate_country_specific_scc_data(
             )
             unilateral_emissions = benefit_of_country_doing_the_action / scc
     # From "trillion" tCO2 to Giga tCO2
-    unilateral_emissions_GtCO2 = unilateral_emissions * 1e3
+    if unilateral_emissions is not None:
+        unilateral_emissions_GtCO2 = unilateral_emissions * 1e3
+    else:
+        unilateral_emissions_GtCO2 = None
     # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions_GtCO2)
 
     names = defaultdict(list)
