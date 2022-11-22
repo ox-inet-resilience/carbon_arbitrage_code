@@ -90,7 +90,8 @@ def calculate_country_specific_scc_data(
             )
             unilateral_emissions = benefit_of_country_doing_the_action / scc
     # From "trillion" tCO2 to Giga tCO2
-    # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions * 1e3)
+    unilateral_emissions_GtCO2 = unilateral_emissions * 1e3
+    # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions_GtCO2)
 
     names = defaultdict(list)
     cs = defaultdict(list)
@@ -216,7 +217,7 @@ def calculate_country_specific_scc_data(
         table.to_csv(
             f"plots/country_specific_table{ext}.csv", index=False, float_format="%.5f"
         )
-    return cs, bs, names, cs_region, bs_region, names_region
+    return cs, bs, names, cs_region, bs_region, names_region, unilateral_emissions_GtCO2
 
 
 def do_country_specific_scc_part3():
@@ -225,6 +226,7 @@ def do_country_specific_scc_part3():
         cs_emerging,
         bs_emerging,
         names_emerging,
+        _,
         _,
         _,
         _,
@@ -240,6 +242,7 @@ def do_country_specific_scc_part3():
         cs_developing,
         bs_developing,
         names_developing,
+        _,
         _,
         _,
         _,
@@ -304,7 +307,7 @@ def do_country_specific_scc_part3():
 
 def do_country_specific_scc_part4():
     # We save to CSV so that the data is shown in the website.
-    cs, bs, _, _, bs_region, _ = calculate_country_specific_scc_data(
+    cs, bs, _, _, bs_region, _, _ = calculate_country_specific_scc_data(
         unilateral_actor=None,
         ext="_part4",
         to_csv=False,
@@ -384,9 +387,20 @@ def do_country_specific_scc_part5():
         def do_round(x):
             return round(x, 6)
 
+        # This variable is for sanity check
+        unilateral_emissions_cumulative = 0.0
+
         for group in regions:
             unilateral_actor = group
-            _, _, _, cs_region, bs_region, _ = calculate_country_specific_scc_data(
+            (
+                _,
+                _,
+                _,
+                cs_region,
+                bs_region,
+                _,
+                unilateral_emissions_GtCO2,
+            ) = calculate_country_specific_scc_data(
                 unilateral_actor=unilateral_actor,
                 ext="",
                 to_csv=False,
@@ -399,6 +413,11 @@ def do_country_specific_scc_part5():
             zerocost[group] = {
                 k: do_round(sum(v)) for k, v in bs_region.items() if k != group
             }
+            unilateral_emissions_cumulative += unilateral_emissions_GtCO2
+
+        # Sanity check
+        # It's not 1425.55 because XK is excluded.
+        assert math.isclose(unilateral_emissions_cumulative, 1424.716619437389)
 
         # This code chunk is used to calculate global_benefit_by_region
         global_benefit = calculate_global_benefit()
@@ -578,7 +597,7 @@ def do_country_specific_scc_part6():
         # We round everything to 6 digits, and so the precision is thousand dollars.
         for country_doing_action in top9:
             unilateral_actor = country_doing_action
-            cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
+            cs, bs, names, _, _, _, _ = calculate_country_specific_scc_data(
                 unilateral_actor=unilateral_actor,
                 ext="",
                 to_csv=False,
@@ -747,7 +766,7 @@ def do_country_specific_scc_part7():
     G7 = "US JP DK GB DE IT NO".split()
 
     country_doing_action = "ID"
-    cs, bs, names, _, _, _ = calculate_country_specific_scc_data(
+    cs, bs, names, _, _, _, _ = calculate_country_specific_scc_data(
         unilateral_actor=country_doing_action,
         ext="",
         to_csv=False,
