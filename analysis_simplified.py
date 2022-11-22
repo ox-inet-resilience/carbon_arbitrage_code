@@ -4,8 +4,8 @@
 # - (Important) The "residual benefits" (i.e. the benefits resulting from the
 #   amount of carbon emissions that renewables built up to the time horizon T
 #   can avoid beyond the time horizon T) are not calculated, for simplicity
-#   purpose. Hence our default result here is 58.01 trillion dollars instead of
-#   77.89 trillion dollars.
+#   purpose. Hence our default result here is 63.82 trillion dollars instead of
+#   85.01 trillion dollars.
 # - The coal phase out scenario is restricted to "Net Zero 2050".
 # - The energy type specific average unit profit is restricted to the median of
 #   top 10 pure coal nonpower.
@@ -426,5 +426,5 @@ benefit_non_discounted = (
 net_benefit = benefit_non_discounted - cost_discounted
 print(benefit_non_discounted, cost_discounted)
 # Sanity check
-assert math.isclose(net_benefit, 58.01459793600306)
+assert math.isclose(net_benefit, 63.81764069534866), net_benefit
 print("Carbon arbitrage opportunity (in trillion dollars)", net_benefit)
