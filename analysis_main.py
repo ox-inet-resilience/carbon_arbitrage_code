@@ -3036,12 +3036,39 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 1:
+    if 0:
         # Battery yearly
         # do_cf_battery_yearly()
         # make_battery_plot()
         make_battery_unit_ic_plot()
         exit()
+    if 1:
+        chosen_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+        ENABLE_BATTERY_SHORT = True
+        ENABLE_BATTERY_LONG = True
+
+        def sum_discounted(arr):
+            rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+            return sum(c * util.calculate_discount(rho, i) for i, c in enumerate(arr))
+
+        out = run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+        scenario = "Net Zero 2050"
+        cost = out["Costs of avoiding coal emissions (in trillion dollars)"][chosen_scenario]
+        oc = out["Opportunity costs represented by missed coal revenues (in trillion dollars)"][chosen_scenario]
+        ic = out["Investment costs in renewable energy (in trillion dollars)"][chosen_scenario]
+        actual_cost = sum_discounted(global_cost_non_discounted[scenario]) / 1e12
+        assert math.isclose(ic, actual_cost), (ic, actual_cost)
+        cost_battery_short = sum_discounted(global_cost_non_discounted_battery_short[scenario]) / 1e12
+        cost_battery_long = sum_discounted(global_cost_non_discounted_battery_long[scenario]) / 1e12
+        cost_battery_pe = sum_discounted(global_cost_non_discounted_battery_pe[scenario]) / 1e12
+        print("Total cost without coal worker", round2(cost))
+        print("Opportunity cost without coal worker", round2(oc), "unrounded", oc)
+        print("Investment Cost", round2(ic))
+        print("  battery short", round2(cost_battery_short))
+        print("  battery long w/o pe", round2(cost_battery_long))
+        print("  battery pe", round2(cost_battery_pe))
+        exit()
+
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
