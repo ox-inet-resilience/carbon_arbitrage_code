@@ -847,8 +847,13 @@ def do_country_specific_scc_part7():
 
     G7 = "US JP DK GB DE IT NO".split()
 
+    # We round to 3 decimal digits instead of 6 because the unit is billion
+    # dollars.
+    def round3(x):
+        return round(x, 3)
+
     country_doing_action = "ID"
-    cs, bs, names, _, _, _, _ = calculate_country_specific_scc_data(
+    cs, bs, names, _, _, _, unilateral_emissions = calculate_country_specific_scc_data(
         unilateral_actor=country_doing_action,
         ext="",
         to_csv=False,
@@ -860,8 +865,8 @@ def do_country_specific_scc_part7():
             continue
         location = level_names.index(country_doing_action)
         # Billion dollars
-        cost_country = round(cs[level][location] * 1e3, 3)
-        benefit_country = round(bs[level][location] * 1e3, 3)
+        cost_country = cs[level][location] * 1e3
+        benefit_country = bs[level][location] * 1e3
         break
 
     # Calculating zerocost
@@ -875,12 +880,13 @@ def do_country_specific_scc_part7():
             location = level_names.index(country_doing_action)
         for i, c in enumerate(level_names):
             # Billion dollars
-            benefit_zc = round(bs[level][i] * 1e3, 3)
-            zerocost_benefit_world += benefit_zc
+            benefit_zc = bs[level][i] * 1e3
             assert c not in zerocost
             if i == location:
-                # This is the country doing the action.
+                # This is the country doing the action, and so, not part of
+                # zerocost.
                 continue
+            zerocost_benefit_world += benefit_zc
             if c in EU:
                 # WARNING This assumes the country doing the action is not part
                 # of EU.
@@ -891,6 +897,8 @@ def do_country_specific_scc_part7():
     zerocost["G7"] = sum(zerocost[c] for c in G7)
     zerocost["EU"] = zerocost_benefit_eu
     zerocost["ROW"] = zerocost_benefit_world - zerocost["G7"] - benefit_country
+    # Round to 3 decimal places
+    zerocost = {k: round3(v) for k, v in zerocost.items()}
     print(zerocost)
 
     # This code chunk is used to calculate global_benefit_by_country
@@ -904,6 +912,11 @@ def do_country_specific_scc_part7():
     global_benefit_country = (
         global_benefit * scc_dict[country_doing_action] / unscaled_global_scc * 1e3
     )
+
+    # Sanity check
+    world_benefit_from_unilateral_action = zerocost_benefit_world + benefit_country
+    expected = unilateral_emissions * util.social_cost_of_carbon
+    assert math.isclose(world_benefit_from_unilateral_action, expected), (world_benefit_from_unilateral_action, expected)
 
     right = 2.5
     fig, axs = plt.subplots(
@@ -998,6 +1011,6 @@ if __name__ == "__main__":
 
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
-        # do_country_specific_scc_part7()
+        # do_country_specific_scc_part6()
+        do_country_specific_scc_part7()
         exit()
