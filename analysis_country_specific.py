@@ -10,6 +10,24 @@ import util
 import analysis_main
 
 
+def read_country_specific_scc_filtered():
+    country_specific_scc = util.read_json("plots/country_specific_scc.json")
+    # Remove these countries
+    # Because they are in Oceania:
+    # New Caledonia
+    # Fiji
+    # Solomon Islands
+    # Vanuatu
+    # They are not part of the 6 regions (Asia, Africa, NA,
+    # LAC, Europe, AUS&NZ), nor are they part of the
+    # developing, emerging, developed world.
+    for country in ["NC", "FJ", "SB", "VU"]:
+        del country_specific_scc[country]
+    # NaN is also removed
+    del country_specific_scc["NaN"]
+    return country_specific_scc
+
+
 def calculate_country_specific_scc_data(
     unilateral_actor=None,
     ext="",
@@ -25,7 +43,7 @@ def calculate_country_specific_scc_data(
     ][chosen_s2_scenario]
 
     # In dollars/tCO2
-    country_specific_scc = util.read_json("plots/country_specific_scc.json")
+    country_specific_scc = read_country_specific_scc_filtered()
     total_scc = sum(country_specific_scc.values())
 
     (
@@ -126,16 +144,8 @@ def calculate_country_specific_scc_data(
             bs_region[unilateral_actor].append(benefit_climate_club)
             names_region[unilateral_actor].append(unilateral_actor)
 
+    cumulative_benefit = 0.0  # For sanity check
     for country, unscaled_scc in country_specific_scc.items():
-        if country in ["NC", "FJ", "SB", "VU"]:
-            # Skipping, because they are in Oceania:
-            # New Caledonia
-            # Fiji
-            # Solomon Islands
-            # Vanuatu
-            continue
-        if country == "NaN":
-            continue
         if country not in costs_dict:
             c = 0.0
         else:
@@ -154,6 +164,7 @@ def calculate_country_specific_scc_data(
         else:
             # Global action
             b = cs_scc_scale * global_benefit
+        cumulative_benefit += b
 
         net_benefit = b - c
         table = pd.concat(
@@ -208,6 +219,13 @@ def calculate_country_specific_scc_data(
     print("No cost", len(no_cost), no_cost)
     print("benefit >= cost", len(benefit_greater_than_cost), benefit_greater_than_cost)
     print("cost < benefit", len(costly), costly)
+
+    # Sanity check
+    if unilateral_actor is not None and len(unilateral_actor) == 2:
+        # The unilateral actor is a country
+        ratio1 = cumulative_benefit / global_benefit
+        ratio2 = unilateral_emissions_GtCO2 / 1425.5475784377522
+        assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
@@ -311,14 +329,11 @@ def do_country_specific_scc_part4():
     )
 
     # Sanity check
-    # The actual full global benefit is 114.04380627502013, but it is less
-    # because we skip NC, FJ, SB, VU, and NaN country in the
-    # country_specific_scc.json
     actual_global_benefit = sum(sum(b) for b in bs.values())
-    assert math.isclose(actual_global_benefit, 113.9984096511258), actual_global_benefit
+    assert math.isclose(actual_global_benefit, 114.04380627502013), actual_global_benefit
     actual_global_benefit = sum(sum(b) for b in bs_region.values())
     assert math.isclose(
-        actual_global_benefit, 113.97973133450103
+        actual_global_benefit, 114.04380627502013
     ), actual_global_benefit
 
     plt.figure()
@@ -404,7 +419,7 @@ def do_country_specific_scc_part5():
             )
             cs_region_combined[group] = do_round(sum(cs_region[group]))
             bs_region_combined[group] = do_round(sum(bs_region[group]))
-            # group is the country doing the unilateral action, while the
+            # group is the entity doing the unilateral action, while the
             # regions inside the dict is the one who gets benefit with zero
             # cost.
             zerocost[group] = {
@@ -413,12 +428,12 @@ def do_country_specific_scc_part5():
             unilateral_emissions_cumulative += unilateral_emissions_GtCO2
 
         # Sanity check
-        # It's not 1425.55 because XK is excluded.
-        assert math.isclose(unilateral_emissions_cumulative, 1424.716619437389)
+        # It's not 1425.55 because XK is excluded from the 6 regions.
+        assert math.isclose(unilateral_emissions_cumulative, 1424.1494924127742), unilateral_emissions_cumulative
 
         # This code chunk is used to calculate global_benefit_by_region
         global_benefit = calculate_global_benefit()
-        scc_dict = util.read_json("plots/country_specific_scc.json")
+        scc_dict = read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         iso3166_df = util.read_iso3166()
         region_countries_map, _ = analysis_main.prepare_regions_for_climate_financing(
@@ -435,11 +450,6 @@ def do_country_specific_scc_part5():
             # Benefit to 1 region if everyone in the world takes action
             global_benefit_by_region[region] = do_round(global_benefit * scc_scale)
 
-        # Sanity check. It's not 114.04 because NC, FJ, SB, VU, and NaN country
-        # are not included in global_benefit_by_region.
-        sum_global_benefit_by_region = sum(global_benefit_by_region.values())
-        assert math.isclose(sum_global_benefit_by_region, 113.979732), sum_global_benefit_by_region
-
         with open(fname, "w") as f:
             json.dump(
                 {
@@ -450,6 +460,11 @@ def do_country_specific_scc_part5():
                 },
                 f,
             )
+
+    # Sanity check
+    # It's not 114.04 likely because XK is not part of the 6 regions.
+    sum_global_benefit_by_region = sum(global_benefit_by_region.values())
+    assert math.isclose(sum_global_benefit_by_region, 114.02512000000002), sum_global_benefit_by_region
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -625,7 +640,7 @@ def do_country_specific_scc_part6():
 
         # This code chunk is used to calculate global_benefit_by_country
         global_benefit = calculate_global_benefit()
-        scc_dict = util.read_json("plots/country_specific_scc.json")
+        scc_dict = read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         global_benefit_by_country = {}
         # End of global_benefit_by_country preparation
@@ -815,7 +830,7 @@ def do_country_specific_scc_part7():
 
     # This code chunk is used to calculate global_benefit_by_country
     global_benefit = calculate_global_benefit()
-    scc_dict = util.read_json("plots/country_specific_scc.json")
+    scc_dict = read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     # End of global_benefit_by_country preparation
 
@@ -916,7 +931,7 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
         # do_country_specific_scc_part4()
-        # do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
+        do_country_specific_scc_part5()
+        # do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
         exit()
