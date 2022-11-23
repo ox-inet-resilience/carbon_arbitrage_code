@@ -67,9 +67,16 @@ def calculate_country_specific_scc_data(
         "Developing Countries",
         "Emerging Market Countries",
     ]
+    levels_map = {
+        "Developed Countries": developed_country_shortnames,
+        "Developing Countries": developING_country_shortnames,
+        "Emerging Market Countries": emerging_country_shortnames,
+    }
+
     isa_climate_club = unilateral_actor in (levels + regions)
     cost_climate_club = None
     benefit_climate_club = None
+    benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
         unilateral_benefit = util.read_json("cache/unilateral_benefit_trillion.json")
@@ -78,26 +85,35 @@ def calculate_country_specific_scc_data(
             cost_climate_club = 0.0
             benefit_climate_club = 0.0
             if unilateral_actor in levels:
-                group = {
-                    "Developed Countries": developed_country_shortnames,
-                    "Developing Countries": developING_country_shortnames,
-                    "Emerging Market Countries": emerging_country_shortnames,
-                }[unilateral_actor]
+                group = levels_map[unilateral_actor]
             else:
                 group = region_countries_map[unilateral_actor]
             for country in group:
                 if country not in unilateral_benefit:
                     # Skip if we don't have the data for it.
                     continue
-                benefit_of_country_doing_the_action = unilateral_benefit[country]
+                # TODO we should have just used a JSON data of unilateral
+                # emissions.
+                ub = unilateral_benefit[country]
                 scc = (
                     country_specific_scc[country]
                     / total_scc
                     * util.social_cost_of_carbon
                 )
-                unilateral_emissions += benefit_of_country_doing_the_action / scc
-                benefit_climate_club += benefit_of_country_doing_the_action
+                unilateral_emissions += ub / scc
                 cost_climate_club += costs_dict[country]
+            # We have to first sum the emissions across the countries, in order
+            # to get the benefit of the climate club.
+            for country in group:
+                if country not in country_specific_scc:
+                    # Skip if we don't have scc data of the country.
+                    continue
+                scc = (
+                    country_specific_scc[country]
+                    / total_scc
+                    * util.social_cost_of_carbon
+                )
+                benefit_climate_club += unilateral_emissions * scc
         else:
             benefit_of_country_doing_the_action = unilateral_benefit[unilateral_actor]
             scc = (
@@ -134,32 +150,33 @@ def calculate_country_specific_scc_data(
             "country_specific_scc",
         ]
     )
+    climate_club_countries = None
     if isa_climate_club:
         if unilateral_actor in levels:
-            cs[unilateral_actor].append(cost_climate_club)
-            bs[unilateral_actor].append(benefit_climate_club)
-            names[unilateral_actor].append(unilateral_actor)
+            climate_club_countries = levels_map[unilateral_actor]
         else:
-            cs_region[unilateral_actor].append(cost_climate_club)
-            bs_region[unilateral_actor].append(benefit_climate_club)
-            names_region[unilateral_actor].append(unilateral_actor)
+            climate_club_countries = region_countries_map[unilateral_actor]
 
     cumulative_benefit = 0.0  # For sanity check
+    actual_size = 0  # For sanity check
     for country, unscaled_scc in country_specific_scc.items():
         if country not in costs_dict:
             c = 0.0
         else:
             c = costs_dict[country]
             if unilateral_actor is not None:
-                if country != unilateral_actor:
+                if isa_climate_club:
+                    if country not in climate_club_countries:
+                        c = 0.0
+                elif country != unilateral_actor:
+                    # unilateral_actor is 1 country
                     c = 0.0
         cs_scc_scale = unscaled_scc / total_scc
         if unilateral_actor is not None:
-            # Freeloader benefit
             scc = util.social_cost_of_carbon * cs_scc_scale
             b = unilateral_emissions * scc
-            if unilateral_actor == country:
-                # Sanity check for the country doing the action
+            if not isa_climate_club and unilateral_actor == country:
+                # Sanity check for when the unilateral actor is 1 country only.
                 assert math.isclose(b, benefit_of_country_doing_the_action)
         else:
             # Global action
@@ -209,23 +226,50 @@ def calculate_country_specific_scc_data(
         else:
             print("Skipping", country)
 
+        part_of_region = False
         for region in regions:
             if country in region_countries_map[region]:
                 cs_region[region].append(c)
                 bs_region[region].append(b)
                 names_region[region].append(country)
+                part_of_region = True
                 break
+        if not part_of_region:
+            print("Not part of any region", country)
     print("country-specific country count", len(country_specific_scc))
-    print("No cost", len(no_cost), no_cost)
+    print("No cost", len(no_cost))
     print("benefit >= cost", len(benefit_greater_than_cost), benefit_greater_than_cost)
     print("cost < benefit", len(costly), costly)
+    actual_size += len(no_cost) + len(benefit_greater_than_cost) + len(costly)
+    assert actual_size == len(country_specific_scc), (actual_size, len(country_specific_scc))
 
     # Sanity check
-    if unilateral_actor is not None and len(unilateral_actor) == 2:
-        # The unilateral actor is a country
-        ratio1 = cumulative_benefit / global_benefit
-        ratio2 = unilateral_emissions_GtCO2 / 1425.5475784377522
-        assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
+    if unilateral_actor is not None:
+        if not isa_climate_club:
+            # The unilateral actor is a country
+            ratio1 = cumulative_benefit / global_benefit
+            global_emissions = 1425.5475784377522
+            ratio2 = unilateral_emissions_GtCO2 / global_emissions
+            assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
+        else:
+            # Unilateral action is either a region or level of development.
+            # We don't test based on region, because PG and WS are not part of
+            # the 6 regions.
+            # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
+            world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
+            # Check that the computed world scc corresponds to the original world scc.
+            actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
+            assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+
+            if unilateral_actor in levels:
+                assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
+                assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
+            else:
+                # Region
+                actual = sum(cs_region[unilateral_actor])
+                assert math.isclose(cost_climate_club, actual), (cost_climate_club, actual)
+                actual = sum(bs_region[unilateral_actor])
+                assert math.isclose(benefit_climate_club, actual), (benefit_climate_club, actual)
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
@@ -236,6 +280,7 @@ def calculate_country_specific_scc_data(
 
 
 def do_country_specific_scc_part3():
+    raise Exception("This is not yet sanity checked")
     emerging = "Emerging Market Countries"
     (
         cs_emerging,
@@ -271,13 +316,8 @@ def do_country_specific_scc_part3():
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     plt.sca(axs[0])
     for level, c in cs_emerging.items():
-        if level == emerging:
-            idx = names_emerging[level].index(emerging)
-            total_c = c[idx]
-            total_b = bs_emerging[level][idx]
-        else:
-            total_c = sum(c)
-            total_b = sum(bs_emerging[level])
+        total_c = sum(c)
+        total_b = sum(bs_emerging[level])
         plt.plot(
             total_c, total_b, linewidth=0, marker="o", label=level, fillstyle="none"
         )
@@ -289,13 +329,8 @@ def do_country_specific_scc_part3():
 
     plt.sca(axs[1])
     for level, c in cs_developing.items():
-        if level == developing:
-            idx = names_developing[level].index(developing)
-            total_c = c[idx]
-            total_b = bs_developing[level][idx]
-        else:
-            total_c = sum(c)
-            total_b = sum(bs_developing[level])
+        total_c = sum(c)
+        total_b = sum(bs_developing[level])
         plt.plot(
             total_c, total_b, linewidth=0, marker="o", label=level, fillstyle="none"
         )
@@ -465,6 +500,12 @@ def do_country_specific_scc_part5():
     # It's not 114.04 likely because XK is not part of the 6 regions.
     sum_global_benefit_by_region = sum(global_benefit_by_region.values())
     assert math.isclose(sum_global_benefit_by_region, 114.02512000000002), sum_global_benefit_by_region
+
+    all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
+    all_unilateral_benefit = sum(bs_region_combined.values())
+    actual_benefit = all_freeloader_benefit + all_unilateral_benefit
+    # TODO this should have been 114
+    assert math.isclose(actual_benefit, 113.91329200000001), actual_benefit
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -930,8 +971,8 @@ if __name__ == "__main__":
     if 1:
         # country specific scc
         # do_country_specific_scc_part3()
-        # do_country_specific_scc_part4()
+        do_country_specific_scc_part4()
         do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
-        # do_country_specific_scc_part7()
+        do_country_specific_scc_part6()
+        do_country_specific_scc_part7()
         exit()
