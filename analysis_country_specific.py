@@ -28,7 +28,22 @@ def read_country_specific_scc_filtered():
     return country_specific_scc
 
 
-def _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_club, bs, cs, bs_region, cs_region, unilateral_emissions, cumulative_benefit, global_benefit, global_emissions, unilateral_emissions_GtCO2, levels, cost_climate_club, benefit_climate_club):
+def _do_sanity_check_for_calculate_cs_scc_data(
+    unilateral_actor,
+    isa_climate_club,
+    bs,
+    cs,
+    bs_region,
+    cs_region,
+    unilateral_emissions,
+    cumulative_benefit,
+    global_benefit,
+    global_emissions,
+    unilateral_emissions_GtCO2,
+    levels,
+    cost_climate_club,
+    benefit_climate_club,
+):
     if unilateral_actor is not None:
         # We don't test based on region, because PG and WS are not part of
         # the 6 regions.
@@ -36,7 +51,9 @@ def _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_clu
         world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
         # Check that the computed world scc corresponds to the original world scc.
         actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
-        assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+        assert math.isclose(
+            actual_world_scc, util.social_cost_of_carbon
+        ), actual_world_scc
         if not isa_climate_club:
             # The unilateral actor is a country
             ratio1 = cumulative_benefit / global_benefit
@@ -50,9 +67,16 @@ def _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_clu
             else:
                 # Region
                 actual = sum(cs_region[unilateral_actor])
-                assert math.isclose(cost_climate_club, actual), (cost_climate_club, actual)
+                assert math.isclose(cost_climate_club, actual), (
+                    cost_climate_club,
+                    actual,
+                )
                 actual = sum(bs_region[unilateral_actor])
-                assert math.isclose(benefit_climate_club, actual), (benefit_climate_club, actual)
+                assert math.isclose(benefit_climate_club, actual), (
+                    benefit_climate_club,
+                    actual,
+                )
+
 
 def calculate_country_specific_scc_data(
     unilateral_actor=None,
@@ -67,7 +91,9 @@ def calculate_country_specific_scc_data(
     global_benefit = out[
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     ][chosen_s2_scenario]
-    global_emissions = out["Total emissions avoided including residual (GtCO2)"][chosen_s2_scenario]
+    global_emissions = out["Total emissions avoided including residual (GtCO2)"][
+        chosen_s2_scenario
+    ]
 
     # In dollars/tCO2
     country_specific_scc = read_country_specific_scc_filtered()
@@ -268,10 +294,28 @@ def calculate_country_specific_scc_data(
     print("benefit >= cost", len(benefit_greater_than_cost), benefit_greater_than_cost)
     print("cost < benefit", len(costly), costly)
     actual_size += len(no_cost) + len(benefit_greater_than_cost) + len(costly)
-    assert actual_size == len(country_specific_scc), (actual_size, len(country_specific_scc))
+    assert actual_size == len(country_specific_scc), (
+        actual_size,
+        len(country_specific_scc),
+    )
 
     # Sanity check
-    _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_club, bs, cs, bs_region, cs_region, unilateral_emissions, cumulative_benefit, global_benefit, global_emissions, unilateral_emissions_GtCO2, levels, cost_climate_club, benefit_climate_club)
+    _do_sanity_check_for_calculate_cs_scc_data(
+        unilateral_actor,
+        isa_climate_club,
+        bs,
+        cs,
+        bs_region,
+        cs_region,
+        unilateral_emissions,
+        cumulative_benefit,
+        global_benefit,
+        global_emissions,
+        unilateral_emissions_GtCO2,
+        levels,
+        cost_climate_club,
+        benefit_climate_club,
+    )
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
@@ -367,13 +411,13 @@ def do_country_specific_scc_part4():
 
     # Sanity check
     actual_global_benefit = sum(sum(b) for b in bs.values())
-    assert math.isclose(actual_global_benefit, 114.04380627502013), actual_global_benefit
+    assert math.isclose(
+        actual_global_benefit, 114.04380627502013
+    ), actual_global_benefit
     actual_global_benefit = sum(sum(b) for b in bs_region.values())
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
-    assert math.isclose(
-        actual_global_benefit, 114.025120520287
-    ), actual_global_benefit
+    assert math.isclose(actual_global_benefit, 114.025120520287), actual_global_benefit
 
     plt.figure()
     ax = plt.gca()
@@ -468,7 +512,9 @@ def do_country_specific_scc_part5():
 
         # Sanity check
         # It's not 1425.55 because XK is excluded from the 6 regions.
-        assert math.isclose(unilateral_emissions_cumulative, 1424.1494924127742), unilateral_emissions_cumulative
+        assert math.isclose(
+            unilateral_emissions_cumulative, 1424.1494924127742
+        ), unilateral_emissions_cumulative
 
         # This code chunk is used to calculate global_benefit_by_region
         global_benefit = calculate_global_benefit()
@@ -504,7 +550,9 @@ def do_country_specific_scc_part5():
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
     sum_global_benefit_by_region = sum(global_benefit_by_region.values())
-    assert math.isclose(sum_global_benefit_by_region, 114.02512000000002), sum_global_benefit_by_region
+    assert math.isclose(
+        sum_global_benefit_by_region, 114.02512000000002
+    ), sum_global_benefit_by_region
 
     all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
     all_unilateral_benefit = sum(bs_region_combined.values())
@@ -694,7 +742,10 @@ def do_country_specific_scc_part6():
         expected = cumulative_emissions / 1e3 * util.social_cost_of_carbon
         # It is only approximately the same with 1e-5 tolerance, because the
         # benefit is rounded to 6 decimal points. See the previous lines.
-        assert math.isclose(actual_benefit, expected, rel_tol=1e-5), (actual_benefit, expected)
+        assert math.isclose(actual_benefit, expected, rel_tol=1e-5), (
+            actual_benefit,
+            expected,
+        )
 
         # This code chunk is used to calculate global_benefit_by_country
         global_benefit = calculate_global_benefit()
@@ -919,7 +970,10 @@ def do_country_specific_scc_part7():
     # Sanity check
     world_benefit_from_unilateral_action = zerocost_benefit_world + benefit_country
     expected = unilateral_emissions * util.social_cost_of_carbon
-    assert math.isclose(world_benefit_from_unilateral_action, expected), (world_benefit_from_unilateral_action, expected)
+    assert math.isclose(world_benefit_from_unilateral_action, expected), (
+        world_benefit_from_unilateral_action,
+        expected,
+    )
 
     right = 2.5
     fig, axs = plt.subplots(
@@ -1012,8 +1066,8 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
 
-        # do_country_specific_scc_part4()
-        # do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
+        do_country_specific_scc_part4()
+        do_country_specific_scc_part5()
+        do_country_specific_scc_part6()
         do_country_specific_scc_part7()
         exit()
