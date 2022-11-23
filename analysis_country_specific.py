@@ -367,8 +367,10 @@ def do_country_specific_scc_part4():
     actual_global_benefit = sum(sum(b) for b in bs.values())
     assert math.isclose(actual_global_benefit, 114.04380627502013), actual_global_benefit
     actual_global_benefit = sum(sum(b) for b in bs_region.values())
+    # This is not 114.04, because PG and WS are not part of the 6 regions (they
+    # are in Oceania).
     assert math.isclose(
-        actual_global_benefit, 114.04380627502013
+        actual_global_benefit, 114.025120520287
     ), actual_global_benefit
 
     plt.figure()
