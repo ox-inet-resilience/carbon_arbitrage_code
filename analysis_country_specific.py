@@ -28,6 +28,32 @@ def read_country_specific_scc_filtered():
     return country_specific_scc
 
 
+def _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_club, bs, cs, bs_region, cs_region, unilateral_emissions, cumulative_benefit, global_benefit, global_emissions, unilateral_emissions_GtCO2, levels, cost_climate_club, benefit_climate_club):
+    if unilateral_actor is not None:
+        # We don't test based on region, because PG and WS are not part of
+        # the 6 regions.
+        # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
+        world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
+        # Check that the computed world scc corresponds to the original world scc.
+        actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
+        assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+        if not isa_climate_club:
+            # The unilateral actor is a country
+            ratio1 = cumulative_benefit / global_benefit
+            ratio2 = unilateral_emissions_GtCO2 / global_emissions
+            assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
+        else:
+            # Unilateral action is either a region or level of development.
+            if unilateral_actor in levels:
+                assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
+                assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
+            else:
+                # Region
+                actual = sum(cs_region[unilateral_actor])
+                assert math.isclose(cost_climate_club, actual), (cost_climate_club, actual)
+                actual = sum(bs_region[unilateral_actor])
+                assert math.isclose(benefit_climate_club, actual), (benefit_climate_club, actual)
+
 def calculate_country_specific_scc_data(
     unilateral_actor=None,
     ext="",
@@ -245,30 +271,7 @@ def calculate_country_specific_scc_data(
     assert actual_size == len(country_specific_scc), (actual_size, len(country_specific_scc))
 
     # Sanity check
-    if unilateral_actor is not None:
-        # We don't test based on region, because PG and WS are not part of
-        # the 6 regions.
-        # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
-        world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
-        # Check that the computed world scc corresponds to the original world scc.
-        actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
-        assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
-        if not isa_climate_club:
-            # The unilateral actor is a country
-            ratio1 = cumulative_benefit / global_benefit
-            ratio2 = unilateral_emissions_GtCO2 / global_emissions
-            assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
-        else:
-            # Unilateral action is either a region or level of development.
-            if unilateral_actor in levels:
-                assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
-                assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
-            else:
-                # Region
-                actual = sum(cs_region[unilateral_actor])
-                assert math.isclose(cost_climate_club, actual), (cost_climate_club, actual)
-                actual = sum(bs_region[unilateral_actor])
-                assert math.isclose(benefit_climate_club, actual), (benefit_climate_club, actual)
+    _do_sanity_check_for_calculate_cs_scc_data(unilateral_actor, isa_climate_club, bs, cs, bs_region, cs_region, unilateral_emissions, cumulative_benefit, global_benefit, global_emissions, unilateral_emissions_GtCO2, levels, cost_climate_club, benefit_climate_club)
 
     if to_csv:
         table = table.sort_values(by="net_benefit", ascending=False)
