@@ -441,6 +441,11 @@ def do_country_specific_scc_part5():
             # Benefit to 1 region if everyone in the world takes action
             global_benefit_by_region[region] = do_round(global_benefit * scc_scale)
 
+        # Sanity check. It's not 114.04 because NC, FJ, SB, VU, and NaN country
+        # are not included in global_benefit_by_region.
+        sum_global_benefit_by_region = sum(global_benefit_by_region.values())
+        assert math.isclose(sum_global_benefit_by_region, 113.979732), sum_global_benefit_by_region
+
         with open(fname, "w") as f:
             json.dump(
                 {
@@ -916,9 +921,9 @@ def do_country_specific_scc_part7():
 if __name__ == "__main__":
     if 1:
         # country specific scc
-        do_country_specific_scc_part3()
-        do_country_specific_scc_part4()
+        # do_country_specific_scc_part3()
+        # do_country_specific_scc_part4()
         do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
-        do_country_specific_scc_part7()
+        # do_country_specific_scc_part6()
+        # do_country_specific_scc_part7()
         exit()
