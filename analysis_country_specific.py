@@ -410,6 +410,7 @@ def do_country_specific_scc_part4():
     )
 
     # Sanity check
+    # 114.04 is the global benefit under baseline settings.
     actual_global_benefit = sum(sum(b) for b in bs.values())
     assert math.isclose(
         actual_global_benefit, 114.04380627502013
@@ -418,6 +419,12 @@ def do_country_specific_scc_part4():
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
     assert math.isclose(actual_global_benefit, 114.025120520287), actual_global_benefit
+    # Cost
+    global_cost = 29.03104345418096  # Hardcoded for fast computation.
+    # Cost for Kosovo. To be excluded.
+    cost_XK = 0.03241056086650181
+    actual = sum(sum(c) for c in cs.values())
+    assert math.isclose(actual, global_cost - cost_XK)
 
     plt.figure()
     ax = plt.gca()
@@ -527,7 +534,7 @@ def do_country_specific_scc_part5():
         global_benefit_by_region = {}
         # End of global_benefit_by_region preparation
 
-        for region, c in cs_region_combined.items():
+        for region in cs_region_combined.keys():
             countries = region_countries_map[region]
             scc_scale = (
                 sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
@@ -550,15 +557,24 @@ def do_country_specific_scc_part5():
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
     sum_global_benefit_by_region = sum(global_benefit_by_region.values())
+    # rel_tol is 1e-6 because previously we round everything to 6 decimals.
     assert math.isclose(
-        sum_global_benefit_by_region, 114.02512000000002
+        sum_global_benefit_by_region, 114.025120, rel_tol=1e-6
     ), sum_global_benefit_by_region
 
     all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
     all_unilateral_benefit = sum(bs_region_combined.values())
     actual_benefit = all_freeloader_benefit + all_unilateral_benefit
     # TODO this should have been 114
-    assert math.isclose(actual_benefit, 113.91329200000001), actual_benefit
+    # rel_tol is 1e-6 because previously we round everything to 6 decimals.
+    assert math.isclose(actual_benefit, 113.913292, rel_tol=1e-6), actual_benefit
+    # Cost
+    global_cost = 29.03104345418096  # Hardcoded for fast computation.
+    # Cost for Kosovo. To be excluded.
+    cost_XK = 0.03241056086650181
+    actual = sum(cs_region_combined.values())
+    # rel_tol is 1e-6 because previously we round everything to 6 decimals.
+    assert math.isclose(actual, global_cost - cost_XK, rel_tol=1e-6)
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -1066,8 +1082,8 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
 
-        do_country_specific_scc_part4()
+        # do_country_specific_scc_part4()
         do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
-        do_country_specific_scc_part7()
+        # do_country_specific_scc_part6()
+        # do_country_specific_scc_part7()
         exit()
