@@ -41,6 +41,7 @@ def calculate_country_specific_scc_data(
     global_benefit = out[
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     ][chosen_s2_scenario]
+    global_emissions = out["Total emissions avoided including residual (GtCO2)"][chosen_s2_scenario]
 
     # In dollars/tCO2
     country_specific_scc = read_country_specific_scc_filtered()
@@ -248,7 +249,6 @@ def calculate_country_specific_scc_data(
         if not isa_climate_club:
             # The unilateral actor is a country
             ratio1 = cumulative_benefit / global_benefit
-            global_emissions = 1425.5475784377522
             ratio2 = unilateral_emissions_GtCO2 / global_emissions
             assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
         else:
