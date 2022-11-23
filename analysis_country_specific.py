@@ -14,7 +14,6 @@ def calculate_country_specific_scc_data(
     unilateral_actor=None,
     ext="",
     to_csv=True,
-    do_beyond_61_countries_from_masterdata=False,
 ):
     chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
     costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
@@ -146,11 +145,6 @@ def calculate_country_specific_scc_data(
                     c = 0.0
         cs_scc_scale = unscaled_scc / total_scc
         if unilateral_actor is not None:
-            # Unilateral action
-            if (not do_beyond_61_countries_from_masterdata) and (
-                country not in unilateral_benefit
-            ):
-                continue
             # Freeloader benefit
             scc = util.social_cost_of_carbon * cs_scc_scale
             b = unilateral_emissions * scc
@@ -778,7 +772,6 @@ def do_country_specific_scc_part7():
         unilateral_actor=country_doing_action,
         ext="",
         to_csv=False,
-        do_beyond_61_countries_from_masterdata=True,
     )
     cost_country = None
     benefit_country = None
@@ -923,7 +916,7 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
         # do_country_specific_scc_part4()
-        do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
+        # do_country_specific_scc_part5()
+        do_country_specific_scc_part6()
         # do_country_specific_scc_part7()
         exit()
