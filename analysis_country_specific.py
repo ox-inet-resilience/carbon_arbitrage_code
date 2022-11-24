@@ -44,7 +44,9 @@ def _do_sanity_check_for_calculate_cs_scc_data(
     cost_climate_club,
     benefit_climate_club,
 ):
+    # Sanity check
     if unilateral_actor is not None:
+        # SC1
         # We don't test based on region, because PG and WS are not part of
         # the 6 regions.
         # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
@@ -54,13 +56,16 @@ def _do_sanity_check_for_calculate_cs_scc_data(
         assert math.isclose(
             actual_world_scc, util.social_cost_of_carbon
         ), actual_world_scc
+        # SC2
         if not isa_climate_club:
             # The unilateral actor is a country
+            # Cumulative benefit is the unilateral benefit of the country.
             ratio1 = cumulative_benefit / global_benefit
             ratio2 = unilateral_emissions_GtCO2 / global_emissions
             assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
         else:
             # Unilateral action is either a region or level of development.
+            # Double checking that they add up to the same amount
             if unilateral_actor in levels:
                 assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
                 assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
@@ -229,6 +234,7 @@ def calculate_country_specific_scc_data(
             scc = util.social_cost_of_carbon * cs_scc_scale
             b = unilateral_emissions * scc
             if not isa_climate_club and unilateral_actor == country:
+                # SC3
                 # Sanity check for when the unilateral actor is 1 country only.
                 assert math.isclose(b, benefit_of_country_doing_the_action)
         else:
@@ -410,6 +416,8 @@ def do_country_specific_scc_part4():
     )
 
     # Sanity check
+    # SC4
+    # The circles in the plot add up to baseline global benefit.
     # 114.04 is the global benefit under baseline settings.
     actual_global_benefit = sum(sum(b) for b in bs.values())
     assert math.isclose(
@@ -419,6 +427,7 @@ def do_country_specific_scc_part4():
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
     assert math.isclose(actual_global_benefit, 114.025120520287), actual_global_benefit
+    # SC5
     # Cost
     global_cost = 29.03104345418096  # Hardcoded for fast computation.
     # Cost for Kosovo. To be excluded.
@@ -518,6 +527,8 @@ def do_country_specific_scc_part5():
             unilateral_emissions_cumulative += unilateral_emissions_GtCO2
 
         # Sanity check
+        # SC6
+        # Make sure the unilateral emissions, if summed, is the same as baseline result.
         # It's not 1425.55 because XK is excluded from the 6 regions.
         assert math.isclose(
             unilateral_emissions_cumulative, 1424.1494924127742
@@ -554,6 +565,8 @@ def do_country_specific_scc_part5():
             )
 
     # Sanity check
+    # SC7
+    # The closed circles in the plot add up to baseline global benefit.
     # This is not 114.04, because PG and WS are not part of the 6 regions (they
     # are in Oceania).
     sum_global_benefit_by_region = sum(global_benefit_by_region.values())
@@ -561,13 +574,16 @@ def do_country_specific_scc_part5():
     assert math.isclose(
         sum_global_benefit_by_region, 114.025120, rel_tol=1e-6
     ), sum_global_benefit_by_region
-
+    # SC8
+    # The open circles and the lots of circles in the left plot add up to
+    # baseline global benefit.
     all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
     all_unilateral_benefit = sum(bs_region_combined.values())
     actual_benefit = all_freeloader_benefit + all_unilateral_benefit
     # TODO this should have been 114
     # rel_tol is 1e-6 because previously we round everything to 6 decimals.
     assert math.isclose(actual_benefit, 113.913292, rel_tol=1e-6), actual_benefit
+    # SC9
     # Cost
     global_cost = 29.03104345418096  # Hardcoded for fast computation.
     # Cost for Kosovo. To be excluded.
@@ -751,6 +767,7 @@ def do_country_specific_scc_part6():
             zerocost[country_doing_action] = _dict
 
         # Sanity check
+        # SC10
         # This is unilateral action by top9, but benefit to the world.
         all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
         all_unilateral_benefit = sum(bs_combined.values())
@@ -788,7 +805,9 @@ def do_country_specific_scc_part6():
             )
 
     # Sanity check
+    # SC11
     # Hardcoded for fast sanity check computation.
+    # Global deal but benefit only to top9
     global_benefit = 114.04380627502013
     sum_global_benefit_by_country = sum(global_benefit_by_country.values())
     scc_dict = read_country_specific_scc_filtered()
@@ -984,6 +1003,7 @@ def do_country_specific_scc_part7():
     )
 
     # Sanity check
+    # SC12
     world_benefit_from_unilateral_action = zerocost_benefit_world + benefit_country
     expected = unilateral_emissions * util.social_cost_of_carbon
     assert math.isclose(world_benefit_from_unilateral_action, expected), (
@@ -1082,8 +1102,8 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
 
-        # do_country_specific_scc_part4()
+        do_country_specific_scc_part4()
         do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
-        # do_country_specific_scc_part7()
+        do_country_specific_scc_part6()
+        do_country_specific_scc_part7()
         exit()
