@@ -2576,7 +2576,7 @@ def do_website_sensitivity_analysis():
                         out_dict[learning_curve][str(lifetime)][coal_replacement][
                             str(last_year)
                         ][rho_mode] = dict(all_scs_output)
-    with open("sensitivity_analysis_result.json", "w") as f:
+    with open("cache/sensitivity_analysis_result.json", "w") as f:
         json.dump(out_dict, f, separators=(",", ":"))
 
 
@@ -2653,7 +2653,7 @@ def do_website_sensitivity_analysis_climate_financing():
 
     util.run_parallel_ncpus(8, fn, params_flat, ())
 
-    with open("plots/website_sensitivity_climate_financing.json", "w") as f:
+    with open("cache/website_sensitivity_climate_financing.json", "w") as f:
         json.dump(dict(output), f, separators=(",", ":"))
 
     # Reenable residual benefit again
@@ -2706,7 +2706,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
         fn(param)
 
     util.write_small_json(
-        dict(output), "plots/website_sensitivity_opportunity_costs_phase_out.json"
+        dict(output), "cache/website_sensitivity_opportunity_costs_phase_out.json"
     )
 
 
