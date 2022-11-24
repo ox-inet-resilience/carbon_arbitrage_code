@@ -567,8 +567,8 @@ def do_country_specific_scc_part5():
     # Sanity check
     # SC7
     # The closed circles in the plot add up to baseline global benefit.
-    # This is not 114.04, because PG and WS are not part of the 6 regions (they
-    # are in Oceania).
+    # This is not 114.04 (baseline number), because PG and WS are not part of
+    # the 6 regions (they are in Oceania).
     sum_global_benefit_by_region = sum(global_benefit_by_region.values())
     # rel_tol is 1e-6 because previously we round everything to 6 decimals.
     assert math.isclose(
@@ -580,7 +580,8 @@ def do_country_specific_scc_part5():
     all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
     all_unilateral_benefit = sum(bs_region_combined.values())
     actual_benefit = all_freeloader_benefit + all_unilateral_benefit
-    # TODO this should have been 114
+    # This is not 114.04, because PG, WS, and XK are excluded. If they are
+    # temporarily included, this should be 114.04.
     # rel_tol is 1e-6 because previously we round everything to 6 decimals.
     assert math.isclose(actual_benefit, 113.913292, rel_tol=1e-6), actual_benefit
     # SC9
