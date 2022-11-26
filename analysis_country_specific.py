@@ -1100,6 +1100,12 @@ def do_country_specific_scc_part7(last_year=None):
     # plt.tight_layout()
 
     util.savefig("country_specific_scatter_part7", tight=True)
+    return {
+        "unilateral_cost": cost_country,
+        "unilateral_benefit": benefit_country,
+        "global_benefit_country": global_benefit_country,
+        "zerocost": zerocost,
+    }
 
 
 if __name__ == "__main__":
