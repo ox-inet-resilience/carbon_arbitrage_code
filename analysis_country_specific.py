@@ -140,7 +140,7 @@ def calculate_country_specific_scc_data(
     benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        unilateral_benefit = util.read_json("cache/unilateral_benefit_trillion.json")
+        unilateral_benefit = util.read_json(f"cache/unilateral_benefit_trillion_{last_year}.json")
         if isa_climate_club:
             unilateral_emissions = 0.0
             cost_climate_club = 0.0
