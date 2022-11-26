@@ -147,8 +147,9 @@ for year in years_masterdata:
     production = tonnes_coal / 1e9  # convert to giga tonnes of coal
     total_production_by_year_masterdata.append(production)
 
+ic_usa = 7231
 
-def calculate(rho_mode, do_plot=False):
+def calculate(rho_mode, do_plot=False, full_version=False):
     scenario = "Net Zero 2050"
     NGFS_PEG_YEAR = 2023
 
@@ -200,8 +201,6 @@ def calculate(rho_mode, do_plot=False):
         for i, wl in enumerate(wage_lost_series)
     )
 
-    ic_usa = 7231
-
     opportunity_cost_by_country = {}
     retraining_cost_by_country = {}
     rhos = [util.calculate_discount(rho, i + 1) for i in range(len(wage_lost_series))]
@@ -245,12 +244,17 @@ def calculate(rho_mode, do_plot=False):
         plt.ylabel("Compensation for lost wage (billion dollars)")
         plt.savefig("plots/coal_worker_compensation.png")
 
-    return {
+    out = {
         "compensation workers for lost wages": reduce_precision(
             opportunity_cost_by_country
         ),
         "retraining costs": reduce_precision(retraining_cost_by_country),
     }
+    # This is used in the battery branch for yearly climate financing.
+    if full_version:
+        out["wage_lost_series"] = wage_lost_series
+        out["opportunity_cost_series"] = opportunity_cost_series
+    return out
 
 
 if __name__ == "__main__":
