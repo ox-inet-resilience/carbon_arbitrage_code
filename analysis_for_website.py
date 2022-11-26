@@ -247,8 +247,28 @@ def do_website_sensitivity_analysis_opportunity_costs():
     )
 
 
+def do_website_sensitivity_cost_benefit_scatter_1country():
+    # Adapted from do_country_specific_scc_part7
+    import analysis_country_specific as acs
+    time_horizons = [2030, 2050, 2070, 2100]
+    out = {}
+    for last_year in time_horizons:
+        print(last_year)
+        if last_year == 2070:
+            analysis_main.MID_YEAR = 2070
+        elif last_year == 2030:
+            analysis_main.MID_YEAR = 2030
+        else:
+            analysis_main.MID_YEAR = 2050
+
+        result = acs.do_country_specific_scc_part7(last_year=last_year)
+        out[last_year] = result
+    util.write_small_json(out, "cache/website_sensitivity_coasian_1country.json")
+
+
 if __name__ == "__main__":
     # do_website_sensitivity_analysis()
     # do_website_sensitivity_analysis_climate_financing()
-    do_website_sensitivity_analysis_opportunity_costs()
+    # do_website_sensitivity_analysis_opportunity_costs()
+    do_website_sensitivity_cost_benefit_scatter_1country()
     exit()

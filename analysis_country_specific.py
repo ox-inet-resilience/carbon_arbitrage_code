@@ -1103,8 +1103,8 @@ def do_country_specific_scc_part7(last_year=None):
     return {
         "unilateral_cost": cost_country,
         "unilateral_benefit": benefit_country,
-        "global_benefit_country": global_benefit_country,
-        "zerocost": zerocost,
+        "global_benefit": global_benefit_country,
+        "freeloader_benefit": zerocost,
     }
 
 
