@@ -253,10 +253,11 @@ def calculate(rho_mode, do_plot=False):
     }
 
 
-calculate("default", do_plot=True)
+if __name__ == "__main__":
+    calculate("default", do_plot=True)
 
-# To be used in greatcarbonarbitrage.com
-out = {}
-for key, rho_mode in rho_mode_map.items():
-    out[key] = calculate(rho_mode)
-util.write_small_json(out, "plots/coal_worker_sensitivity_analysis.json")
+    # To be used in greatcarbonarbitrage.com
+    out = {}
+    for key, rho_mode in rho_mode_map.items():
+        out[key] = calculate(rho_mode)
+    util.write_small_json(out, "plots/coal_worker_sensitivity_analysis.json")
