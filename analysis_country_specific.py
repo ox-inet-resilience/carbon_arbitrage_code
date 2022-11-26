@@ -87,8 +87,11 @@ def calculate_country_specific_scc_data(
     unilateral_actor=None,
     ext="",
     to_csv=True,
+    last_year=None,
 ):
-    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    if last_year is None:
+        last_year = 2100
+    chosen_s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
     costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
         chosen_s2_scenario, "plots/country_specific_cost.json", ignore_cache=True
     )
@@ -925,7 +928,7 @@ def do_country_specific_scc_part6():
     util.savefig("country_specific_scatter_part6", tight=True)
 
 
-def do_country_specific_scc_part7():
+def do_country_specific_scc_part7(last_year=None):
     (
         _,
         iso3166_df_alpha2,
@@ -947,6 +950,7 @@ def do_country_specific_scc_part7():
         unilateral_actor=country_doing_action,
         ext="",
         to_csv=False,
+        last_year=last_year,
     )
     cost_country = None
     benefit_country = None
