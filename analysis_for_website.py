@@ -198,6 +198,15 @@ def do_website_sensitivity_analysis_climate_financing():
     analysis_main.ENABLE_RESIDUAL_BENEFIT = 1
 
 
+def apply_last_year(last_year):
+    if last_year == 2070:
+        analysis_main.MID_YEAR = 2070
+    elif last_year == 2030:
+        analysis_main.MID_YEAR = 2030
+    else:
+        analysis_main.MID_YEAR = 2050
+
+
 def do_website_sensitivity_analysis_opportunity_costs():
 
     (
@@ -209,16 +218,30 @@ def do_website_sensitivity_analysis_opportunity_costs():
         _,
         rho_mode_map,
     ) = initialize_website_sensitivity_analysis_params()
+    time_horizons = [2030, 2050, 2070, 2100]
 
-    params = list(rho_mode_map.keys())
+    params = []
+    for rho_mode in rho_mode_map:
+        for last_year in time_horizons:
+            params.append({
+                "rho_mode": rho_mode,
+                "last_year": last_year,
+            })
     print("Total number of params", len(params))
 
-    output = {}
+    output = mp.Manager().dict()
 
     def fn(param):
-        analysis_main.RHO_MODE = rho_mode_map[param]
+        rho_mode = param["rho_mode"]
+        last_year = param["last_year"]
+        analysis_main.RHO_MODE = rho_mode_map[rho_mode]
+        apply_last_year(last_year)
 
-        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
+        # round to 6 decimals to save space
+        def do_round(x):
+            return round(x, 6)
+
+        s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
 
         out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
         yearly_opportunity_costs = out[s2_scenario]["opportunity_cost"]
@@ -229,18 +252,17 @@ def do_website_sensitivity_analysis_opportunity_costs():
             for e in yearly_opportunity_costs:
                 # Multiplication by 1e3 converts trillion to billion
                 if isinstance(e, float):
-                    country_level_oc.append(e * 1e3)
+                    country_level_oc.append(do_round(e * 1e3))
                 elif isinstance(e, dict):
-                    country_level_oc.append(e[country_name] * 1e3)
+                    country_level_oc.append(do_round(e[country_name] * 1e3))
                 else:
                     # Pandas series
-                    country_level_oc.append(e.loc[country_name] * 1e3)
+                    country_level_oc.append(do_round(e.loc[country_name] * 1e3))
             yearly_oc_dict[country_name] = country_level_oc
 
-        output[param] = yearly_oc_dict
+        output[f"{rho_mode}_{last_year}"] = yearly_oc_dict
 
-    for param in params:
-        fn(param)
+    util.run_parallel(fn, params, ())
 
     util.write_small_json(
         dict(output), "cache/website_sensitivity_opportunity_costs_phase_out.json"
@@ -254,12 +276,7 @@ def do_website_sensitivity_cost_benefit_scatter_1country():
     out = {}
     for last_year in time_horizons:
         print(last_year)
-        if last_year == 2070:
-            analysis_main.MID_YEAR = 2070
-        elif last_year == 2030:
-            analysis_main.MID_YEAR = 2030
-        else:
-            analysis_main.MID_YEAR = 2050
+        apply_last_year(last_year)
 
         result = acs.do_country_specific_scc_part7(last_year=last_year)
         out[last_year] = result
@@ -271,4 +288,3 @@ if __name__ == "__main__":
     # do_website_sensitivity_analysis_climate_financing()
     # do_website_sensitivity_analysis_opportunity_costs()
     do_website_sensitivity_cost_benefit_scatter_1country()
-    exit()
