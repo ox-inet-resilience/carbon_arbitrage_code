@@ -15,14 +15,22 @@ def nested_dict(n, _type):
 
 def initialize_website_sensitivity_analysis_params():
     measure_map = {
-        "cao": "Carbon arbitrage including residual benefit (in trillion dollars)",
-        "cao_relative": "Carbon arbitrage including residual benefit relative to world GDP (%)",
-        "cost": "Costs of avoiding coal emissions (in trillion dollars)",
-        "benefit": "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)",
-        "production_avoided": "Total coal production avoided including residual (Giga tonnes)",
-        "emissions_avoided": "Total emissions avoided including residual (GtCO2)",
-        "opportunity_cost": "Opportunity costs represented by missed coal revenues (in trillion dollars)",
-        "investment_cost": "Investment costs in renewable energy (in trillion dollars)",
+        # We reduce the JSON output size by not including cao and cao_relative
+        # "cao": "Carbon arbitrage including residual benefit (in trillion dollars)",
+        # "cao_relative": "Carbon arbitrage including residual benefit relative to world GDP (%)",
+        # We abbreviate the keys so that they take less space.
+        # cost
+        "c": "Costs of avoiding coal emissions (in trillion dollars)",
+        # benefit
+        "b": "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)",
+        # production_avoided
+        "production": "Total coal production avoided including residual (Giga tonnes)",
+        # emissions_avoided
+        "emissions": "Total emissions avoided including residual (GtCO2)",
+        # opportunity_cost
+        "oc": "Opportunity costs represented by missed coal revenues (in trillion dollars)",
+        # investment_cost
+        "ic": "Investment costs in renewable energy (in trillion dollars)",
     }
 
     social_costs = list(range(20, 300 + 1, 20))
