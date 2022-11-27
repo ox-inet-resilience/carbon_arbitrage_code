@@ -227,6 +227,7 @@ def calculate(rho_mode, do_plot=False, full_version=False):
         sum(opportunity_cost_by_country.values()),
     )
 
+    opportunity_cost_series = wage_lost_series * 5
     if do_plot:
         print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
         print(
@@ -237,7 +238,6 @@ def calculate(rho_mode, do_plot=False, full_version=False):
             "billion dollars",
         )
 
-        opportunity_cost_series = wage_lost_series * 5
         plt.figure()
         plt.plot(years, opportunity_cost_series)
         plt.xlabel("Time")
