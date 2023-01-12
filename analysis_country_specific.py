@@ -140,7 +140,9 @@ def calculate_country_specific_scc_data(
     benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        unilateral_benefit = util.read_json(f"cache/unilateral_benefit_trillion_{last_year}.json")
+        unilateral_benefit = util.read_json(
+            f"cache/unilateral_benefit_trillion_{last_year}.json"
+        )
         if isa_climate_club:
             unilateral_emissions = 0.0
             cost_climate_club = 0.0
@@ -930,7 +932,7 @@ def do_country_specific_scc_part6():
     util.savefig("country_specific_scatter_part6", tight=True)
 
 
-def do_country_specific_scc_part7(last_year=None):
+def do_country_specific_scc_part7(country_doing_action, last_year=None):
     (
         _,
         iso3166_df_alpha2,
@@ -947,7 +949,6 @@ def do_country_specific_scc_part7(last_year=None):
     def round3(x):
         return round(x, 3)
 
-    country_doing_action = "ID"
     cs, bs, names, _, _, _, unilateral_emissions = calculate_country_specific_scc_data(
         unilateral_actor=country_doing_action,
         ext="",
@@ -1078,6 +1079,8 @@ def do_country_specific_scc_part7(last_year=None):
     y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
     # Increase y_max because the right plot has the circles at the edges.
     y_max *= 1.1
+    # Decrease y_min slightly
+    y_min *= 0.9
 
     plt.ylim(y_min, y_max)
 
@@ -1101,7 +1104,7 @@ def do_country_specific_scc_part7(last_year=None):
     )
     # plt.tight_layout()
 
-    util.savefig("country_specific_scatter_part7", tight=True)
+    util.savefig(f"country_specific_scatter_part7_{country_doing_action}", tight=True)
     return {
         "unilateral_cost": cost_country,
         "unilateral_benefit": benefit_country,
@@ -1115,8 +1118,11 @@ if __name__ == "__main__":
         # country specific scc
         # do_country_specific_scc_part3()
 
-        do_country_specific_scc_part4()
-        do_country_specific_scc_part5()
-        do_country_specific_scc_part6()
-        do_country_specific_scc_part7()
+        # do_country_specific_scc_part4()
+        # do_country_specific_scc_part5()
+        # do_country_specific_scc_part6()
+        # do_country_specific_scc_part7("ID")
+        do_country_specific_scc_part7("ZA")
+        do_country_specific_scc_part7("VN")
+
         exit()
