@@ -87,7 +87,7 @@ if 1:
 
 
 # Save the data
-if False:
+if 1:
     iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
     iso3166_df = iso3166_df.set_index("alpha-3")
     alpha3_to_2 = iso3166_df["alpha-2"].to_dict()

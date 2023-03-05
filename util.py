@@ -123,8 +123,10 @@ def savefig(sname, tight=False, svg=False):
     fpath = "plots/" + plotname
     if tight:
         plt.savefig(fpath, bbox_inches="tight")
+        plt.savefig(fpath.replace(".png", ".eps"), bbox_inches="tight", format="eps")
     else:
         plt.savefig(fpath)
+        plt.savefig(fpath.replace(".png", ".eps"), bbox_inches="tight", format="eps")
 
 
 def fill_nan_with_mean(_df, _col):

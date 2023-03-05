@@ -621,6 +621,8 @@ def do_country_specific_scc_part5():
     ax.set_prop_cycle(None)
     # Unilateral benefit
     for region, c in cs_region_combined.items():
+        if region != "Africa":
+            continue
         label = region
         plt.plot(
             mul_1000_scalar(c),
@@ -647,6 +649,8 @@ def do_country_specific_scc_part5():
     # We plot the global benefit
     ax.set_prop_cycle(None)
     for region, c in cs_region_combined.items():
+        if region != "Africa":
+            continue
         plt.plot(
             mul_1000_scalar(c),
             mul_1000_scalar(global_benefit_by_region[region]),
@@ -666,12 +670,7 @@ def do_country_specific_scc_part5():
     axis_limit = y_max + 4
     plt.xlim(20, axis_limit)
     plt.ylim(20, axis_limit)
-    plt.xlabel("PV country costs (bln dollars)")
-    fig.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.005),
-        ncol=2,
-    )
+    plt.xlabel("PV country costs ($ billions)")
     plt.tight_layout()
 
     # zerocost
@@ -683,13 +682,15 @@ def do_country_specific_scc_part5():
     transposed_xs = defaultdict(list)
     markersize = 8
     for i, (group, content) in enumerate(zerocost.items()):
+        if group != "Africa":
+            continue
         xs = [i / 5 for _ in range(len(content))]
         plt.plot(
             xs,
             mul_1000(content.values()),
             linewidth=0,
             marker="o",
-            label=group,
+            # label=group,
             fillstyle="none",
             markersize=markersize,
         )
@@ -699,15 +700,23 @@ def do_country_specific_scc_part5():
     # Reset color cycler
     ax.set_prop_cycle(None)
     for k in zerocost:
+        label = k
+        if k == "Africa":
+            label = None
         plt.plot(
             transposed_xs[k],
             mul_1000(transposed[k]),
             linewidth=0,
             marker="o",
-            label=f"{k} t",
+            label=label.replace("&", "and") if label else label,
             # fillstyle="none",
             markersize=markersize * 0.3,
         )
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=2,
+    )
 
     # Finishing touch
     x_min, x_max = ax.get_xlim()
@@ -718,13 +727,15 @@ def do_country_specific_scc_part5():
     ax.set_yticklabels([])
     plt.xticks([x_mid], [0])
     plt.subplots_adjust(wspace=0)
-    plt.ylabel("PV country benefits (bln dollars)")
+    plt.ylabel("PV country benefits ($ billions)")
 
     util.savefig("country_specific_scatter_part5", tight=True)
 
 
 def do_country_specific_scc_part6():
-    top9 = "CN US IN AU RU ID ZA DE KZ".split()
+    # Africa top9
+    top9 = "ZA MZ ZW BW TZ ZM MW NE ET".split()
+    G7 = "US JP DK GB DE IT NO".split()
 
     (
         _,
@@ -901,9 +912,10 @@ def do_country_specific_scc_part6():
     plt.sca(ax)
     ax.set_yscale("log")
     for i, (k, v) in enumerate(zerocost.items()):
+        _v = [vv for kk, vv in v.items() if kk in G7]
         plt.plot(
-            [i / 5 for _ in range(len(v))],
-            mul_1000(v.values()),
+            [i / 5 for _ in range(len(_v))],
+            mul_1000(_v),
             linewidth=0,
             marker="o",
             label=k,
@@ -1121,8 +1133,11 @@ if __name__ == "__main__":
         # do_country_specific_scc_part3()
 
         # do_country_specific_scc_part4()
-        # do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
+        # For Africa, we only do part 5 and 6
+        do_country_specific_scc_part5()
+        exit()
+        do_country_specific_scc_part6()
+        exit()
         # do_country_specific_scc_part7("ID")
         do_country_specific_scc_part7("ZA")
         do_country_specific_scc_part7("VN")
