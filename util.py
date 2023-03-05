@@ -244,19 +244,23 @@ def maybe_load_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total
         filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
         encoding = "latin1"
     if pre_existing_df is None:
+        _str_type = "string[pyarrow]"
+        # TODO We use str for now even though pyarrow is more performant. There
+        # is a bug if you use pyarrow.
+        _str_type = str
         df = pd.read_csv(
             f"data_private/{filename}",
             compression="gzip",
             encoding=encoding,
             dtype={
-                "company_name": "string[pyarrow]",
+                "company_name": _str_type,
                 "company_id": int,
-                "sector": "string[pyarrow]",
-                "technology": "string[pyarrow]",
-                "technology_type": "string[pyarrow]",
-                "asset_country": "string[pyarrow]",
-                "emissions_factor_unit": "string[pyarrow]",
-                "unit": "string[pyarrow]",
+                "sector": _str_type,
+                "technology": _str_type,
+                "technology_type": _str_type,
+                "asset_country": _str_type,
+                "emissions_factor_unit": _str_type,
+                "unit": _str_type,
             },
         )
     else:
