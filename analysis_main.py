@@ -1885,6 +1885,78 @@ def make_climate_financing_plot(
         json.dump(climate_financing_dict, f)
 
 
+def make_climate_financing_africa(
+    plotname_suffix="", ignore_cache=False, chosen_s2_scenario=None
+):
+    global nonpower_coal, power_coal
+
+    if chosen_s2_scenario is None:
+        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+
+    (
+        iso3166_df,
+        iso3166_df_alpha2,
+        developed_gdp,
+        colname_for_gdp,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+
+    git_branch = util.get_git_branch()
+
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+
+    cache_json_path = (
+        f"plots/climate_financing_yearly_discounted_{git_branch}{plotname_suffix}.json"
+    )
+    yearly_costs_dict = None
+    if ignore_cache:
+        yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
+    elif os.path.isfile(cache_json_path):
+        yearly_costs_dict = util.read_json(cache_json_path)
+    else:
+        yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
+        with open(cache_json_path, "w") as f:
+            json.dump(yearly_costs_dict, f)
+
+    def _get_year_range_cost(year_start, year_end, included_countries=None):
+        out = 0.0
+        for c, e in yearly_costs_dict.items():
+            if included_countries is not None and c not in included_countries:
+                continue
+            out += sum(e[year_start - 2022 : year_end + 1 - 2022])
+        return out
+
+    region = "Africa"
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    included_country_names = region_countries_map[region]
+    # For some reason nan is included.
+    included_country_names = [i for i in included_country_names if isinstance(i, str)]
+    top9_countries = "ZA MZ ZW BW TZ ZM MW NE ET".split()
+    plot_data = []
+    for year_start, year_end in [(NGFS_PEG_YEAR + 1, 2050), (2051, 2070), (2071, 2100)]:
+        _africa_cost = _get_year_range_cost(
+            year_start, year_end, included_country_names
+        )
+        _costs = [_africa_cost]
+        for country_name in top9_countries:
+            _costs.append(_get_year_range_cost(year_start, year_end, [country_name]))
+        plot_data.append((f"{year_start}-{year_end}", _costs))
+    xticks = ["Africa"] + [
+        alpha2_to_full_name[a2].replace("Tanzania, United Republic of", "Tanzania")
+        for a2 in top9_countries
+    ]
+    plt.figure(figsize=(6, 6))
+    util.plot_stacked_bar(xticks, plot_data)
+    plt.legend()
+    plt.xticks(xticks, rotation=45, ha="right")
+    plt.ylabel("PV climate financing (trillion dollars)")
+    plt.tight_layout()
+    util.savefig("climate_financing_africa")
+    plt.close()
+
+
 def annotate(xs, ys, labels, filter_labels=None, no_zero_x=False, fontsize=None):
     for x, y, label in zip(xs, ys, labels):
         if (filter_labels is not None) and (label not in filter_labels):
@@ -2128,6 +2200,36 @@ def make_yearly_climate_financing_plot():
         + sum(yearly_emerging_cost)
     )
     assert math.isclose(sum(yearly_world_cost), sum_individuals)
+
+    # For Africa only
+    region = "Africa"
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    plt.sca(axs[0])
+    included_country_names = region_countries_map[region]
+    yearly_cost = _get_yearly_cost(included_country_names)
+    plt.plot(whole_years, yearly_cost)
+    plt.xlabel("Time")
+    plt.ylabel("Annual climate financing\n(trillion dollars)")
+    plt.sca(axs[1])
+    for alpha2 in included_country_names:
+        if alpha2 not in yearly_costs_dict:
+            continue
+        label = alpha2_to_full_name[alpha2].replace("Tanzania, United Republic of", "Tanzania").replace("Congo, Democratic Republic of the", "Congo (DRC)")
+        plt.plot(
+            whole_years, yearly_costs_dict[alpha2], label=label
+        )
+    plt.xlabel("Time")
+    plt.ylabel("Annual climate financing\n(trillion dollars)")
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=4,
+    )
+    plt.tight_layout()
+    util.savefig("climate_financing_yearly_africa", tight=True)
+    exit()
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     plt.sca(axs[0])
@@ -2498,7 +2600,7 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 1:
+    if 0:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
@@ -2509,6 +2611,7 @@ if __name__ == "__main__":
     # make_climate_financing_plot()
     # make_climate_financing_SCATTER_plot()
     # exit()
+    make_climate_financing_africa()
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()

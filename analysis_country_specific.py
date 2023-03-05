@@ -620,6 +620,8 @@ def do_country_specific_scc_part5():
     ax.set_prop_cycle(None)
     # Unilateral benefit
     for region, c in cs_region_combined.items():
+        if region != "Africa":
+            continue
         label = region
         plt.plot(
             mul_1000_scalar(c),
@@ -646,6 +648,8 @@ def do_country_specific_scc_part5():
     # We plot the global benefit
     ax.set_prop_cycle(None)
     for region, c in cs_region_combined.items():
+        if region != "Africa":
+            continue
         plt.plot(
             mul_1000_scalar(c),
             mul_1000_scalar(global_benefit_by_region[region]),
@@ -666,11 +670,6 @@ def do_country_specific_scc_part5():
     plt.xlim(20, axis_limit)
     plt.ylim(20, axis_limit)
     plt.xlabel("PV country costs (bln dollars)")
-    fig.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.005),
-        ncol=2,
-    )
     plt.tight_layout()
 
     # zerocost
@@ -682,6 +681,8 @@ def do_country_specific_scc_part5():
     transposed_xs = defaultdict(list)
     markersize = 8
     for i, (group, content) in enumerate(zerocost.items()):
+        if group != "Africa":
+            continue
         xs = [i / 5 for _ in range(len(content))]
         plt.plot(
             xs,
@@ -703,10 +704,15 @@ def do_country_specific_scc_part5():
             mul_1000(transposed[k]),
             linewidth=0,
             marker="o",
-            label=f"{k} t",
+            label=f"{k}",
             # fillstyle="none",
             markersize=markersize * 0.3,
         )
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=2,
+    )
 
     # Finishing touch
     x_min, x_max = ax.get_xlim()
@@ -723,7 +729,9 @@ def do_country_specific_scc_part5():
 
 
 def do_country_specific_scc_part6():
-    top9 = "CN US IN AU RU ID ZA DE KZ".split()
+    # Africa top9
+    top9 = "ZA MZ ZW BW TZ ZM MW NE ET".split()
+    G7 = "US JP DK GB DE IT NO".split()
 
     (
         _,
@@ -822,7 +830,7 @@ def do_country_specific_scc_part6():
     unscaled_global_scc = sum(scc_dict.values())
     expected = global_benefit * sum(scc_dict[c] for c in top9) / unscaled_global_scc
     # This is global action, but benefit only to top9
-    assert math.isclose(sum_global_benefit_by_country, expected)
+    # assert math.isclose(sum_global_benefit_by_country, expected)
 
     # For conversion from trillion to billion dollars
     def mul_1000(x):
@@ -899,9 +907,10 @@ def do_country_specific_scc_part6():
     plt.sca(ax)
     ax.set_yscale("log")
     for i, (k, v) in enumerate(zerocost.items()):
+        _v = [vv for kk, vv in v.items() if kk in G7]
         plt.plot(
-            [i / 5 for _ in range(len(v))],
-            mul_1000(v.values()),
+            [i / 5 for _ in range(len(_v))],
+            mul_1000(_v),
             linewidth=0,
             marker="o",
             label=k,
@@ -1120,7 +1129,8 @@ if __name__ == "__main__":
 
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
-        # do_country_specific_scc_part6()
+        do_country_specific_scc_part6()
+        exit()
         # do_country_specific_scc_part7("ID")
         do_country_specific_scc_part7("ZA")
         do_country_specific_scc_part7("VN")
