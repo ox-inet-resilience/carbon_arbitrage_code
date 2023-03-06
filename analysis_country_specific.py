@@ -303,7 +303,7 @@ def calculate_country_specific_scc_data(
     print("country-specific country count", len(country_specific_scc))
     print("No cost", len(no_cost))
     print("benefit >= cost", len(benefit_greater_than_cost), benefit_greater_than_cost)
-    print("cost < benefit", len(costly), costly)
+    print("cost > benefit", len(costly), costly)
     actual_size += len(no_cost) + len(benefit_greater_than_cost) + len(costly)
     assert actual_size == len(country_specific_scc), (
         actual_size,
