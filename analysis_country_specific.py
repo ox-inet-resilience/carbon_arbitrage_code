@@ -489,7 +489,8 @@ def do_country_specific_scc_part5():
         "Australia & New Zealand",
     ]
 
-    fname = "cache/country_specific_data_part5.json"
+    git_branch = util.get_git_branch()
+    fname = f"cache/country_specific_data_part5_git_{git_branch}.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
         cs_region_combined = content["unilateral_cost"]
@@ -734,7 +735,8 @@ def do_country_specific_scc_part6():
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
-    fname = "cache/country_specific_data_part6.json"
+    git_branch = util.get_git_branch()
+    fname = f"cache/country_specific_data_part6_git_{git_branch}.json"
     if os.path.isfile(fname):
         content = util.read_json(fname)
         cs_combined = content["unilateral_cost"]
