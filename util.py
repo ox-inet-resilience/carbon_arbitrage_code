@@ -458,6 +458,29 @@ def get_coal_nonpower_global_emissions_across_years(
     return emissions_list
 
 
+def get_coal_nonpower_global_emissions_across_years_groupby_countries(
+    nonpower_coal, years, discounted=False, rho=None
+):
+    emissions_list = []
+    if discounted:
+        assert years[0] == 2022
+        assert rho is not None
+    grouped = nonpower_coal.groupby("asset_country")
+    for year in years:
+        discount = 1
+        if discounted:
+            discount = calculate_discount(rho, year - 2022)
+
+        def process(g):
+            tonnes_coal = g[f"_{year}"]
+            emissions = (
+                tonnes_coal * g.emissions_factor * discount
+            ).sum() / 1e9
+            return emissions
+        emissions_list.append(grouped.apply(process))
+    return emissions_list
+
+
 def get_coal_nonpower_per_company_NON_discounted_emissions_summed_over_years(
     ngfs_peg_year,
     nonpower_coal,
@@ -515,6 +538,16 @@ def get_coal_nonpower_global_generation_across_years(nonpower_coal, years):
     production_list = []
     for year in years:
         tonnes_coal = nonpower_coal[f"_{year}"]
+        production = tonnes_coal.sum() / 1e9  # convert to giga tonnes of coal
+        production_list.append(production)
+    return production_list
+
+
+def get_coal_nonpower_global_generation_across_years_groupby_countries(nonpower_coal, years):
+    production_list = []
+    grouped = nonpower_coal.groupby("asset_country")
+    for year in years:
+        tonnes_coal = grouped[f"_{year}"]
         production = tonnes_coal.sum() / 1e9  # convert to giga tonnes of coal
         production_list.append(production)
     return production_list
@@ -857,3 +890,15 @@ def prepare_from_climate_financing_data():
         colname_for_gdp,
         developed_country_shortnames,
     )
+
+
+def get_NGFS_region_map():
+    NGFS_region_map = read_json("data/NGFS_region.json")
+    # Manually add some countries
+    # Puerto Rico
+    NGFS_region_map["GCAM5.3_NGFS|USA"].append("PR")
+    # Hong Kong
+    NGFS_region_map["GCAM5.3_NGFS|China"].append("HK")
+    # Kosovo
+    NGFS_region_map["GCAM5.3_NGFS|Europe_Non_EU"].append("XK")
+    return NGFS_region_map

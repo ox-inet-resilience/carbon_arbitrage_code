@@ -23,6 +23,8 @@ df, nonpower_coal, power_coal = util.read_masterdata()
 
 country_to_region, iso2_to_country_name = util.get_country_to_region()
 
+NGFS_region_map = util.get_NGFS_region_map()
+
 
 def convert_country_to_region(c):
     if isinstance(c, float) and np.isnan(c):
@@ -122,7 +124,9 @@ def plot_combined_2dii_ngfs_over_time(
     out = {}
     fig = plt.figure(figsize=(7, 5))
     for scenario in util.scenarios:
-        if scenario in ["Below 2Â°C", "Divergent Net Zero", "Delayed transition"]:
+        # For Africa case study
+        # if scenario in ["Below 2Â°C", "Divergent Net Zero", "Delayed transition"]:
+        if scenario not in ["Net Zero 2050", "Current Policies "]:
             # Skip this scenario
             continue
         ngfs_global_coal_scenario = _ngfs_global_coal[
@@ -183,6 +187,124 @@ def plot_combined_2dii_ngfs_over_time(
             label=label,
         )
         out[label] = {"x": patched_years, "y": np.array(whole_range_production)}
+    plt.xlabel("Time")
+    if mode == "production":
+        ylabel = "Coal production (Giga tonnes / year)"
+    else:
+        ylabel = "Coal emissions (GtCO2 / year)"
+    plt.ylabel(ylabel)
+    fig.subplots_adjust(right=0.68)
+    fig.legend(title="Scenario:", loc=7)
+    # if sector == "nonpower":
+    #    plt.title("Primary Energy|Coal (2DII for 2013-2026)")
+    # else:
+    #    plt.title("Capacity|Electricity|Coal (2DII for 2013-2026)")
+    plt.savefig(figname)
+    plt.close()
+    return out
+
+
+def plot_combined_2dii_ngfs_over_time_by_region(
+    _ngfs_global_coal, figname, total_by_year, sector, mode
+):
+    assert mode in ["production", "emissions"]
+    out = {}
+    fig = plt.figure(figsize=(7, 5))
+    for scenario in util.scenarios:
+        # For Africa case study
+        # if scenario in ["Below 2Â°C", "Divergent Net Zero", "Delayed transition"]:
+        if scenario not in ["Net Zero 2050", "Current Policies "]:
+            # Skip this scenario
+            continue
+        ngfs_global_coal_scenario = _ngfs_global_coal[
+            _ngfs_global_coal.Scenario == scenario
+        ]
+
+        # clean up scenario
+        scenario = scenario.replace("Capacity|", "")
+
+        # ngfs_peg_year is the year where the NGFS value is pegged to be the
+        # same as masterdata global production value.
+        if scenario == "Current Policies ":
+            ngfs_peg_year = 2026
+        else:
+            ngfs_peg_year = 2023
+        # Assert the peg year to be at most the last year of masterdata.
+        assert ngfs_peg_year <= 2026, ngfs_peg_year
+        ngfs_left_year, ngfs_right_year = util.get_in_between_year(ngfs_peg_year)
+        ngfs_last_year_sanity_check = 0.0
+        for idx, ngfs_region in ngfs_global_coal_scenario.iterrows():
+            countries = NGFS_region_map[ngfs_region.Region]
+            total_by_year_region = [
+                t[t.index.isin(countries)].sum() for t in total_by_year
+            ]
+            ngfs_value_left = convert2Gtonnes(sector, ngfs_region[str(ngfs_left_year)])
+            ngfs_value_right = convert2Gtonnes(
+                sector, ngfs_region[str(ngfs_right_year)]
+            )
+            # Do linear interpolation once
+            ngfs_value_peg = (
+                ngfs_value_left
+                + (ngfs_peg_year - ngfs_left_year)
+                * (ngfs_value_right - ngfs_value_left)
+                / 5
+            )
+
+            # Get the fraction
+            ngfs_years_after_peg = list(range(ngfs_right_year, 2105, 5))
+            ngfs_values = [
+                convert2Gtonnes(sector, ngfs_region[str(year)])
+                for year in ngfs_years_after_peg
+            ]
+            ngfs_last_year_sanity_check += ngfs_values[-1]
+            fraction_increase_over_peg_year = np.array(
+                [(v / ngfs_value_peg) for v in ngfs_values]
+            )
+            if "Africa_Southern" in ngfs_region.Region:
+                # Divide by 1.5 just for Africa_Southern
+                fraction_increase_over_peg_year /= 1.5
+            print(
+                "sanity check",
+                mode,
+                scenario,
+                ngfs_region.Region,
+                "ngfs",
+                ngfs_value_peg,
+                "masterdata",
+                total_by_year_region[(ngfs_peg_year - 2013)],
+            )
+            rescaled_ngfs_value_after_2025 = list(
+                total_by_year_region[(ngfs_peg_year - 2013)]
+                * fraction_increase_over_peg_year
+            )
+
+            masterdata_years = list(range(2013, ngfs_peg_year + 1))
+            patched_years = masterdata_years + ngfs_years_after_peg
+            whole_range_production = (
+                total_by_year_region[: len(masterdata_years)]
+                + rescaled_ngfs_value_after_2025
+            )
+            label = scenario.replace("Â", "")
+            if label == "Nationally Determined Contributions (NDCs) ":
+                label = "Nationally Determined\nContributions (NDCs)"
+            label_plot = label.replace("Current Policies ", "CPS")
+            label_plot = label_plot.replace("Net Zero 2050", "NZ2050")
+            plt.plot(
+                patched_years,
+                whole_range_production,
+                # Remove weird character
+                label=label_plot
+                + " "
+                + ngfs_region.Region.replace("GCAM5.3_NGFS|", ""),
+            )
+            if label in out:
+                out[label] = {
+                    "x": patched_years,
+                    "y": np.array(whole_range_production) + out[label]["y"],
+                }
+            else:
+                out[label] = {"x": patched_years, "y": np.array(whole_range_production)}
+        print(scenario, ngfs_last_year_sanity_check)
     plt.xlabel("Time")
     if mode == "production":
         ylabel = "Coal production (Giga tonnes / year)"
@@ -320,6 +442,77 @@ if 0:
     )
     # plt.tight_layout()
     plt.savefig("plots/exp16_34_combined.png", bbox_inches="tight")
+    exit()
+
+
+if 1:
+    print("# exp 16 Africa")
+    ngfs = pd.read_csv("data/ngfs_scenario_production_fossil.csv")
+    # Constrain to a particular NGFS model
+    ngfs = ngfs[ngfs.Model == util.NGFS_MODEL]
+    # Unit is EJ/yr
+    ngfs_nonpower = ngfs[ngfs.Variable == "Primary Energy|Coal"]
+    ngfs_nonpower_africa = ngfs_nonpower[ngfs_nonpower.Region.str.contains("Africa")]
+    iso3166_df = util.read_iso3166()
+    africa_countries = list(iso3166_df[iso3166_df.region == "Africa"]["alpha-2"])
+    nonpower_coal_africa = nonpower_coal[
+        nonpower_coal.asset_country.isin(africa_countries)
+    ]
+
+    out16_nonpower = {}
+    for mode in ["production", "emissions"]:
+        years_masterdata = range(2013, 2027)
+        if mode == "production":
+            total_by_year = (
+                util.get_coal_nonpower_global_generation_across_years_groupby_countries(
+                    nonpower_coal_africa, years_masterdata
+                )
+            )
+        else:
+            total_by_year = (
+                util.get_coal_nonpower_global_emissions_across_years_groupby_countries(
+                    nonpower_coal_africa, years_masterdata
+                )
+            )
+        out16_nonpower[mode] = plot_combined_2dii_ngfs_over_time_by_region(
+            ngfs_nonpower_africa,
+            f"plots/exp16_2_{mode}.png",
+            total_by_year,
+            "nonpower",
+            mode,
+        )
+
+    print("# exp 16")
+    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+    ngfs_peg_year = 2023
+    start_year = 2013
+
+    for i, mode in enumerate(["production", "emissions"]):
+        plt.sca(axs[i])
+        for label, content in out16_nonpower[mode].items():
+            # To make it JSON serializable.
+            content["y"] = list(content["y"])
+            plt.plot(content["x"], content["y"], label=label)
+        current_policies = out16_nonpower[mode]["Current Policies "]
+        plt.xlabel("Time")
+        if mode == "production":
+            ylabel = "Coal production (Giga tonnes / year)"
+        else:
+            ylabel = "Coal emissions (GtCO2 / year)"
+        plt.ylabel(ylabel)
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
+        ncol=2,
+    )
+    plt.tight_layout()
+    plt.savefig("plots/exp16_africa.png", bbox_inches="tight")
     exit()
 
 
