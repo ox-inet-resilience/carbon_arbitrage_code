@@ -10,6 +10,96 @@ import util
 import analysis_main
 
 
+# Countries that we have data for, for unilateral action.
+# We intentionally exclude XK.
+unilateral_countries = {
+    "MM",
+    "TZ",
+    "GB",
+    "HU",
+    "RO",
+    "TH",
+    "CO",
+    "US",
+    "ZM",
+    "MN",
+    "PL",
+    "KG",
+    "ZW",
+    "DE",
+    "VN",
+    "TJ",
+    "RU",
+    "CA",
+    "TR",
+    "LA",
+    "BR",
+    "NG",
+    "IR",
+    "MK",
+    "RS",
+    "UA",
+    "MW",
+    "ID",
+    "PK",
+    "KZ",
+    "ME",
+    "AU",
+    "MX",
+    "BG",
+    "SK",
+    "MZ",
+    "JP",
+    "CN",
+    "ES",
+    "MG",
+    "ZA",
+    "ET",
+    "CL",
+    "GR",
+    "CD",
+    "NE",
+    "NO",
+    "PE",
+    "SI",
+    "UZ",
+    "IN",
+    "CZ",
+    "PH",
+    "VE",
+    "AR",
+    "BA",
+    "BD",
+    "BW",
+    "GE",
+    "NZ",
+}
+
+
+def prepare_level_development():
+    (
+        iso3166_df,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    developING_country_shortnames = util.get_developing_countries()
+    emerging_country_shortnames = util.get_emerging_countries()
+
+    levels = [
+        "Developed Countries",
+        "Developing Countries",
+        "Emerging Market Countries",
+    ]
+    levels_map = {
+        "Developed Countries": developed_country_shortnames,
+        "Developing Countries": developING_country_shortnames,
+        "Emerging Market Countries": emerging_country_shortnames,
+    }
+    return levels, levels_map, iso3166_df
+
+
 def read_country_specific_scc_filtered():
     country_specific_scc = util.read_json("plots/country_specific_scc.json")
     # Remove these countries
@@ -107,15 +197,7 @@ def calculate_country_specific_scc_data(
     country_specific_scc = read_country_specific_scc_filtered()
     total_scc = sum(country_specific_scc.values())
 
-    (
-        iso3166_df,
-        _,
-        _,
-        _,
-        developed_country_shortnames,
-    ) = util.prepare_from_climate_financing_data()
-    developING_country_shortnames = util.get_developing_countries()
-    emerging_country_shortnames = util.get_emerging_countries()
+    levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
         iso3166_df
     )
@@ -123,16 +205,6 @@ def calculate_country_specific_scc_data(
 
     unilateral_benefit = None
     unilateral_emissions = None
-    levels = [
-        "Developed Countries",
-        "Developing Countries",
-        "Emerging Market Countries",
-    ]
-    levels_map = {
-        "Developed Countries": developed_country_shortnames,
-        "Developing Countries": developING_country_shortnames,
-        "Emerging Market Countries": emerging_country_shortnames,
-    }
 
     isa_climate_club = unilateral_actor in (levels + regions)
     cost_climate_club = None
@@ -275,15 +347,15 @@ def calculate_country_specific_scc_data(
             benefit_greater_than_cost.append(country)
         else:
             costly.append(country)
-        if country in developed_country_shortnames:
+        if country in levels_map["Developed Countries"]:
             cs["Developed Countries"].append(c)
             bs["Developed Countries"].append(b)
             names["Developed Countries"].append(country)
-        elif country in developING_country_shortnames:
+        elif country in levels_map["Developing Countries"]:
             cs["Developing Countries"].append(c)
             bs["Developing Countries"].append(b)
             names["Developing Countries"].append(country)
-        elif country in emerging_country_shortnames:
+        elif country in levels_map["Emerging Market Countries"]:
             cs["Emerging Market Countries"].append(c)
             bs["Emerging Market Countries"].append(b)
             names["Emerging Market Countries"].append(country)
@@ -731,88 +803,18 @@ def do_country_specific_scc_part6():
         iso3166_df_alpha2,
         _,
         _,
-        developed_country_shortnames,
+        _,
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
     git_branch = util.get_git_branch()
     fname = f"cache/country_specific_data_part6_git_{git_branch}.json"
-    if os.path.isfile(fname):
-        content = util.read_json(fname)
-        cs_combined = content["unilateral_cost"]
-        bs_combined = content["unilateral_benefit"]
-        zerocost = content["freeloader_benefit"]
-        global_benefit_by_country = content["global_benefit"]
-    else:
-        cs_combined = {}
-        bs_combined = {}
-        zerocost = {}
-        # We round everything to 6 digits, and so the precision is thousand dollars.
-        cumulative_emissions = 0.0
-        for country_doing_action in top9:
-            unilateral_actor = country_doing_action
-            cs, bs, names, _, _, _, emissions = calculate_country_specific_scc_data(
-                unilateral_actor=unilateral_actor,
-                ext="",
-                to_csv=False,
-            )
-            cumulative_emissions += emissions
-            for level, level_names in names.items():
-                if country_doing_action not in level_names:
-                    continue
-                location = level_names.index(country_doing_action)
-                cs_combined[country_doing_action] = round(cs[level][location], 6)
-                bs_combined[country_doing_action] = round(bs[level][location], 6)
-            # Calculating zerocost
-            _dict = {}
-            for level, level_names in names.items():
-                location = None
-                if country_doing_action in level_names:
-                    location = level_names.index(country_doing_action)
-                for i, c in enumerate(level_names):
-                    assert c not in _dict
-                    if i == location:
-                        continue
-                    _dict[c] = round(bs[level][i], 6)
-            zerocost[country_doing_action] = _dict
-
-        # Sanity check
-        # SC10
-        # This is unilateral action by top9, but benefit to the world.
-        all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
-        all_unilateral_benefit = sum(bs_combined.values())
-        actual_benefit = all_freeloader_benefit + all_unilateral_benefit
-        expected = cumulative_emissions / 1e3 * util.social_cost_of_carbon
-        # It is only approximately the same with 1e-5 tolerance, because the
-        # benefit is rounded to 6 decimal points. See the previous lines.
-        assert math.isclose(actual_benefit, expected, rel_tol=1e-5), (
-            actual_benefit,
-            expected,
-        )
-
-        # This code chunk is used to calculate global_benefit_by_country
-        global_benefit = calculate_global_benefit()
-        scc_dict = read_country_specific_scc_filtered()
-        unscaled_global_scc = sum(scc_dict.values())
-        global_benefit_by_country = {}
-        # End of global_benefit_by_country preparation
-
-        for c in cs_combined.keys():
-            # Benefit to 1 country if everyone in the world takes action
-            global_benefit_by_country[c] = (
-                global_benefit * scc_dict[c] / unscaled_global_scc
-            )
-
-        with open(fname, "w") as f:
-            json.dump(
-                {
-                    "unilateral_cost": cs_combined,
-                    "unilateral_benefit": bs_combined,
-                    "freeloader_benefit": zerocost,
-                    "global_benefit": global_benefit_by_country,
-                },
-                f,
-            )
+    (
+        cs_combined,
+        bs_combined,
+        zerocost,
+        global_benefit_by_country,
+    ) = common_prepare_cost_benefit_by_country(fname, top9)
 
     # Sanity check
     # SC11
@@ -940,7 +942,7 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
         iso3166_df_alpha2,
         _,
         _,
-        developed_country_shortnames,
+        _,
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
@@ -1115,6 +1117,146 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
     }
 
 
+def common_prepare_cost_benefit_by_country(fname, countries):
+    if os.path.isfile(fname):
+        content = util.read_json(fname)
+        cs_combined = content["unilateral_cost"]
+        bs_combined = content["unilateral_benefit"]
+        zerocost = content["freeloader_benefit"]
+        global_benefit_by_country = content["global_benefit"]
+    else:
+        cs_combined = {}
+        bs_combined = {}
+        zerocost = {}
+        # We round everything to 6 digits, and so the precision is thousand dollars.
+        cumulative_emissions = 0.0
+        for country_doing_action in countries:
+            unilateral_actor = country_doing_action
+            cs, bs, names, _, _, _, emissions = calculate_country_specific_scc_data(
+                unilateral_actor=unilateral_actor,
+                ext="",
+                to_csv=False,
+            )
+            cumulative_emissions += emissions
+            for level, level_names in names.items():
+                if country_doing_action not in level_names:
+                    continue
+                location = level_names.index(country_doing_action)
+                cs_combined[country_doing_action] = round(cs[level][location], 6)
+                bs_combined[country_doing_action] = round(bs[level][location], 6)
+            # Calculating zerocost
+            _dict = {}
+            for level, level_names in names.items():
+                location = None
+                if country_doing_action in level_names:
+                    location = level_names.index(country_doing_action)
+                for i, c in enumerate(level_names):
+                    assert c not in _dict
+                    if i == location:
+                        continue
+                    _dict[c] = round(bs[level][i], 6)
+            zerocost[country_doing_action] = _dict
+
+        # Sanity check
+        # SC10
+        # This is unilateral action by `countries`, but benefit to the world.
+        all_freeloader_benefit = sum(sum(g.values()) for g in zerocost.values())
+        all_unilateral_benefit = sum(bs_combined.values())
+        actual_benefit = all_freeloader_benefit + all_unilateral_benefit
+        expected = cumulative_emissions / 1e3 * util.social_cost_of_carbon
+        # It is only approximately the same with 1e-5 tolerance, because the
+        # benefit is rounded to 6 decimal points. See the previous lines.
+        assert math.isclose(actual_benefit, expected, rel_tol=1e-5), (
+            actual_benefit,
+            expected,
+        )
+
+        # This code chunk is used to calculate global_benefit_by_country
+        global_benefit = calculate_global_benefit()
+        scc_dict = read_country_specific_scc_filtered()
+        unscaled_global_scc = sum(scc_dict.values())
+        global_benefit_by_country = {}
+        # End of global_benefit_by_country preparation
+
+        for c in cs_combined.keys():
+            # Benefit to 1 country if everyone in the world takes action
+            global_benefit_by_country[c] = (
+                global_benefit * scc_dict[c] / unscaled_global_scc
+            )
+
+        with open(fname, "w") as f:
+            json.dump(
+                {
+                    "unilateral_cost": cs_combined,
+                    "unilateral_benefit": bs_combined,
+                    "freeloader_benefit": zerocost,
+                    "global_benefit": global_benefit_by_country,
+                },
+                f,
+            )
+    return cs_combined, bs_combined, zerocost, global_benefit_by_country
+
+
+def do_country_specific_scc_part8():
+    levels, levels_map, iso3166_df = prepare_level_development()
+    cs, bs, _, _, bs_region, _, _ = calculate_country_specific_scc_data(
+        unilateral_actor=None,
+        to_csv=False,
+    )
+
+    plt.figure()
+    ax = plt.gca()
+
+    def mul_1000(x):
+        return [i * 1e3 for i in x]
+
+    # Global action
+    # Multiplication by 1000 converts to billion dollars
+    for level, c in cs.items():
+        plt.plot(
+            mul_1000(c),
+            mul_1000(bs[level]),
+            linewidth=0,
+            marker="o",
+            label=level,
+            # fillstyle="none",
+        )
+
+    # Local action
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    git_branch = util.get_git_branch()
+    for level_name, countries in levels_map.items():
+        # Filter countries to only for the ones we have data for
+        countries = [c for c in countries if c in unilateral_countries]
+        fname = f"cache/country_specific_data_part8_git_{git_branch}_{level_name}.json"
+        (
+            cs_combined,
+            bs_combined,
+            zerocost,
+            global_benefit_by_country,
+        ) = common_prepare_cost_benefit_by_country(fname, countries)
+        plt.plot(
+            mul_1000(cs_combined.values()),
+            mul_1000(bs_combined.values()),
+            linewidth=0,
+            marker="o",
+            fillstyle="none",
+        )
+
+    # 45 degree line
+    ax.axline([0, 0], [1, 1])
+    plt.xlabel("PV country costs (bln dollars)")
+    plt.ylabel("PV country benefits (bln dollars)")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    axis_limit = 45_000
+    plt.xlim(5e-2, axis_limit)
+    plt.ylim(5e-2, axis_limit)
+    plt.legend()
+    util.savefig(f"country_specific_scatter_part8_git_{git_branch}")
+
+
 if __name__ == "__main__":
     if 1:
         # country specific scc
@@ -1123,6 +1265,8 @@ if __name__ == "__main__":
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
         # do_country_specific_scc_part6()
+        do_country_specific_scc_part8()
+        exit()
         # do_country_specific_scc_part7("ID")
         do_country_specific_scc_part7("ZA")
         do_country_specific_scc_part7("VN")
