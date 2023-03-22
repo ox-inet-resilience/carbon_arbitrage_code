@@ -1251,8 +1251,8 @@ def do_country_specific_scc_part8():
     ax.set_xscale("log")
     ax.set_yscale("log")
     axis_limit = 45_000
-    plt.xlim(5e-2, axis_limit)
-    plt.ylim(5e-2, axis_limit)
+    plt.xlim(5e-4, axis_limit)
+    plt.ylim(5e-4, axis_limit)
     plt.legend()
     util.savefig(f"country_specific_scatter_part8_git_{git_branch}")
 
