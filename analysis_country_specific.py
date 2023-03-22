@@ -1212,9 +1212,9 @@ def do_country_specific_scc_part8():
 
     # Global action
     # Multiplication by 1000 converts to billion dollars
-    for level, c in cs.items():
+    for level in levels:
         plt.plot(
-            mul_1000(c),
+            mul_1000(cs[level]),
             mul_1000(bs[level]),
             linewidth=0,
             marker="o",
