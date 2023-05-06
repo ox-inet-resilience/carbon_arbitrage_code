@@ -2,6 +2,7 @@ import copy
 import json
 import math
 import os
+import sys
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ import util
 from util import years_masterdata
 import processed_revenue
 from util import (
-    social_cost_of_carbon,
+    social_cost_of_carbon as original_scc,
     world_gdp_2020,
 )
 
@@ -94,6 +95,19 @@ def set_matplotlib_tick_spacing(tick_spacing):
 ngfss = util.read_ngfs_coal_and_power()
 
 df, nonpower_coal, power_coal = util.read_masterdata()
+# Important: we restrict to 1 country only so that the Wright's law learning is
+# only due to this country doing the unilateral action.
+one_country_name = sys.argv[1]
+df = df[df.asset_country == one_country_name]
+nonpower_coal = nonpower_coal[nonpower_coal.asset_country == one_country_name]
+power_coal = power_coal[power_coal.asset_country == one_country_name]
+country_specific_scc = util.read_json("plots/country_specific_scc.json")
+total_scc = sum(country_specific_scc.values())
+global social_cost_of_carbon
+if one_country_name not in country_specific_scc:
+    print("NA")
+    exit()
+social_cost_of_carbon = country_specific_scc[one_country_name] / total_scc * original_scc
 
 if WEIGHT_GAS is None:
     weighted_emissions_factor_gas = 0.0
@@ -2464,6 +2478,12 @@ def run_3_level_scc():
 
 
 if __name__ == "__main__":
+    out = run_cost1(x=1, to_csv=False, do_round=True, plot_yearly=False)
+    last_year = 2100
+    condition = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+    measure = "Total emissions avoided including residual (GtCO2)"
+    print("OUTPUT", out[measure][condition])
+    exit()
     if 0:
         print("# exp cost6")
         # Figuring out all of the coal companies.
