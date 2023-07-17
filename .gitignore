@@ -5,3 +5,4 @@ __pycache__/
 plots/
 data/
 data_private/
+*.png
