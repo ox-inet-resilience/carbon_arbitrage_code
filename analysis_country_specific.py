@@ -1204,7 +1204,7 @@ def do_country_specific_scc_part8():
         to_csv=False,
     )
 
-    plt.figure()
+    fig = plt.figure()
     ax = plt.gca()
 
     def mul_1000(x):
@@ -1253,8 +1253,13 @@ def do_country_specific_scc_part8():
     axis_limit = 45_000
     plt.xlim(5e-4, axis_limit)
     plt.ylim(5e-4, axis_limit)
-    plt.legend()
-    util.savefig(f"country_specific_scatter_part8_git_{git_branch}")
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.01),
+        ncol=3,
+    )
+    plt.tight_layout()
+    util.savefig(f"country_specific_scatter_part8_git_{git_branch}", tight=True)
 
 
 if __name__ == "__main__":
