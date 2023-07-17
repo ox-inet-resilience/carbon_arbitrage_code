@@ -359,7 +359,9 @@ def calculate_country_specific_scc_data(
         else:
             costly.append(country)
         if unilateral_actor == "EMDE":
-            if (country in levels_map["Developing Countries"]) or (country in levels_map["Emerging Market Countries"]):
+            if (country in levels_map["Developing Countries"]) or (
+                country in levels_map["Emerging Market Countries"]
+            ):
                 cs_level["EMDE"].append(c)
                 bs_level["EMDE"].append(b)
                 names["EMDE"].append(country)
@@ -965,7 +967,13 @@ def do_country_specific_scc_part6():
     util.savefig("country_specific_scatter_part6", tight=True)
 
 
-def do_country_specific_scc_part7(country_doing_action, last_year=None):
+def do_country_specific_scc_part7(
+    country_doing_action, last_year=None, use_developed_for_zerocost=False
+):
+    """
+    use_developed_for_zerocost makes it so that only the developed countries
+    are shown in the zerocost plot.
+    """
     (
         _,
         iso3166_df_alpha2,
@@ -1000,35 +1008,40 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
         break
 
     # Calculating zerocost
-    zerocost = defaultdict(float)
-    EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
-    zerocost_benefit_eu = 0.0
-    zerocost_benefit_world = 0.0
-    for level, level_names in names.items():
-        location = None
-        if country_doing_action in level_names:
-            location = level_names.index(country_doing_action)
-        for i, c in enumerate(level_names):
-            # Billion dollars
-            benefit_zc = bs[level][i] * 1e3
-            assert c not in zerocost
-            if i == location:
-                # This is the country doing the action, and so, not part of
-                # zerocost.
-                continue
-            zerocost_benefit_world += benefit_zc
-            if c in EU:
-                # WARNING This assumes the country doing the action is not part
-                # of EU.
-                zerocost_benefit_eu += benefit_zc
-                EU.remove(c)
-            if c in G7:
-                zerocost[c] = benefit_zc
-    zerocost["G7"] = sum(zerocost[c] for c in G7)
-    zerocost["EU"] = zerocost_benefit_eu
-    zerocost["ROW"] = zerocost_benefit_world - zerocost["G7"] - benefit_country
-    # Round to 3 decimal places
-    zerocost = {k: round3(v) for k, v in zerocost.items()}
+    if use_developed_for_zerocost:
+        level = "Developed Countries"
+        # Billion dollars
+        zerocost = [i * 1e3 for i in bs[level]]
+    else:
+        zerocost = defaultdict(float)
+        EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
+        zerocost_benefit_eu = 0.0
+        zerocost_benefit_world = 0.0
+        for level, level_names in names.items():
+            location = None
+            if country_doing_action in level_names:
+                location = level_names.index(country_doing_action)
+            for i, c in enumerate(level_names):
+                # Billion dollars
+                benefit_zc = bs[level][i] * 1e3
+                assert c not in zerocost
+                if i == location:
+                    # This is the country doing the action, and so, not part of
+                    # zerocost.
+                    continue
+                zerocost_benefit_world += benefit_zc
+                if c in EU:
+                    # WARNING This assumes the country doing the action is not part
+                    # of EU.
+                    zerocost_benefit_eu += benefit_zc
+                    EU.remove(c)
+                if c in G7:
+                    zerocost[c] = benefit_zc
+        zerocost["G7"] = sum(zerocost[c] for c in G7)
+        zerocost["EU"] = zerocost_benefit_eu
+        zerocost["ROW"] = zerocost_benefit_world - zerocost["G7"] - benefit_country
+        # Round to 3 decimal places
+        zerocost = {k: round3(v) for k, v in zerocost.items()}
     print(zerocost)
 
     # This code chunk is used to calculate global_benefit_by_country
@@ -1043,14 +1056,15 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
         global_benefit * scc_dict[country_doing_action] / unscaled_global_scc * 1e3
     )
 
-    # Sanity check
-    # SC12
-    world_benefit_from_unilateral_action = zerocost_benefit_world + benefit_country
-    expected = unilateral_emissions * util.social_cost_of_carbon
-    assert math.isclose(world_benefit_from_unilateral_action, expected), (
-        world_benefit_from_unilateral_action,
-        expected,
-    )
+    if not use_developed_for_zerocost:
+        # Sanity check
+        # SC12
+        world_benefit_from_unilateral_action = zerocost_benefit_world + benefit_country
+        expected = unilateral_emissions * util.social_cost_of_carbon
+        assert math.isclose(world_benefit_from_unilateral_action, expected), (
+            world_benefit_from_unilateral_action,
+            expected,
+        )
 
     make_common_freeloader_plot(
         alpha2_to_full_name,
@@ -1059,6 +1073,7 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
         benefit_country,
         global_benefit_country,
         zerocost,
+        use_developed_for_zerocost=use_developed_for_zerocost,
     )
 
     util.savefig(f"country_specific_scatter_part7_{country_doing_action}", tight=True)
@@ -1216,7 +1231,7 @@ def do_country_specific_scc_part8():
 
 
 def make_common_freeloader_plot(
-    alpha2_to_full_name, country_doing_action, cost, benefit, global_benefit, zerocost
+    alpha2_to_full_name, country_doing_action, cost, benefit, global_benefit, zerocost, use_developed_for_zerocost
 ):
     right = 2.5
     fig, axs = plt.subplots(
@@ -1259,21 +1274,33 @@ def make_common_freeloader_plot(
     ax = axs[0]
     plt.sca(ax)
     ax.set_yscale("log")
-    for k, v in zerocost.items():
-        k = k.replace("US", "USA")
-        if k == "GB":
-            label = "GB"
-        else:
-            label = alpha2_to_full_name.get(k, k)
+    if use_developed_for_zerocost:
+        # This is for part 7 when the zerocost is the entire developed countries
         plt.plot(
-            0,
-            v,
+            [0] * len(zerocost),
+            zerocost,
+            color="tab:orange",
             linewidth=0,
             marker="o",
-            label=label,
             fillstyle="none",
             markersize=4.8,
         )
+    else:
+        for k, v in zerocost.items():
+            k = k.replace("US", "USA")
+            if k == "GB":
+                label = "GB"
+            else:
+                label = alpha2_to_full_name.get(k, k)
+            plt.plot(
+                0,
+                v,
+                linewidth=0,
+                marker="o",
+                label=label,
+                fillstyle="none",
+                markersize=4.8,
+            )
     y_min_zero, y_max_zero = ax.get_ylim()
     y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
     # Increase y_max because the right plot has the circles at the edges.
@@ -1318,16 +1345,14 @@ def do_country_specific_scc_part9():
         to_csv=False,
     )
     git_branch = util.get_git_branch()
-    cost_EMDE = sum(cs["EMDE"]),
+    cost_EMDE = (sum(cs["EMDE"]),)
     benefit_EMDE = sum(bs["EMDE"])
     # Global benefit
     global_benefit = calculate_global_benefit()
     scc_dict = read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     countries = names["EMDE"]
-    scc_scale = (
-        sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
-    )
+    scc_scale = sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
     global_benefit_EMDE = global_benefit * scc_scale
     # End global benefit
 
@@ -1437,10 +1462,12 @@ if __name__ == "__main__":
         # do_country_specific_scc_part5()
         # do_country_specific_scc_part6()
         # do_country_specific_scc_part8()
-        do_country_specific_scc_part9()
-        exit()
+        # do_country_specific_scc_part9()
+        # exit()
         # do_country_specific_scc_part7("ID")
-        do_country_specific_scc_part7("ZA")
-        do_country_specific_scc_part7("VN")
+        # do_country_specific_scc_part7("ZA")
+        # do_country_specific_scc_part7("VN")
+        do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
+        do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
 
         exit()
