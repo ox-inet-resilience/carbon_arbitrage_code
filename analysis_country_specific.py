@@ -135,42 +135,43 @@ def _do_sanity_check_for_calculate_cs_scc_data(
     benefit_climate_club,
 ):
     # Sanity check
-    if unilateral_actor is not None:
-        # SC1
-        # We don't test based on region, because PG and WS are not part of
-        # the 6 regions.
-        # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
-        world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
-        # Check that the computed world scc corresponds to the original world scc.
-        actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
-        assert math.isclose(
-            actual_world_scc, util.social_cost_of_carbon
-        ), actual_world_scc
-        # SC2
-        if not isa_climate_club:
-            # The unilateral actor is a country
-            # Cumulative benefit is the unilateral benefit of the country.
-            ratio1 = cumulative_benefit / global_benefit
-            ratio2 = unilateral_emissions_GtCO2 / global_emissions
-            assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
+    if unilateral_actor is None:
+        return
+    if unilateral_actor == "EMDE":
+        return
+    # SC1
+    # We don't test based on region, because PG and WS are not part of
+    # the 6 regions.
+    # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
+    world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
+    # Check that the computed world scc corresponds to the original world scc.
+    actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
+    assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+    # SC2
+    if not isa_climate_club:
+        # The unilateral actor is a country
+        # Cumulative benefit is the unilateral benefit of the country.
+        ratio1 = cumulative_benefit / global_benefit
+        ratio2 = unilateral_emissions_GtCO2 / global_emissions
+        assert math.isclose(ratio1, ratio2), (ratio1, ratio2)
+    else:
+        # Unilateral action is either a region or level of development.
+        # Double checking that they add up to the same amount
+        if unilateral_actor in levels:
+            assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
+            assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
         else:
-            # Unilateral action is either a region or level of development.
-            # Double checking that they add up to the same amount
-            if unilateral_actor in levels:
-                assert math.isclose(cost_climate_club, sum(cs[unilateral_actor]))
-                assert math.isclose(benefit_climate_club, sum(bs[unilateral_actor]))
-            else:
-                # Region
-                actual = sum(cs_region[unilateral_actor])
-                assert math.isclose(cost_climate_club, actual), (
-                    cost_climate_club,
-                    actual,
-                )
-                actual = sum(bs_region[unilateral_actor])
-                assert math.isclose(benefit_climate_club, actual), (
-                    benefit_climate_club,
-                    actual,
-                )
+            # Region
+            actual = sum(cs_region[unilateral_actor])
+            assert math.isclose(cost_climate_club, actual), (
+                cost_climate_club,
+                actual,
+            )
+            actual = sum(bs_region[unilateral_actor])
+            assert math.isclose(benefit_climate_club, actual), (
+                benefit_climate_club,
+                actual,
+            )
 
 
 def calculate_country_specific_scc_data(
@@ -206,7 +207,7 @@ def calculate_country_specific_scc_data(
     unilateral_benefit = None
     unilateral_emissions = None
 
-    isa_climate_club = unilateral_actor in (levels + regions)
+    isa_climate_club = unilateral_actor in (levels + regions + ["EMDE"])
     cost_climate_club = None
     benefit_climate_club = None
     benefit_of_country_doing_the_action = None
@@ -221,6 +222,11 @@ def calculate_country_specific_scc_data(
             benefit_climate_club = 0.0
             if unilateral_actor in levels:
                 group = levels_map[unilateral_actor]
+            elif unilateral_actor == "EMDE":
+                group = (
+                    levels_map["Emerging Market Countries"]
+                    + levels_map["Developing Countries"]
+                )
             else:
                 group = region_countries_map[unilateral_actor]
             for country in group:
@@ -265,8 +271,8 @@ def calculate_country_specific_scc_data(
     # print("emissions Giga tCO2", unilateral_actor, unilateral_emissions_GtCO2)
 
     names = defaultdict(list)
-    cs = defaultdict(list)
-    bs = defaultdict(list)
+    cs_level = defaultdict(list)
+    bs_level = defaultdict(list)
     names_region = defaultdict(list)
     cs_region = defaultdict(list)
     bs_region = defaultdict(list)
@@ -289,6 +295,11 @@ def calculate_country_specific_scc_data(
     if isa_climate_club:
         if unilateral_actor in levels:
             climate_club_countries = levels_map[unilateral_actor]
+        elif unilateral_actor == "EMDE":
+            climate_club_countries = (
+                levels_map["Emerging Market Countries"]
+                + levels_map["Developing Countries"]
+            )
         else:
             climate_club_countries = region_countries_map[unilateral_actor]
 
@@ -347,20 +358,30 @@ def calculate_country_specific_scc_data(
             benefit_greater_than_cost.append(country)
         else:
             costly.append(country)
-        if country in levels_map["Developed Countries"]:
-            cs["Developed Countries"].append(c)
-            bs["Developed Countries"].append(b)
-            names["Developed Countries"].append(country)
-        elif country in levels_map["Developing Countries"]:
-            cs["Developing Countries"].append(c)
-            bs["Developing Countries"].append(b)
-            names["Developing Countries"].append(country)
-        elif country in levels_map["Emerging Market Countries"]:
-            cs["Emerging Market Countries"].append(c)
-            bs["Emerging Market Countries"].append(b)
-            names["Emerging Market Countries"].append(country)
+        if unilateral_actor == "EMDE":
+            if (country in levels_map["Developing Countries"]) or (country in levels_map["Emerging Market Countries"]):
+                cs_level["EMDE"].append(c)
+                bs_level["EMDE"].append(b)
+                names["EMDE"].append(country)
+            elif country in levels_map["Developed Countries"]:
+                cs_level["Developed Countries"].append(c)
+                bs_level["Developed Countries"].append(b)
+                names["Developed Countries"].append(country)
         else:
-            print("Skipping", country)
+            if country in levels_map["Developed Countries"]:
+                cs_level["Developed Countries"].append(c)
+                bs_level["Developed Countries"].append(b)
+                names["Developed Countries"].append(country)
+            elif country in levels_map["Developing Countries"]:
+                cs_level["Developing Countries"].append(c)
+                bs_level["Developing Countries"].append(b)
+                names["Developing Countries"].append(country)
+            elif country in levels_map["Emerging Market Countries"]:
+                cs_level["Emerging Market Countries"].append(c)
+                bs_level["Emerging Market Countries"].append(b)
+                names["Emerging Market Countries"].append(country)
+            else:
+                print("Skipping", country)
 
         part_of_region = False
         for region in regions:
@@ -386,8 +407,8 @@ def calculate_country_specific_scc_data(
     _do_sanity_check_for_calculate_cs_scc_data(
         unilateral_actor,
         isa_climate_club,
-        bs,
-        cs,
+        bs_level,
+        cs_level,
         bs_region,
         cs_region,
         unilateral_emissions,
@@ -405,7 +426,15 @@ def calculate_country_specific_scc_data(
         table.to_csv(
             f"plots/country_specific_table{ext}.csv", index=False, float_format="%.5f"
         )
-    return cs, bs, names, cs_region, bs_region, names_region, unilateral_emissions_GtCO2
+    return (
+        cs_level,
+        bs_level,
+        names,
+        cs_region,
+        bs_region,
+        names_region,
+        unilateral_emissions_GtCO2,
+    )
 
 
 def do_country_specific_scc_part3():
@@ -1023,90 +1052,14 @@ def do_country_specific_scc_part7(country_doing_action, last_year=None):
         expected,
     )
 
-    right = 2.5
-    fig, axs = plt.subplots(
-        1,
-        2,
-        figsize=(4 * (1 + right) / right, 4),
-        gridspec_kw={"width_ratios": [1, right]},
-    )
-    ax = axs[1]
-    plt.sca(ax)
-    # Reset color cycler
-    ax.set_prop_cycle(None)
-    label = alpha2_to_full_name[country_doing_action]
-    plt.plot(
+    make_common_freeloader_plot(
+        alpha2_to_full_name,
+        country_doing_action,
         cost_country,
         benefit_country,
-        linewidth=0,
-        marker="o",
-        label=label,
-        fillstyle="none",
-    )
-
-    # We plot the global benefit
-    ax.set_prop_cycle(None)
-    plt.plot(
-        cost_country,
         global_benefit_country,
-        linewidth=0,
-        marker="o",
+        zerocost,
     )
-
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    plt.xlabel("PV country costs (bln dollars)")
-    y_min_ori, y_max_ori = ax.get_ylim()
-    # 45 degree line
-    ax.axline([y_min_ori, y_min_ori], [8, 8])
-
-    # zerocost
-    ax = axs[0]
-    plt.sca(ax)
-    ax.set_yscale("log")
-    for k, v in zerocost.items():
-        k = k.replace("US", "USA")
-        if k == "GB":
-            label = "GB"
-        else:
-            label = alpha2_to_full_name.get(k, k)
-        plt.plot(
-            0,
-            v,
-            linewidth=0,
-            marker="o",
-            label=label,
-            fillstyle="none",
-            markersize=4.8,
-        )
-    y_min_zero, y_max_zero = ax.get_ylim()
-    y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
-    # Increase y_max because the right plot has the circles at the edges.
-    y_max *= 1.1
-    # Decrease y_min slightly
-    y_min *= 0.9
-
-    plt.ylim(y_min, y_max)
-
-    # Finishing touch
-    x_min, x_max = ax.get_xlim()
-    x_mid = (x_min + x_max) / 2
-    ax.set_yticklabels([])
-    plt.xticks([x_mid], [0])
-    plt.subplots_adjust(wspace=0)
-    plt.ylabel("PV country benefits (bln dollars)")
-
-    # Rescale original plot to match zerocost range
-    plt.sca(axs[1])
-    plt.xlim(y_min, y_max)
-    plt.ylim(y_min, y_max)
-
-    fig.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.005),
-        ncol=4,
-    )
-    # plt.tight_layout()
 
     util.savefig(f"country_specific_scatter_part7_{country_doing_action}", tight=True)
     return {
@@ -1262,6 +1215,219 @@ def do_country_specific_scc_part8():
     util.savefig(f"country_specific_scatter_part8_git_{git_branch}", tight=True)
 
 
+def make_common_freeloader_plot(
+    alpha2_to_full_name, country_doing_action, cost, benefit, global_benefit, zerocost
+):
+    right = 2.5
+    fig, axs = plt.subplots(
+        1,
+        2,
+        figsize=(4 * (1 + right) / right, 4),
+        gridspec_kw={"width_ratios": [1, right]},
+    )
+    ax = axs[1]
+    plt.sca(ax)
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    label = alpha2_to_full_name[country_doing_action]
+    plt.plot(
+        cost,
+        benefit,
+        linewidth=0,
+        marker="o",
+        label=label,
+        fillstyle="none",
+    )
+
+    # We plot the global benefit
+    ax.set_prop_cycle(None)
+    plt.plot(
+        cost,
+        global_benefit,
+        linewidth=0,
+        marker="o",
+    )
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    plt.xlabel("PV country costs (bln dollars)")
+    y_min_ori, y_max_ori = ax.get_ylim()
+    # 45 degree line
+    ax.axline([y_min_ori, y_min_ori], [8, 8])
+
+    # zerocost
+    ax = axs[0]
+    plt.sca(ax)
+    ax.set_yscale("log")
+    for k, v in zerocost.items():
+        k = k.replace("US", "USA")
+        if k == "GB":
+            label = "GB"
+        else:
+            label = alpha2_to_full_name.get(k, k)
+        plt.plot(
+            0,
+            v,
+            linewidth=0,
+            marker="o",
+            label=label,
+            fillstyle="none",
+            markersize=4.8,
+        )
+    y_min_zero, y_max_zero = ax.get_ylim()
+    y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
+    # Increase y_max because the right plot has the circles at the edges.
+    y_max *= 1.1
+    # Decrease y_min slightly
+    y_min *= 0.9
+
+    plt.ylim(y_min, y_max)
+
+    # Finishing touch
+    x_min, x_max = ax.get_xlim()
+    x_mid = (x_min + x_max) / 2
+    ax.set_yticklabels([])
+    plt.xticks([x_mid], [0])
+    plt.subplots_adjust(wspace=0)
+    plt.ylabel("PV country benefits (bln dollars)")
+
+    # Rescale original plot to match zerocost range
+    plt.sca(axs[1])
+    plt.xlim(y_min, y_max)
+    plt.ylim(y_min, y_max)
+
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=4,
+    )
+
+
+def do_country_specific_scc_part9():
+    (
+        cs,
+        bs,
+        names,
+        _,
+        _,
+        _,
+        unilateral_emissions_GtCO2,
+    ) = calculate_country_specific_scc_data(
+        unilateral_actor="EMDE",
+        ext="",
+        to_csv=False,
+    )
+    git_branch = util.get_git_branch()
+    cost_EMDE = sum(cs["EMDE"]),
+    benefit_EMDE = sum(bs["EMDE"])
+    # Global benefit
+    global_benefit = calculate_global_benefit()
+    scc_dict = read_country_specific_scc_filtered()
+    unscaled_global_scc = sum(scc_dict.values())
+    countries = names["EMDE"]
+    scc_scale = (
+        sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
+    )
+    global_benefit_EMDE = global_benefit * scc_scale
+    # End global benefit
+
+    right = 2.5
+    fig, axs = plt.subplots(
+        1,
+        2,
+        figsize=(4 * (1 + right) / right, 4),
+        gridspec_kw={"width_ratios": [1, right]},
+    )
+    ax = axs[1]
+    plt.sca(ax)
+    # Reset color cycler
+    ax.set_prop_cycle(None)
+    plt.plot(
+        cost_EMDE,
+        benefit_EMDE,
+        linewidth=0,
+        marker="o",
+        label="EMDE",
+        fillstyle="none",
+    )
+
+    # We plot the global benefit
+    ax.set_prop_cycle(None)
+    plt.plot(
+        cost_EMDE,
+        global_benefit_EMDE,
+        linewidth=0,
+        marker="o",
+    )
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    plt.xlabel("PV costs (bln dollars)")
+    y_min_ori, y_max_ori = ax.get_ylim()
+    # 45 degree line
+    ax.axline([y_min_ori, y_min_ori], [8, 8])
+
+    # zerocost
+    freeloader_benefit_DE = sum(bs["Developed Countries"])
+    # Sanity check
+    assert math.isclose(freeloader_benefit_DE + global_benefit_EMDE, global_benefit)
+    ax = axs[0]
+    plt.sca(ax)
+    ax.set_yscale("log")
+    plt.plot(
+        0,
+        freeloader_benefit_DE,
+        linewidth=0,
+        marker="o",
+        label="DE",
+        color="tab:orange",
+        fillstyle="none",
+        markersize=4.8,
+    )
+
+    # Freeloader benefit for individual developed countries
+    plt.plot(
+        [0] * len(bs["Developed Countries"]),
+        bs["Developed Countries"],
+        linewidth=0,
+        marker="o",
+        label="Individual DE countries",
+        color="tab:green",
+        fillstyle="none",
+        markersize=4.8,
+    )
+
+    y_min_zero, y_max_zero = ax.get_ylim()
+    y_min, y_max = min(y_min_ori, y_min_zero), max(y_max_ori, y_max_zero)
+    # Increase y_max because the right plot has the circles at the edges.
+    y_max *= 1.1
+    # Decrease y_min slightly
+    y_min *= 0.9
+
+    plt.ylim(y_min, y_max)
+
+    # Finishing touch
+    x_min, x_max = ax.get_xlim()
+    x_mid = (x_min + x_max) / 2
+    ax.set_yticklabels([])
+    plt.xticks([x_mid], [0])
+    plt.subplots_adjust(wspace=0)
+    plt.ylabel("PV benefits (bln dollars)")
+
+    # Rescale original plot to match zerocost range
+    plt.sca(axs[1])
+    plt.xlim(y_min, y_max)
+    plt.ylim(y_min, y_max)
+
+    fig.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.005),
+        ncol=3,
+    )
+
+    util.savefig(f"country_specific_scatter_part9_git_{git_branch}", tight=True)
+
+
 if __name__ == "__main__":
     if 1:
         # country specific scc
@@ -1270,7 +1436,8 @@ if __name__ == "__main__":
         # do_country_specific_scc_part4()
         # do_country_specific_scc_part5()
         # do_country_specific_scc_part6()
-        do_country_specific_scc_part8()
+        # do_country_specific_scc_part8()
+        do_country_specific_scc_part9()
         exit()
         # do_country_specific_scc_part7("ID")
         do_country_specific_scc_part7("ZA")
