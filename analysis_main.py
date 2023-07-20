@@ -1129,6 +1129,7 @@ def generate_cost1_output(
                     cost_new_method,
                 )
             else:
+                # We cannot remove the old method because the LCOE is used in gas sensitivity analysis.
                 (
                     cost_non_discounted_investment,
                     cost_discounted_investment,
