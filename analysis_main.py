@@ -244,6 +244,82 @@ def add_array_of_mixed_objs(x, y):
     return out
 
 
+coal_export_content = util.read_json("coal_export/aggregated/combined_summed.json")
+products = [
+    270111,
+    270112,
+    270119,
+    270120,
+]
+coal_export_world_separated = util.read_json("coal_export/aggregated/world.json")
+coal_export_world = {"I": defaultdict(float), "E": defaultdict(float)}
+for trade_flow in ["I", "E"]:
+    for product in products:
+        for k, v in coal_export_world_separated[trade_flow][str(product)].items():
+            coal_export_world[trade_flow][k] += v
+
+
+def modify_investment_cost_based_on_coal_export(investment_cost_array, production_2019):
+    cached_export_fraction = {}
+    cached_import_fraction = {}
+
+    def get_export_fraction(country):
+        if country in cached_export_fraction:
+            fraction = cached_export_fraction[country]
+        else:
+            if country not in coal_export_content["E"]:
+                fraction = 0
+            else:
+                # Exclude self export
+                export = sum(v for k, v in coal_export_content["E"][country].items() if k != country)
+                export /= 1e3  # Convert kg to tonnes of coal
+                production = production_2019[country]
+                fraction = export / production if production > 0 else 0
+                if country == "PE" and fraction > 1:
+                    fraction = 1
+            assert 0 <= fraction <= 1, (country, fraction)
+            cached_export_fraction[country] = fraction
+        return fraction
+
+    def get_import_fraction(e, i):
+        key = f"{e}_{i}"
+        if key in cached_import_fraction:
+            fraction = cached_import_fraction[key]
+        else:
+            if e not in coal_export_content["E"]:
+                fraction = 0
+            else:
+                _import = coal_export_content["E"][e].get(i, 0.0)
+                _import /= 1e3  # Convert kg to tonnes of coal
+                production = production_2019[e]
+                fraction = _import / production if production > 0 else 0
+            assert 0 <= fraction <= 1
+            cached_import_fraction[key] = fraction
+        return fraction
+
+    for i in range(len(investment_cost_array)):
+        element = investment_cost_array[i]
+        if isinstance(element, float):
+            continue
+        new = {}
+        for country, v in element.items():
+            # Production - Export
+            if math.isclose(v, 0.0):
+                domestic = 0.0
+            else:
+                fraction = get_export_fraction(country)
+                domestic = (1 - fraction) * v
+            # Import
+            total_import = 0
+            for cc, vv in element.items():
+                if cc == country:
+                    # Skip self
+                    continue
+                total_import += get_import_fraction(cc, country) * vv
+            new[country] = domestic + total_import
+        investment_cost_array[i] = new
+
+
 def calculate_cost1_info(
     do_round,
     data_set,
@@ -973,6 +1049,7 @@ def generate_cost1_output(
         MID_YEAR: None,
         2100: None,
     }
+    production_2019 = _df_nonpower.groupby("asset_country")._2019.sum()
 
     weighted_emissions_factor_by_country_2020 = (
         calculate_weighted_emissions_factor_by_country_2020(_df_nonpower, _df_power)
@@ -1414,6 +1491,13 @@ def generate_cost1_output(
                 )
                 residual_emissions = 0.0
                 residual_production = 0.0
+
+            modify_investment_cost_based_on_coal_export(
+                cost_non_discounted_investment, production_2019
+            )
+            modify_investment_cost_based_on_coal_export(
+                cost_discounted_investment, production_2019
+            )
 
             # For gas sensitivty analysis
             if WEIGHT_GAS is None:
@@ -3039,7 +3123,7 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 1:
+    if 0:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
@@ -3047,9 +3131,9 @@ if __name__ == "__main__":
     # make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=True)
     # It is faster not to calculate residual benefit for climate financing.
     ENABLE_RESIDUAL_BENEFIT = 0
-    # make_climate_financing_plot()
+    make_climate_financing_plot()
     # make_climate_financing_SCATTER_plot()
-    # exit()
+    exit()
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
