@@ -5,6 +5,8 @@ tic = time.time()
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+import util
+
 print("Elapsed to import matplotlib", time.time() - tic)
 fig = plt.figure(constrained_layout=True, figsize=(8, 8))
 gs = gridspec.GridSpec(2, 4, figure=fig)
@@ -17,8 +19,24 @@ axes = [
     plt.subplot(gs[1, 1:3]),
 ]
 
-# We import this to ensure the plot style is properly configured.
-import util
+
+def sort_by_value_descending(_dict):
+    return dict(sorted(_dict.items(), key=lambda item: item[1], reverse=True))
+
+
+def get_alpha2_to_full_name():
+    (
+        _,
+        iso3166_df_alpha2,
+        _,
+        _,
+        _,
+    ) = util.prepare_from_climate_financing_data()
+    return iso3166_df_alpha2["name"].to_dict()
+
+
+alpha2_to_full_name = get_alpha2_to_full_name()
+
 
 # Part 1: PV climate financing
 pv_climate_financing_by_world = util.read_json(
@@ -124,3 +142,36 @@ plt.ylabel("PV climate financing (coal export)")
 plt.tight_layout()
 
 util.savefig("default_vs_coalexport", tight=True)
+
+
+# Finally, we print climate financing 2100, 2050, 2030.
+if 1:
+    # The year starts from 2022 to 2100 inclusive
+    pv_cf_countries_main_2050 = {
+        k: sum(v[:29]) for k, v in pv_cf_yearly_countries_main.items()
+    }
+    pv_cf_countries_coal_export_2050 = {
+        k: sum(v[:29]) for k, v in pv_cf_yearly_countries_coal_export.items()
+    }
+    pv_cf_countries_main_2030 = {
+        k: sum(v[:9]) for k, v in pv_cf_yearly_countries_main.items()
+    }
+    pv_cf_countries_coal_export_2030 = {
+        k: sum(v[:9]) for k, v in pv_cf_yearly_countries_coal_export.items()
+    }
+    with open("plots/pv_countries.csv", "w") as f:
+        f.write("country,2100,2050,2030\n")
+        for alpha2, pv_2100 in sort_by_value_descending(pv_cf_countries_main).items():
+            full_name = alpha2_to_full_name.get(alpha2, alpha2)
+            pv_2050 = pv_cf_countries_main_2050[alpha2]
+            pv_2030 = pv_cf_countries_main_2030[alpha2]
+            f.write(f"{full_name},{pv_2100},{pv_2050},{pv_2030}\n")
+    with open("plots/pv_countries_coal_export.csv", "w") as f:
+        f.write("country,2100,2050,2030\n")
+        for alpha2, pv_2100 in sort_by_value_descending(
+            pv_cf_countries_coal_export
+        ).items():
+            full_name = alpha2_to_full_name.get(alpha2, alpha2)
+            pv_2050 = pv_cf_countries_coal_export_2050[alpha2]
+            pv_2030 = pv_cf_countries_coal_export_2030[alpha2]
+            f.write(f"{full_name},{pv_2100},{pv_2050},{pv_2030}\n")
