@@ -1,3 +1,4 @@
+import csv
 import json
 
 import util
@@ -126,4 +127,13 @@ emissions_full_name_version = {
     alpha2_to_full_name[k]: v for k, v in emissions_modified_by_export.items()
 }
 print("sanity check should add up to ~1424", sum(emissions_full_name_version.values()))
-print(json.dumps(emissions_full_name_version, indent=2))
+with open("plots/avoided_emissions_modified_by_coal_export.csv", "w") as f:
+    for k, v in emissions_full_name_version.items():
+        f.write(f"{k},{v}\n")
+# print(json.dumps(emissions_full_name_version, indent=2))
+avoided_emissions_full_name = {
+    alpha2_to_full_name[k]: v for k, v in avoided_emissions.items()
+}
+with open("plots/avoided_emissions_nonadjusted.csv", "w") as f:
+    for k, v in avoided_emissions_full_name.items():
+        f.write(f"{k},{v}\n")
