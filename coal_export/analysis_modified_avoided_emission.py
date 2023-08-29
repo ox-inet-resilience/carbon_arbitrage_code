@@ -1,7 +1,5 @@
-import csv
-import json
-
 import util
+from coal_export.common import get_export_fraction, get_import_fraction
 
 # This is obtained from hacking analysis_country_specific.py, by printing out the value of
 # unilateral_emissions += ub / scc
@@ -192,40 +190,6 @@ avoided_emissions_upto_2030 = {
     "NZ": 1.2269081440891314,
 }
 
-_, nonpower_coal, _ = util.read_masterdata()
-coal_export_content = util.read_json("coal_export/aggregated/combined_summed.json")
-production_2019 = nonpower_coal.groupby("asset_country")._2019.sum()
-
-
-def get_export_fraction(country):
-    if country not in coal_export_content["E"]:
-        fraction = 0
-    else:
-        # Exclude self export
-        export = sum(
-            v for k, v in coal_export_content["E"][country].items() if k != country
-        )
-        export /= 1e3  # Convert kg to tonnes of coal
-        production = production_2019[country]
-        fraction = export / production if production > 0 else 0
-        if country == "PE" and fraction > 1:
-            fraction = 1
-    assert 0 <= fraction <= 1, (country, fraction)
-    return fraction
-
-
-def get_import_fraction(e, i):
-    if e not in coal_export_content["E"]:
-        fraction = 0
-    else:
-        _import = coal_export_content["E"][e].get(i, 0.0)
-        _import /= 1e3  # Convert kg to tonnes of coal
-        production = production_2019[e]
-        fraction = _import / production if production > 0 else 0
-    assert 0 <= fraction <= 1
-    return fraction
-
-
 emissions_modified_by_export = {2100: {}, 2050: {}, 2030: {}}
 
 for last_year in (2100, 2050, 2030):
@@ -259,7 +223,10 @@ emissions_modified_by_export[2100] = dict(
     _,
 ) = util.prepare_from_climate_financing_data()
 alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
-print("sanity check should add up to ~1424", sum(emissions_modified_by_export[2100].values()))
+print(
+    "sanity check should add up to ~1424",
+    sum(emissions_modified_by_export[2100].values()),
+)
 with open("plots/avoided_emissions_modified_by_coal_export.csv", "w") as f:
     for k, v in emissions_modified_by_export[2100].items():
         v_2050 = emissions_modified_by_export[2050][k]
