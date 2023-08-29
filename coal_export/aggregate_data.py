@@ -61,10 +61,14 @@ for trade_flow in ["I", "E"]:
                     # if partner not in masterdata_alpha3:
                     #     continue
                     partner = a3_to_a2[partner]
+                    assert partner == alpha2
+                    # If I, reporter imports from partner
+                    # If E, reporter exports to partner
                     content[reporter][partner] = row.Quantity
                 else:
                     wld[trade_flow][k][reporter] = row.Quantity
-        with open(f"coal_export/aggregated/{trade_flow}_{k}.json", "w") as f:
+        ie = "export" if trade_flow == "E" else "import"
+        with open(f"coal_export/aggregated/{ie}_{k}.json", "w") as f:
             json.dump(content, f)
 with open("coal_export/aggregated/world.json", "w") as f:
     json.dump(wld, f)
