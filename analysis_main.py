@@ -222,12 +222,11 @@ products = [
     270119,
     270120,
 ]
-coal_export_world_separated = util.read_json("coal_export/aggregated/world.json")
-coal_export_world = {"I": defaultdict(float), "E": defaultdict(float)}
-for trade_flow in ["I", "E"]:
-    for product in products:
-        for k, v in coal_export_world_separated[trade_flow][str(product)].items():
-            coal_export_world[trade_flow][k] += v
+
+from coal_export.common import (
+    get_export_fraction as common_get_export_fraction,
+    get_import_fraction as common_get_import_fraction,
+)
 
 
 def modify_investment_cost_based_on_coal_export(investment_cost_array, production_2019):
@@ -238,17 +237,7 @@ def modify_investment_cost_based_on_coal_export(investment_cost_array, productio
         if country in cached_export_fraction:
             fraction = cached_export_fraction[country]
         else:
-            if country not in coal_export_content["E"]:
-                fraction = 0
-            else:
-                # Exclude self export
-                export = sum(v for k, v in coal_export_content["E"][country].items() if k != country)
-                export /= 1e3  # Convert kg to tonnes of coal
-                production = production_2019[country]
-                fraction = export / production if production > 0 else 0
-                if country == "PE" and fraction > 1:
-                    fraction = 1
-            assert 0 <= fraction <= 1, (country, fraction)
+            fraction = common_get_export_fraction(country)
             cached_export_fraction[country] = fraction
         return fraction
 
@@ -257,14 +246,7 @@ def modify_investment_cost_based_on_coal_export(investment_cost_array, productio
         if key in cached_import_fraction:
             fraction = cached_import_fraction[key]
         else:
-            if e not in coal_export_content["E"]:
-                fraction = 0
-            else:
-                _import = coal_export_content["E"][e].get(i, 0.0)
-                _import /= 1e3  # Convert kg to tonnes of coal
-                production = production_2019[e]
-                fraction = _import / production if production > 0 else 0
-            assert 0 <= fraction <= 1
+            fraction = common_get_import_fraction(e, i)
             cached_import_fraction[key] = fraction
         return fraction
 

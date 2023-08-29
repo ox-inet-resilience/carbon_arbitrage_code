@@ -16,7 +16,7 @@ products = {
 }
 
 content = {}
-for trade_flow in ["I", "E"]:
+for trade_flow in ["import", "export"]:
     for product in products:
         fname = f"{trade_flow}_{product}"
         content[fname] = util.read_json(f"coal_export/aggregated/{fname}.json")
@@ -82,10 +82,10 @@ for alpha2, row in by_country.items():
         "Product": "import",
     }
 
-if False:
+if 1:
     from collections import defaultdict
-    coal_export_content = {"I": defaultdict(dict), "E": defaultdict(dict)}
-    for trade_flow in ["I", "E"]:
+    coal_export_content = {"import": defaultdict(dict), "export": defaultdict(dict)}
+    for trade_flow in ["import", "export"]:
         for product in products:
             by_product = content[f"{trade_flow}_{product}"]
             for reporter, inner_dict in by_product.items():
@@ -96,6 +96,7 @@ if False:
                         coal_export_content[trade_flow][reporter][partner] = value
     with open("coal_export/aggregated/combined_summed.json", "w") as f:
         json.dump(coal_export_content, f)
+    exit()
 
 
 def get_alpha2_to_full_name():
@@ -207,7 +208,7 @@ if 1:
         for j in range(60):
             c_i = custom_order[i]
             c_j = custom_order[j]
-            ii = combined["E"].get(c_i)
+            ii = combined["export"].get(c_i)
             if not ii:
                 matrix[i, j] = 0
             else:
