@@ -34,7 +34,7 @@ def initialize_website_sensitivity_analysis_params():
     }
 
     social_costs = list(range(20, 300 + 1, 20))
-    time_horizons = [2050, 2070, 2100]
+    time_horizons = [2030, 2050, 2070, 2100]
     # For these dicts, the keys are usually the string value as shown in the
     # demonstration website
     # (https://ox-inet-resilience.github.io/carbon_arbitrage/).
@@ -91,10 +91,7 @@ def do_website_sensitivity_analysis():
                         all_scs_output = mp.Manager().dict()
 
                         def fn(sc):
-                            if last_year == 2070:
-                                analysis_main.MID_YEAR = 2070
-                            else:
-                                analysis_main.MID_YEAR = 2050
+                            apply_last_year(last_year)
 
                             analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
                             analysis_main.RENEWABLE_LIFESPAN = lifetime
@@ -128,7 +125,7 @@ def do_website_sensitivity_analysis():
         json.dump(out_dict, f, separators=(",", ":"))
 
 
-def common_set_website_sensitiviy_analysis_params(
+def common_set_website_sensitivity_analysis_params(
     param, learning_curve_map, coal_replacements
 ):
     learning_curve = param["learning_curve"]
@@ -136,10 +133,7 @@ def common_set_website_sensitiviy_analysis_params(
     coal_replacement = param["coal_replacement"]
     last_year = param.get("last_year", 2100)
 
-    if last_year == 2070:
-        analysis_main.MID_YEAR = 2070
-    else:
-        analysis_main.MID_YEAR = 2050
+    apply_last_year(last_year)
 
     analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
     analysis_main.RENEWABLE_LIFESPAN = lifetime
@@ -182,7 +176,7 @@ def do_website_sensitivity_analysis_climate_financing():
     output = mp.Manager().dict()
 
     def fn(param):
-        common_set_website_sensitiviy_analysis_params(
+        common_set_website_sensitivity_analysis_params(
             param, learning_curve_map, coal_replacements
         )
         param_key = "_".join(str(v) for v in param.values())
@@ -212,6 +206,8 @@ def apply_last_year(last_year):
     elif last_year == 2030:
         analysis_main.MID_YEAR = 2030
     else:
+        # 2100 is included by default in the mid year of 2050.
+        assert last_year in [2050, 2100], last_year
         analysis_main.MID_YEAR = 2050
 
 
@@ -293,6 +289,7 @@ def do_website_sensitivity_cost_benefit_scatter_1country():
 
 if __name__ == "__main__":
     # do_website_sensitivity_analysis()
-    # do_website_sensitivity_analysis_climate_financing()
+    do_website_sensitivity_analysis_climate_financing()
+    exit()
     # do_website_sensitivity_analysis_opportunity_costs()
     do_website_sensitivity_cost_benefit_scatter_1country()
