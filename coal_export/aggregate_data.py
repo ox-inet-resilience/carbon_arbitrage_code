@@ -27,6 +27,7 @@ import util
     _,
 ) = util.prepare_from_climate_financing_data()
 a3_to_a2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
+a3_to_a2["NAM"] = "NA"
 
 masterdata_alpha2.append("WLD")
 
