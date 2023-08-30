@@ -80,7 +80,7 @@ for i, yaxis in enumerate(
 
     plt.xlabel("PV climate financing (default)")
     if i == 0:
-        plt.ylabel("PV climate financing (regional scenario)")
+        plt.ylabel("PV climate financing\n(regional scenario)")
     else:
         plt.ylabel("PV climate financing (coal export)")
 
