@@ -11,12 +11,14 @@ masterdata_countries = set(
 def get_export_fraction(country):
     if country not in coal_export_content["export"]:
         fraction = 0
+    elif country not in production_2019:  # equivalent to not in masterdata
+        fraction = 0
     else:
         # Exclude self export
         export = sum(
             v
             for k, v in coal_export_content["export"][country].items()
-            if k != country and k in masterdata_countries
+            if k != country
         )
         export /= 1e3  # Convert kg to tonnes of coal
         production = production_2019[country]

@@ -1,5 +1,6 @@
 import util
 from coal_export.common import get_export_fraction, get_import_fraction
+from coal_export.common_data import all_alpha2s
 
 # This is obtained from hacking analysis_country_specific.py, by printing out the value of
 # unilateral_emissions += ub / scc
@@ -198,7 +199,8 @@ for last_year in (2100, 2050, 2030):
         2050: avoided_emissions_upto_2050,
         2030: avoided_emissions_upto_2030,
     }[last_year]
-    for country, emissions in ae.items():
+    for country in all_alpha2s:
+        emissions = ae.get(country, 0.0)
         modified_e = emissions * (1 - get_export_fraction(country)) + sum(
             v * get_import_fraction(k, country)
             for k, v in avoided_emissions_upto_2100.items()
