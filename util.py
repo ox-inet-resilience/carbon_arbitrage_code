@@ -774,7 +774,11 @@ def get_emerging_countries():
 
 
 def read_iso3166():
-    return pd.read_csv("data/country_ISO-3166_with_region.csv")
+    return pd.read_csv(
+        "data/country_ISO-3166_with_region.csv",
+        # Needs this because otherwise NA for Namibia is interpreted as NaN
+        na_filter=False,
+    )
 
 
 def prepare_from_climate_financing_data():
