@@ -51,10 +51,6 @@ pv_climate_financing_by_region = util.read_json(
     "plots/for_comparison_pv_climate_financing_ngfs_by_region.json"
 )
 
-# For sanity check
-aggregate_main = 0.0
-aggregate_coal_export = 0.0
-
 for i, yaxis in enumerate(
     [pv_climate_financing_by_region, pv_climate_financing_by_coal_export]
 ):
@@ -63,15 +59,13 @@ for i, yaxis in enumerate(
     for k in pv_climate_financing_by_world.keys():
         x = pv_climate_financing_by_world[k]
         y = yaxis[k]
-        if i == 1:
-            # Only aggregate the coal export case
-            aggregate_main += x
-            aggregate_coal_export += y
         if k == "World":
             marker = "o"
         elif "Countries" in k:
+            # Level of development
             marker = "s"
         else:
+            # Region
             marker = "^"
         # s is marker size
         plt.scatter(x, y, s=80, label=k, marker=marker)
@@ -84,11 +78,28 @@ for i, yaxis in enumerate(
     else:
         plt.ylabel("PV climate financing (coal export)")
 
-
-print("Aggregate main", aggregate_main, "Aggregate coal export", aggregate_coal_export)
-assert math.isclose(aggregate_main, aggregate_coal_export), (
-    aggregate_main,
-    aggregate_coal_export,
+# For sanity check
+aggregate_main = 0.0
+aggregate_coal_export = 0.0
+aggregate_region_main = 0.0
+aggregate_region_coal_export = 0.0
+for k in pv_climate_financing_by_world.keys():
+    _main = pv_climate_financing_by_world[k]
+    _ce = pv_climate_financing_by_coal_export[k]
+    if k == "World":
+        assert math.isclose(_main, _ce)
+    elif "Countries" in k:
+        aggregate_main += _main
+        aggregate_coal_export += _ce
+    else:
+        aggregate_region_main += _main
+        aggregate_region_coal_export += _ce
+# The aggregate for level of development is not the same because the coal
+# export version has MS BM NA PF, which are overseas territories of either UK OR FR
+print("Aggregate level dev main", aggregate_main, "Aggregate level dev coal export", aggregate_coal_export)
+assert math.isclose(aggregate_region_main, aggregate_region_coal_export), (
+    aggregate_region_main,
+    aggregate_region_coal_export,
 )
 # Deduplicate labels
 handles, labels = plt.gca().get_legend_handles_labels()
@@ -119,13 +130,13 @@ plt.sca(ax)
 aggregate_main = 0.0
 aggregate_coal_export = 0.0
 
-for country in pv_cf_countries_main.keys():
-    x = pv_cf_countries_main[country]
+for country in pv_cf_countries_coal_export.keys():
+    x = pv_cf_countries_main.get(country, 0)
     y = pv_cf_countries_coal_export[country]
     aggregate_main += x
     aggregate_coal_export += y
     plt.scatter(x, y, s=80, marker="o")
-    if country not in ["JP", "DE", "ZA", "ID", "RU", "AU", "US", "IN", "CN"]:
+    if country not in ["JP", "DE", "ZA", "ID", "RU", "AU", "US", "IN", "CN", "KR"]:
         continue
     plt.annotate(country, (x, y))
 print("Aggregate main", aggregate_main, "Aggregate coal export", aggregate_coal_export)
