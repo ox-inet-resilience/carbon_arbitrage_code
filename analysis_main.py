@@ -207,7 +207,12 @@ def add_array_of_mixed_objs(x, y):
             yi = yi.to_dict()
 
         if isinstance(xi, dict):
-            z = {k: v + yi[k] for k, v in xi.items()}
+            z = {}
+            # We need to include keys from both xi and yi, because recently in
+            # the coal export, there are 100% importer countries that are not
+            # part of masterdata.
+            for key in set(xi) | set(yi):
+                z[key] = xi.get(key, 0) + yi.get(key, 0)
             out.append(z)
         else:
             # float
@@ -227,6 +232,7 @@ from coal_export.common import (
     get_export_fraction as common_get_export_fraction,
     get_import_fraction as common_get_import_fraction,
 )
+from coal_export.common_data import non_masterdata_alpha2
 
 
 def modify_investment_cost_based_on_coal_export(investment_cost_array, production_2019):
@@ -270,6 +276,12 @@ def modify_investment_cost_based_on_coal_export(investment_cost_array, productio
                     continue
                 total_import += get_import_fraction(cc, country) * vv
             new[country] = domestic + total_import
+        # Now we do non-masterdata countries, which only do
+        # imports
+        for country in non_masterdata_alpha2:
+            total_import = sum(get_import_fraction(cc, country) * vv for cc, vv in element.items())
+            new[country] = total_import
+
         investment_cost_array[i] = new
 
 
