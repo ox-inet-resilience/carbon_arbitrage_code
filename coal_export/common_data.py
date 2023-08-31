@@ -17,3 +17,4 @@ non_masterdata_alpha2 = "AE FR DK AW AF UY BO RW FI ML KH CG LB SZ CH HK BZ EC S
 # Excluding XK
 masterdata_alpha3 = "ARG AUS BIH BGD BGR BRA BWA CAN COD CHL CHN COL CZE DEU ESP ETH GBR GEO GRC HUN IDN IND IRN JPN KGZ KAZ LAO MNE MDG MKD MMR MNG MWI MEX MOZ NER NGA NOR NZL PER PHL PAK POL ROU SRB RUS SVN SVK THA TJK TUR TZA UKR USA UZB VEN VNM ZAF ZMB ZWE".split()
 non_masterdata_alpha3 = [a2_to_a3[i] for i in non_masterdata_alpha2]
+all_alpha2s = masterdata_alpha2 + non_masterdata_alpha2
