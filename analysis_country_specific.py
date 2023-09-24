@@ -5,10 +5,14 @@ import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
+import matplotlib
 
 import util
 import analysis_main
 
+
+matplotlib.use("agg")
 
 # Countries that we have data for, for unilateral action.
 # We intentionally exclude XK.
@@ -74,6 +78,8 @@ unilateral_countries = {
     "GE",
     "NZ",
 }
+G7 = "US JP DK GB DE IT NO".split()
+EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 
 
 def prepare_level_development():
@@ -983,8 +989,6 @@ def do_country_specific_scc_part7(
     ) = util.prepare_from_climate_financing_data()
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
 
-    G7 = "US JP DK GB DE IT NO".split()
-
     # We round to 3 decimal digits instead of 6 because the unit is billion
     # dollars.
     def round3(x):
@@ -1014,7 +1018,6 @@ def do_country_specific_scc_part7(
         zerocost = [i * 1e3 for i in bs[level]]
     else:
         zerocost = defaultdict(float)
-        EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
         zerocost_benefit_eu = 0.0
         zerocost_benefit_world = 0.0
         for level, level_names in names.items():
@@ -1231,7 +1234,13 @@ def do_country_specific_scc_part8():
 
 
 def make_common_freeloader_plot(
-    alpha2_to_full_name, country_doing_action, cost, benefit, global_benefit, zerocost, use_developed_for_zerocost
+    alpha2_to_full_name,
+    country_doing_action,
+    cost,
+    benefit,
+    global_benefit,
+    zerocost,
+    use_developed_for_zerocost,
 ):
     right = 2.5
     fig, axs = plt.subplots(
@@ -1453,6 +1462,152 @@ def do_country_specific_scc_part9():
     util.savefig(f"country_specific_scatter_part9_git_{git_branch}", tight=True)
 
 
+def do_heatmap_bruegel():
+    # Largest by avoided emissions
+    # Taken from avoided_emissions_nonadjusted.csv (see Zulip).
+    by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
+
+    (
+        iso3166_df,
+        iso3166_df_alpha2,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+    alpha2_to_full_name["GB"] = "Great Britain"
+    alpha2_to_full_name["US"] = "USA"
+    alpha2_to_full_name["RU"] = "Russia"
+    alpha2_to_full_name["TW"] = "Taiwan"
+    alpha2_to_full_name["KR"] = "South Korea"
+    alpha2_to_full_name["LA"] = "Laos"
+    alpha2_to_full_name["VE"] = "Venezuela"
+    alpha2_to_full_name["CD"] = "Congo-Kinshasa"
+    alpha2_to_full_name["IR"] = "Iran"
+    alpha2_to_full_name["TZ"] = "Tanzania"
+    alpha2_to_full_name["BA"] = "B&H"
+
+    # Exclude developed countries
+    # Reduce from 60 to 47
+    by_avoided_emissions = [
+        c for c in by_avoided_emissions if c not in developed_country_shortnames
+    ]
+
+    emerging_country_shortnames = util.get_emerging_countries()
+    developING_country_shortnames = util.get_developing_countries()
+    emde = emerging_country_shortnames + developING_country_shortnames
+    emde_minus_cn = [c for c in emde if c != "CN"]
+    emde_minus_cn_in = [c for c in emde if c not in ["CN", "IN"]]
+
+    git_branch = util.get_git_branch()
+
+    fname = f"cache/country_specific_data_bruegel_git_{git_branch}.json"
+    (
+        cs_combined,
+        _,
+        zerocost,
+        _,
+    ) = common_prepare_cost_benefit_by_country(fname, by_avoided_emissions)
+
+    EU_and_US = EU + ["US"]
+
+    # fig, axs = plt.subplots(2, 2, figsize=(15, 15))
+    plt.figure(figsize=(15, 15))
+
+    for i in range(1):
+        #if i == 0:
+        #    topn = by_avoided_emissions[:23]
+        #else:
+        #    topn = by_avoided_emissions[23:]
+        topn = by_avoided_emissions
+
+        # We split the heatmap into 2: first 20 developed, and last 20.
+        for j in range(1):
+            #plt.sca(axs[i, j])
+
+            #if j == 0:
+            #    developed_subset_y = developed_country_shortnames[:20]
+            #else:
+            #    developed_subset_y = developed_country_shortnames[20:]
+            developed_subset_y = developed_country_shortnames
+
+            # y axis
+            country_groups = [
+                developed_country_shortnames,
+                G7,
+                EU_and_US,
+                ["EU"],
+                *[[c] for c in developed_subset_y],
+            ]
+
+            def get_net_benefit_composite(action_group):
+                net_benefit = 0
+                for country_doing_action, v in zerocost.items():
+                    if country_doing_action not in action_group:
+                        continue
+                    net_benefit += (
+                        sum(vv for kk, vv in v.items() if kk in group)
+                        - cs_combined[country_doing_action]
+                    )
+                return net_benefit
+
+            matrix = []
+            for group in country_groups:
+                net_benefits = []
+
+                # EMDE
+                net_benefits.append(get_net_benefit_composite(emde))
+
+                # EMDE - CN
+                net_benefits.append(get_net_benefit_composite(emde_minus_cn))
+
+                # EMDE - CN - IN
+                net_benefits.append(get_net_benefit_composite(emde_minus_cn_in))
+
+                # Individual countries
+                for country_doing_action in topn:
+                    if country_doing_action in developed_country_shortnames:
+                        # Skip developed countries
+                        continue
+                    freeloader_benefit = sum(
+                        vv
+                        for kk, vv in zerocost[country_doing_action].items()
+                        if kk in group
+                    )
+                    # In trillion dollars
+                    net_benefit = freeloader_benefit - cs_combined[country_doing_action]
+                    # For conversion from trillion to billion dollars
+                    # net_benefit *= 1e3
+                    net_benefits.append(net_benefit)
+
+                matrix.append(net_benefits)
+
+            yticklabels = [
+                "D",
+                "G7",
+                "EU+US",
+                "EU",
+                *[alpha2_to_full_name[c] for c in developed_subset_y],
+            ]
+
+            sns.heatmap(
+                matrix,
+                xticklabels=["EMDE", "EMDE-CN", "EMDE-CN-IN"]
+                + [
+                    alpha2_to_full_name[c]
+                    for c in topn
+                    if c not in developed_country_shortnames
+                ],
+                yticklabels=yticklabels,
+                annot=True,
+                cmap="tab20c",
+                fmt=".1f",
+                annot_kws={"fontsize": 5},
+            )
+    util.savefig("bruegel", tight=True)
+    plt.close()
+
+
 if __name__ == "__main__":
     if 1:
         # country specific scc
@@ -1467,7 +1622,8 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("ID")
         # do_country_specific_scc_part7("ZA")
         # do_country_specific_scc_part7("VN")
-        do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
-        do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
+        # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
+        # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
+        do_heatmap_bruegel()
 
         exit()
