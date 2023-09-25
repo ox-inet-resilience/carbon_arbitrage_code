@@ -82,6 +82,22 @@ G7 = "US JP DK GB DE IT NO".split()
 EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 
 
+def prepare_alpha2_to_full_name_concise(iso3166_df_alpha2):
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+    alpha2_to_full_name["GB"] = "Great Britain"
+    alpha2_to_full_name["US"] = "USA"
+    alpha2_to_full_name["RU"] = "Russia"
+    alpha2_to_full_name["TW"] = "Taiwan"
+    alpha2_to_full_name["KR"] = "South Korea"
+    alpha2_to_full_name["LA"] = "Laos"
+    alpha2_to_full_name["VE"] = "Venezuela"
+    alpha2_to_full_name["CD"] = "Congo-Kinshasa"
+    alpha2_to_full_name["IR"] = "Iran"
+    alpha2_to_full_name["TZ"] = "Tanzania"
+    alpha2_to_full_name["BA"] = "B&H"
+    return alpha2_to_full_name
+
+
 def prepare_level_development():
     (
         iso3166_df,
@@ -1462,7 +1478,7 @@ def do_country_specific_scc_part9():
     util.savefig(f"country_specific_scatter_part9_git_{git_branch}", tight=True)
 
 
-def do_heatmap_bruegel():
+def do_bruegel_heatmap():
     # Largest by avoided emissions
     # Taken from avoided_emissions_nonadjusted.csv (see Zulip).
     by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
@@ -1474,18 +1490,7 @@ def do_heatmap_bruegel():
         _,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
-    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
-    alpha2_to_full_name["GB"] = "Great Britain"
-    alpha2_to_full_name["US"] = "USA"
-    alpha2_to_full_name["RU"] = "Russia"
-    alpha2_to_full_name["TW"] = "Taiwan"
-    alpha2_to_full_name["KR"] = "South Korea"
-    alpha2_to_full_name["LA"] = "Laos"
-    alpha2_to_full_name["VE"] = "Venezuela"
-    alpha2_to_full_name["CD"] = "Congo-Kinshasa"
-    alpha2_to_full_name["IR"] = "Iran"
-    alpha2_to_full_name["TZ"] = "Tanzania"
-    alpha2_to_full_name["BA"] = "B&H"
+    alpha2_to_full_name = prepare_alpha2_to_full_name_concise(iso3166_df_alpha2)
 
     # Exclude developed countries
     # Reduce from 60 to 47
@@ -1515,19 +1520,19 @@ def do_heatmap_bruegel():
     plt.figure(figsize=(15, 15))
 
     for i in range(1):
-        #if i == 0:
+        # if i == 0:
         #    topn = by_avoided_emissions[:23]
-        #else:
+        # else:
         #    topn = by_avoided_emissions[23:]
         topn = by_avoided_emissions
 
         # We split the heatmap into 2: first 20 developed, and last 20.
         for j in range(1):
-            #plt.sca(axs[i, j])
+            # plt.sca(axs[i, j])
 
-            #if j == 0:
+            # if j == 0:
             #    developed_subset_y = developed_country_shortnames[:20]
-            #else:
+            # else:
             #    developed_subset_y = developed_country_shortnames[20:]
             developed_subset_y = developed_country_shortnames
 
@@ -1608,6 +1613,59 @@ def do_heatmap_bruegel():
     plt.close()
 
 
+def do_bruegel_2():
+    avoided_emissions = pd.read_csv(
+        "./plots/avoided_emissions_nonadjusted.csv", header=None
+    )
+
+    (
+        _,
+        iso3166_df_alpha2,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+    emerging_country_shortnames = util.get_emerging_countries()
+    developING_country_shortnames = util.get_developing_countries()
+    emde = emerging_country_shortnames + developING_country_shortnames
+    emde_fullname = [alpha2_to_full_name.get(c, c) for c in emde]
+
+    ae_emde = avoided_emissions[avoided_emissions[0].isin(emde_fullname)]
+    ae_emde.to_csv("plots/bruegel_2_avoided_emissions_emde.csv")
+
+    # SCC of EMDE
+    scc_dict = read_country_specific_scc_filtered()
+    unscaled_global_scc = sum(scc_dict.values())
+    scc_80_dict = None
+    for name, filter_countries in [("emde", emde), ("developed", developed_country_shortnames)]:
+        filtered_scc = {k: v for k, v in scc_dict.items() if k in filter_countries}
+        data = {
+            "name": [alpha2_to_full_name[c] for c in filtered_scc.keys()],
+            "share (%)": [
+                round(v / unscaled_global_scc * 100, 2) for v in filtered_scc.values()
+            ],
+            "absolute (total 80)": [
+                round(v / unscaled_global_scc * 80, 2) for v in filtered_scc.values()
+            ],
+            "absolute (total nature paper)": [round(v, 2) for v in filtered_scc.values()],
+        }
+        _df = pd.DataFrame.from_dict(data)
+        _df.to_csv(f"plots/bruegel_2_scc_{name}.csv")
+        if name == "emde":
+            scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
+
+    def func(row):
+        full_name = row[0]
+        scc = scc_80_dict[full_name]
+        row[1] *= scc
+        row[2] *= scc
+        return row
+
+    cost_emde = ae_emde.apply(func, axis=1)
+    cost_emde.to_csv("plots/bruegel_2_cost_emde.csv")
+
+
 if __name__ == "__main__":
     if 1:
         # country specific scc
@@ -1624,6 +1682,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("VN")
         # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
-        do_heatmap_bruegel()
+        # do_bruegel_heatmap()
+        do_bruegel_2()
 
         exit()
