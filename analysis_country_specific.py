@@ -236,9 +236,11 @@ def calculate_country_specific_scc_data(
     benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        unilateral_benefit = util.read_json(
-            f"cache/unilateral_benefit_trillion_{last_year}.json"
-        )
+        if util.USE_NATURE_PAPER_SCC:
+            cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
+        else:
+            cache_name = f"cache/unilateral_benefit_trillion_{last_year}.json"
+        unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
             cost_climate_club = 0.0
@@ -1618,7 +1620,8 @@ def do_bruegel_heatmap():
                 fmt=".1f",
                 annot_kws={"fontsize": 5},
                 vmin=-20.2,  # -20.177
-                vmax=37.5,  # 37.3
+                vmax=37.5,  # 37.3  this is for global scc of 80
+                # vmax=489.1,  # 489.02  this is for global scc from the Nature paper
             )
     util.savefig("bruegel", tight=True)
     plt.close()
@@ -1649,7 +1652,10 @@ def do_bruegel_2():
     scc_dict = read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     scc_80_dict = None
-    for name, filter_countries in [("emde", emde), ("developed", developed_country_shortnames)]:
+    for name, filter_countries in [
+        ("emde", emde),
+        ("developed", developed_country_shortnames),
+    ]:
         filtered_scc = {k: v for k, v in scc_dict.items() if k in filter_countries}
         data = {
             "name": [alpha2_to_full_name[c] for c in filtered_scc.keys()],
@@ -1659,7 +1665,9 @@ def do_bruegel_2():
             "absolute (total 80)": [
                 round(v / unscaled_global_scc * 80, 2) for v in filtered_scc.values()
             ],
-            "absolute (total nature paper)": [round(v, 2) for v in filtered_scc.values()],
+            "absolute (total nature paper)": [
+                round(v, 2) for v in filtered_scc.values()
+            ],
         }
         _df = pd.DataFrame.from_dict(data)
         _df.to_csv(f"plots/bruegel_2_scc_{name}.csv")
