@@ -80,6 +80,7 @@ unilateral_countries = {
 }
 G7 = "US JP DK GB DE IT NO".split()
 EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
+eurozone = "AT BE HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES".split()
 
 
 def prepare_alpha2_to_full_name_concise(iso3166_df_alpha2):
@@ -1541,7 +1542,11 @@ def do_bruegel_heatmap():
                 developed_country_shortnames,
                 G7,
                 EU_and_US,
-                ["EU"],
+                EU,
+                eurozone,
+                EU[:15],
+                EU[:10],
+                EU[:5],
                 *[[c] for c in developed_subset_y],
             ]
 
@@ -1592,6 +1597,10 @@ def do_bruegel_heatmap():
                 "G7",
                 "EU+US",
                 "EU",
+                "Eurozone",
+                "EU top 15",
+                "EU top 10",
+                "EU top 5",
                 *[alpha2_to_full_name[c] for c in developed_subset_y],
             ]
 
@@ -1608,6 +1617,8 @@ def do_bruegel_heatmap():
                 cmap="tab20c",
                 fmt=".1f",
                 annot_kws={"fontsize": 5},
+                vmin=-20.2,  # -20.177
+                vmax=37.5,  # 37.3
             )
     util.savefig("bruegel", tight=True)
     plt.close()
@@ -1682,7 +1693,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("VN")
         # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
-        # do_bruegel_heatmap()
-        do_bruegel_2()
+        do_bruegel_heatmap()
+        # do_bruegel_2()
 
         exit()
