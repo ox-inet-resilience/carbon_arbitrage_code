@@ -27,6 +27,7 @@ plt.rc("font", size=13)
 plt.rc("legend", fontsize=11, title_fontsize=11)
 # End font
 
+USE_NATURE_PAPER_SCC = False
 # Possible models are:
 # {'REMIND-MAgPIE 2.1-4.2', 'REMIND-MAgPIE 2.1-4.2 IntegratedPhysicalDamages
 # (95th)', 'GCAM5.3_NGFS',
@@ -55,8 +56,11 @@ social_cost_of_carbon_lower_bound = 61.4  # min
 social_cost_of_carbon_upper_bound = 168.4  # max
 social_cost_of_carbon_mid = 114.9
 social_cost_of_carbon_imf = 80
+scc_nature_paper = 998.3153319040857
 # social_cost_of_carbon = social_cost_of_carbon_lower_bound
 social_cost_of_carbon = social_cost_of_carbon_imf
+if USE_NATURE_PAPER_SCC:
+    social_cost_of_carbon = scc_nature_paper
 # social_cost_of_carbon = social_cost_of_carbon_mid
 # social_cost_of_carbon = social_cost_of_carbon_upper_bound
 world_gdp_2020 = 84.705  # trillion dolars
