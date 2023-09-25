@@ -56,6 +56,8 @@ BENEFIT_NET_GROWTH_RATE = 0.01
 WEIGHT_GAS = None
 # WEIGHT_GAS = 0.1
 # WEIGHT_GAS = 0.33
+# This is used in Bruegel analysis. Might be deleted later.
+INVESTMENT_COST_DIVIDER = 1
 
 print("Use new method:", ENABLE_NEW_METHOD)
 print("Renewable degradation:", ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
@@ -230,6 +232,13 @@ def calculate_cost1_info(
     residual_production=0.0,
     cost_gas_investment=0.0,
 ):
+    if INVESTMENT_COST_DIVIDER > 1:
+        array_of_cost_discounted_investment = divide_array_of_mixed_objs(
+            array_of_cost_discounted_investment, INVESTMENT_COST_DIVIDER
+        )
+        array_of_cost_non_discounted_investment = divide_array_of_mixed_objs(
+            array_of_cost_non_discounted_investment, INVESTMENT_COST_DIVIDER
+        )
     out_yearly_info = {}
     cost_non_discounted_revenue = sum_array_of_mixed_objs(
         array_of_cost_non_discounted_revenue
