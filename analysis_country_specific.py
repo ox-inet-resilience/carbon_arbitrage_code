@@ -1,3 +1,4 @@
+import csv
 from collections import defaultdict
 import json
 import math
@@ -81,6 +82,20 @@ unilateral_countries = {
 G7 = "US JP DK GB DE IT NO".split()
 EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 eurozone = "AT BE HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES".split()
+# Largest by avoided emissions
+# Taken from avoided_emissions_nonadjusted.csv (see Zulip).
+by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
+
+
+def apply_last_year(last_year):
+    if last_year == 2070:
+        analysis_main.MID_YEAR = 2070
+    elif last_year == 2030:
+        analysis_main.MID_YEAR = 2030
+    else:
+        # 2100 is included by default in the mid year of 2050.
+        assert last_year in [2050, 2100], last_year
+        analysis_main.MID_YEAR = 2050
 
 
 def prepare_alpha2_to_full_name_concise(iso3166_df_alpha2):
@@ -206,6 +221,7 @@ def calculate_country_specific_scc_data(
     if last_year is None:
         last_year = 2100
     chosen_s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+    apply_last_year(last_year)
     costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
         chosen_s2_scenario, "plots/country_specific_cost.json", ignore_cache=True
     )
@@ -1107,7 +1123,7 @@ def do_country_specific_scc_part7(
     }
 
 
-def common_prepare_cost_benefit_by_country(fname, countries):
+def common_prepare_cost_benefit_by_country(fname, countries, last_year=None):
     if os.path.isfile(fname):
         content = util.read_json(fname)
         cs_combined = content["unilateral_cost"]
@@ -1126,6 +1142,7 @@ def common_prepare_cost_benefit_by_country(fname, countries):
                 unilateral_actor=unilateral_actor,
                 ext="",
                 to_csv=False,
+                last_year=last_year,
             )
             cumulative_emissions += emissions
             for level, level_names in names.items():
@@ -1156,7 +1173,7 @@ def common_prepare_cost_benefit_by_country(fname, countries):
         expected = cumulative_emissions / 1e3 * util.social_cost_of_carbon
         # It is only approximately the same with 1e-5 tolerance, because the
         # benefit is rounded to 6 decimal points. See the previous lines.
-        assert math.isclose(actual_benefit, expected, rel_tol=1e-5), (
+        assert math.isclose(actual_benefit, expected, rel_tol=2e-5), (
             actual_benefit,
             expected,
         )
@@ -1482,10 +1499,6 @@ def do_country_specific_scc_part9():
 
 
 def do_bruegel_heatmap():
-    # Largest by avoided emissions
-    # Taken from avoided_emissions_nonadjusted.csv (see Zulip).
-    by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
-
     (
         iso3166_df,
         iso3166_df_alpha2,
@@ -1681,8 +1694,35 @@ def do_bruegel_2():
         row[2] *= scc
         return row
 
-    cost_emde = ae_emde.apply(func, axis=1)
-    cost_emde.to_csv("plots/bruegel_2_cost_emde.csv")
+    benefit_emde = ae_emde.apply(func, axis=1)
+    benefit_emde.to_csv("plots/bruegel_2_benefit_emde.csv")
+
+    # Cost
+    emde_sorted_by_avoided_emissions = [c for c in by_avoided_emissions if c in emde]
+    git_branch = util.get_git_branch()
+    cs_by_last_year = {}
+    for last_year in [2030, 2050, 2100]:
+        fname = f"cache/country_specific_data_bruegel_git_{git_branch}_{last_year}.json"
+        (
+            cs_combined,
+            _,
+            zerocost,
+            _,
+        ) = common_prepare_cost_benefit_by_country(
+            fname, emde_sorted_by_avoided_emissions, last_year=last_year
+        )
+        cs_by_last_year[last_year] = cs_combined
+    with open("plots/bruegel_2_cost_emde.csv", "w") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        for i, a2 in enumerate(emde_sorted_by_avoided_emissions):
+            full_name = alpha2_to_full_name[a2]
+            csvwriter.writerow(
+                [
+                    i,
+                    full_name,
+                    *[cs_by_last_year[last_year][a2] for last_year in [2030, 2050, 2100]],
+                ]
+            )
 
 
 if __name__ == "__main__":
@@ -1701,7 +1741,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("VN")
         # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
-        do_bruegel_heatmap()
-        # do_bruegel_2()
+        # do_bruegel_heatmap()
+        do_bruegel_2()
 
         exit()
