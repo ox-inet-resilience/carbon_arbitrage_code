@@ -1587,7 +1587,7 @@ def prepare_regions_for_climate_financing(iso3166_df):
 
 
 def calculate_each_countries_cost_with_cache(
-    chosen_s2_scenario, cache_json_path, ignore_cache=False
+    chosen_s2_scenario, cache_json_path, ignore_cache=False, cost_name="cost"
 ):
     # IMPORTANT: the chosen s2 scenario indicates whether the yearly cost for
     # avoiding is discounted or not.
@@ -1599,7 +1599,7 @@ def calculate_each_countries_cost_with_cache(
     else:
         costs_dict = {}
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
-        yearly_cost_for_avoiding = out[chosen_s2_scenario]["cost"]
+        yearly_cost_for_avoiding = out[chosen_s2_scenario][cost_name]
         country_names = list(yearly_cost_for_avoiding[-1].keys())
         for country_name in country_names:
             country_level_cost = 0.0
