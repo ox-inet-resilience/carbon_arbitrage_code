@@ -75,6 +75,7 @@ def initialize_website_sensitivity_analysis_params():
 
 
 def do_website_sensitivity_analysis():
+    raise Exception("You must run this in the 'battery' Git branch")
     out_dict = nested_dict(5, dict)
     (
         measure_map,
