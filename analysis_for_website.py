@@ -1,9 +1,11 @@
 from collections import defaultdict
 import json
 import multiprocessing as mp
+import time
 
 import util
 import analysis_main
+
 
 # For website sensitivity analysis
 def nested_dict(n, _type):
@@ -83,9 +85,17 @@ def do_website_sensitivity_analysis():
         learning_curve_map,
         rho_mode_map,
     ) = initialize_website_sensitivity_analysis_params()
+    # For time tracking
+    start = time.time()
+    progress_total = len(learning_curve_map) * len(lifetimes) * len(coal_replacements)
+    count = 0
+
     for learning_curve in learning_curve_map:
         for lifetime in lifetimes:
             for coal_replacement in coal_replacements:
+                count += 1
+                elapsed = int((time.time() - start) / 60)
+                print(f"Progress {count}/{progress_total}, {elapsed} mins")
                 for last_year in time_horizons:
                     for rho_mode in rho_mode_map:
                         all_scs_output = mp.Manager().dict()
@@ -93,7 +103,9 @@ def do_website_sensitivity_analysis():
                         def fn(sc):
                             apply_last_year(last_year)
 
-                            analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[learning_curve]
+                            analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[
+                                learning_curve
+                            ]
                             analysis_main.RENEWABLE_LIFESPAN = lifetime
                             weights = coal_replacements[coal_replacement]
                             analysis_main.RENEWABLE_WEIGHTS = {
@@ -121,7 +133,7 @@ def do_website_sensitivity_analysis():
                         out_dict[learning_curve][str(lifetime)][coal_replacement][
                             str(last_year)
                         ][rho_mode] = dict(all_scs_output)
-    with open("cache/sensitivity_analysis_result.json", "w") as f:
+    with open("cache/website_sensitivity_analysis_result.json", "w") as f:
         json.dump(out_dict, f, separators=(",", ":"))
 
 
@@ -212,7 +224,6 @@ def apply_last_year(last_year):
 
 
 def do_website_sensitivity_analysis_opportunity_costs():
-
     (
         _,
         _,
@@ -227,10 +238,12 @@ def do_website_sensitivity_analysis_opportunity_costs():
     params = []
     for rho_mode in rho_mode_map:
         for last_year in time_horizons:
-            params.append({
-                "rho_mode": rho_mode,
-                "last_year": last_year,
-            })
+            params.append(
+                {
+                    "rho_mode": rho_mode,
+                    "last_year": last_year,
+                }
+            )
     print("Total number of params", len(params))
 
     output = mp.Manager().dict()
@@ -247,7 +260,9 @@ def do_website_sensitivity_analysis_opportunity_costs():
 
         s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
 
-        out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
+        out = analysis_main.run_cost1(
+            x=1, to_csv=False, do_round=False, return_yearly=True
+        )
         yearly_opportunity_costs = out[s2_scenario]["opportunity_cost"]
         country_names = list(yearly_opportunity_costs[-1].keys())
         yearly_oc_dict = {}
@@ -276,6 +291,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
 def do_website_sensitivity_cost_benefit_scatter_1country():
     # Adapted from do_country_specific_scc_part7
     import analysis_country_specific as acs
+
     time_horizons = [2030, 2050, 2070, 2100]
     out = {}
     for last_year in time_horizons:
@@ -288,8 +304,8 @@ def do_website_sensitivity_cost_benefit_scatter_1country():
 
 
 if __name__ == "__main__":
-    # do_website_sensitivity_analysis()
-    do_website_sensitivity_analysis_climate_financing()
+    do_website_sensitivity_analysis()
+    # do_website_sensitivity_analysis_climate_financing()
     exit()
     # do_website_sensitivity_analysis_opportunity_costs()
     do_website_sensitivity_cost_benefit_scatter_1country()
