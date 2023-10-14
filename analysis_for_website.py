@@ -7,12 +7,28 @@ import util
 import analysis_main
 
 
+BATTERY_MODES = ["Not included", "Short-term storage", "Short-term + long-term storage"]
+
+
 # For website sensitivity analysis
 def nested_dict(n, _type):
     if n == 1:
         return defaultdict(_type)
     else:
         return defaultdict(lambda: nested_dict(n - 1, _type))
+
+
+def setup_battery(battery_mode):
+    if battery_mode == "Not included":
+        analysis_main.ENABLE_BATTERY_SHORT = False
+        analysis_main.ENABLE_BATTERY_LONG = False
+    elif battery_mode == "Short-term storage":
+        analysis_main.ENABLE_BATTERY_SHORT = True
+        analysis_main.ENABLE_BATTERY_LONG = False
+    else:
+        assert battery_mode == "Short-term + long-term storage"
+        analysis_main.ENABLE_BATTERY_SHORT = True
+        analysis_main.ENABLE_BATTERY_LONG = True
 
 
 def initialize_website_sensitivity_analysis_params():
@@ -75,8 +91,7 @@ def initialize_website_sensitivity_analysis_params():
 
 
 def do_website_sensitivity_analysis():
-    raise Exception("You must run this in the 'battery' Git branch")
-    out_dict = nested_dict(5, dict)
+    out_dict = nested_dict(6, dict)
     (
         measure_map,
         social_costs,
@@ -94,46 +109,48 @@ def do_website_sensitivity_analysis():
     for learning_curve in learning_curve_map:
         for lifetime in lifetimes:
             for coal_replacement in coal_replacements:
-                count += 1
                 elapsed = int((time.time() - start) / 60)
                 print(f"Progress {count}/{progress_total}, {elapsed} mins")
+                count += 1
                 for last_year in time_horizons:
                     for rho_mode in rho_mode_map:
-                        all_scs_output = mp.Manager().dict()
+                        for battery_mode in BATTERY_MODES:
+                            all_scs_output = mp.Manager().dict()
 
-                        def fn(sc):
-                            apply_last_year(last_year)
+                            def fn(sc):
+                                apply_last_year(last_year)
 
-                            analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[
-                                learning_curve
-                            ]
-                            analysis_main.RENEWABLE_LIFESPAN = lifetime
-                            weights = coal_replacements[coal_replacement]
-                            analysis_main.RENEWABLE_WEIGHTS = {
-                                "solar": weights[0],
-                                "onshore_wind": weights[1],
-                                "offshore_wind": weights[2],
-                            }
-                            analysis_main.RHO_MODE = rho_mode_map[rho_mode]
-                            util.social_cost_of_carbon = sc
-                            analysis_main.social_cost_of_carbon = sc  # noqa: F811
-                            out = analysis_main.run_cost1(
-                                x=1, to_csv=False, do_round=True, plot_yearly=False
-                            )
+                                analysis_main.ENABLE_WRIGHTS_LAW = learning_curve_map[
+                                    learning_curve
+                                ]
+                                analysis_main.RENEWABLE_LIFESPAN = lifetime
+                                weights = coal_replacements[coal_replacement]
+                                analysis_main.RENEWABLE_WEIGHTS = {
+                                    "solar": weights[0],
+                                    "onshore_wind": weights[1],
+                                    "offshore_wind": weights[2],
+                                }
+                                analysis_main.RHO_MODE = rho_mode_map[rho_mode]
+                                util.social_cost_of_carbon = sc
+                                analysis_main.social_cost_of_carbon = sc  # noqa: F811
+                                setup_battery(battery_mode)
+                                out = analysis_main.run_cost1(
+                                    x=1, to_csv=False, do_round=True, plot_yearly=False
+                                )
 
-                            _scenario = (
-                                f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
-                            )
+                                _scenario = (
+                                    f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+                                )
 
-                            fn_output = defaultdict(dict)
-                            for k, v in measure_map.items():
-                                fn_output[k] = out[v][_scenario]
-                            all_scs_output[str(sc)] = fn_output
+                                fn_output = defaultdict(dict)
+                                for k, v in measure_map.items():
+                                    fn_output[k] = out[v][_scenario]
+                                all_scs_output[str(sc)] = fn_output
 
-                        util.run_parallel(fn, social_costs, ())
-                        out_dict[learning_curve][str(lifetime)][coal_replacement][
-                            str(last_year)
-                        ][rho_mode] = dict(all_scs_output)
+                            util.run_parallel(fn, social_costs, ())
+                            out_dict[learning_curve][str(lifetime)][coal_replacement][
+                                str(last_year)
+                            ][rho_mode][battery_mode] = dict(all_scs_output)
     git_branch = util.get_git_branch()
     with open(f"cache/website_sensitivity_analysis_result_{git_branch}.json", "w") as f:
         json.dump(out_dict, f, separators=(",", ":"))
@@ -172,19 +189,17 @@ def do_website_sensitivity_analysis_climate_financing():
         rho_mode_map,
     ) = initialize_website_sensitivity_analysis_params()
 
-    battery_modes = ["Not included", "Short-term storage", "Short-term + long-term storage"]
-
     params_flat = []
     for learning_curve in learning_curve_map:
         for lifetime in lifetimes:
             for coal_replacement in coal_replacements:
-                for battery_mode in battery_modes:
+                for battery_mode in BATTERY_MODES:
                     params_flat.append(
                         {
                             "learning_curve": learning_curve,
                             "lifetime": lifetime,
                             "coal_replacement": coal_replacement,
-                            "battery_mode": battery_mode
+                            "battery_mode": battery_mode,
                         }
                     )
 
@@ -198,16 +213,7 @@ def do_website_sensitivity_analysis_climate_financing():
         )
 
         battery_mode = param["battery_mode"]
-        if battery_mode == "Not included":
-            analysis_main.ENABLE_BATTERY_SHORT = False
-            analysis_main.ENABLE_BATTERY_LONG = False
-        elif battery_mode == "Short-term storage":
-            analysis_main.ENABLE_BATTERY_SHORT = True
-            analysis_main.ENABLE_BATTERY_LONG = False
-        else:
-            assert battery_mode == "Short-term + long-term storage"
-            analysis_main.ENABLE_BATTERY_SHORT = True
-            analysis_main.ENABLE_BATTERY_LONG = True
+        setup_battery(battery_mode)
 
         param_key = "_".join(str(v) for v in param.values())
 
