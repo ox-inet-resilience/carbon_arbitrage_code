@@ -3,7 +3,6 @@
 # can be analyzed in MSFT excel.
 import pathlib
 import sys
-from collections import defaultdict
 
 import pandas as pd
 
@@ -12,16 +11,7 @@ sys.path.append(parent_dir)
 
 import util
 
-data = util.read_json("./plots/coal_worker_sensitivity_analysis.json")
-df = pd.concat({k: pd.DataFrame(v) for k, v in data.items()})
-df.to_csv(
-    "plots/bruegel_compensation_coal_worker_and_retraining_cost_billions_usd.csv",
-    index_label=("discount rate", "country alpha2"),
-)
-
-# Part 2
-phase_out = util.read_json("cache/website_sensitivity_opportunity_costs_phase_out.json")
-
+# We use only the default 2.8%
 discount_rate_map = {
     "0%": 0.0,
     "2.8% (WACC)": 0.02795381840850683,
@@ -29,24 +19,42 @@ discount_rate_map = {
     "5%": 0.05,
     "8%": 0.08,
 }
+discount_rate_text = "2.8% (WACC)"
+discount_rate = discount_rate_map[discount_rate_text]
+
+data = util.read_json("./plots/coal_worker_sensitivity_analysis.json")
+data = data[discount_rate_text]
+df1 = pd.DataFrame(data)
+
+# Part 2
+phase_out = util.read_json("cache/website_sensitivity_opportunity_costs_phase_out.json")
 
 
 def calculate_discounted_sum(arr, discount_rate):
     # Discounted where year 2022 is the start
-    return round(sum(e * ((1 + discount_rate) ** -i) for i, e in enumerate(arr)), 5)
+    return round(sum(e * ((1 + discount_rate) ** -i) for i, e in enumerate(arr)), 4)
 
 
-out = defaultdict(dict)
-for discount_year, v in phase_out.items():
-    discount_text, year_text = discount_year.split("_")
-    discount_rate = discount_rate_map[discount_text]
-    out[discount_text][int(year_text)] = {
+out = {}
+years = [2030, 2050, 2100]
+for year in years:
+    key = f"{discount_rate_text}_{year}"
+    v = phase_out[key]
+    out[year] = {
         kk: calculate_discounted_sum(vv, discount_rate) for kk, vv in v.items()
     }
-df = pd.concat({k: pd.DataFrame(v) for k, v in out.items()})
+df2 = pd.DataFrame(out)
 # Reorder column
-df = df.loc[:, [2030, 2050, 2070, 2100]]
-df.to_csv(
-    "plots/bruegel_compensation_missed_cash_flow_billions_usd.csv",
-    index_label=("discount rate", "country alpha2"),
-)
+df2 = df2.loc[:, years]
+
+df = df1.merge(df2, left_index=True, right_index=True)
+df = df.sort_index()
+df = df.rename(columns={year: f"missed_cash_flow_{year}" for year in years})
+for year in years:
+    df[f"oc_total_{year}"] = round(
+        df["compensation workers for lost wages"]
+        + df["retraining costs"]
+        + df[f"missed_cash_flow_{year}"],
+        4,
+    )
+df.to_csv("plots/bruegel_oc_coal_worker_billion_usd.csv", index_label="alpha2")
