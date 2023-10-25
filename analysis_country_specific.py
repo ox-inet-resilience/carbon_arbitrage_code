@@ -1648,6 +1648,7 @@ def do_bruegel_heatmap():
 
 
 def do_bruegel_2():
+    git_branch = util.get_git_branch()
     avoided_emissions = pd.read_csv(
         "./plots/avoided_emissions_nonadjusted.csv", header=None
     )
@@ -1666,7 +1667,7 @@ def do_bruegel_2():
     emde_fullname = [alpha2_to_full_name.get(c, c) for c in emde]
 
     ae_emde = avoided_emissions[avoided_emissions[0].isin(emde_fullname)]
-    ae_emde.to_csv("plots/bruegel_2_avoided_emissions_emde.csv")
+    ae_emde.to_csv(f"plots/bruegel_2_{git_branch}_avoided_emissions_emde.csv")
 
     # SCC of EMDE
     scc_dict = read_country_specific_scc_filtered()
@@ -1690,7 +1691,7 @@ def do_bruegel_2():
             ],
         }
         _df = pd.DataFrame.from_dict(data)
-        _df.to_csv(f"plots/bruegel_2_scc_{name}.csv")
+        _df.to_csv(f"plots/bruegel_2_{git_branch}_scc_{name}.csv")
         if name == "emde":
             scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
 
@@ -1702,7 +1703,7 @@ def do_bruegel_2():
         return row
 
     benefit_emde = ae_emde.apply(func, axis=1)
-    benefit_emde.to_csv("plots/bruegel_2_benefit_emde.csv")
+    benefit_emde.to_csv(f"plots/bruegel_2_{git_branch}_benefit_emde.csv")
 
     # Cost
     def get_cost(cost_name):
@@ -1721,7 +1722,6 @@ def do_bruegel_2():
         return cs_combined
 
     emde_sorted_by_avoided_emissions = [c for c in by_avoided_emissions if c in emde]
-    git_branch = util.get_git_branch()
     cs_by_last_year_total = {}
     cs_by_last_year_investment_cost = {}
     for last_year in [2030, 2050, 2100]:
@@ -1729,7 +1729,7 @@ def do_bruegel_2():
         cs_combined_investment_cost = get_cost("investment_cost")
         cs_by_last_year_total[last_year] = cs_combined_total
         cs_by_last_year_investment_cost[last_year] = cs_combined_investment_cost
-    with open("plots/bruegel_2_cost_emde.csv", "w") as csvfile:
+    with open(f"plots/bruegel_2_{git_branch}_cost_emde.csv", "w") as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(
             [
