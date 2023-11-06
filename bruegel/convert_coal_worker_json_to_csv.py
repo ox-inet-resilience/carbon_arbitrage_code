@@ -11,6 +11,9 @@ sys.path.append(parent_dir)
 
 import util
 
+def do_round(x):
+    return round(x, 4)
+
 # We use only the default 2.8%
 discount_rate_map = {
     "0%": 0.0,
@@ -32,7 +35,7 @@ phase_out = util.read_json("cache/website_sensitivity_opportunity_costs_phase_ou
 
 def calculate_discounted_sum(arr, discount_rate):
     # Discounted where year 2022 is the start
-    return round(sum(e * ((1 + discount_rate) ** -i) for i, e in enumerate(arr)), 4)
+    return do_round(sum(e * ((1 + discount_rate) ** -i) for i, e in enumerate(arr)))
 
 
 out = {}
@@ -49,12 +52,23 @@ df2 = df2.loc[:, years]
 
 df = df1.merge(df2, left_index=True, right_index=True)
 df = df.sort_index()
-df = df.rename(columns={year: f"missed_cash_flow_{year}" for year in years})
+df = df.rename(
+    columns={year: f"opportunity costs missed cash flow {year}" for year in years}
+)
+df = df.rename(
+    columns={
+        "compensation workers for lost wages": "opportunity costs compensation workers for lost wages",
+        "retraining costs": "opportunity costs retraining costs",
+    }
+)
 for year in years:
-    df[f"oc_total_{year}"] = round(
-        df["compensation workers for lost wages"]
-        + df["retraining costs"]
-        + df[f"missed_cash_flow_{year}"],
-        4,
+    df[f"opportunity costs total {year}"] = do_round(
+        df["opportunity costs compensation workers for lost wages"]
+        + df["opportunity costs retraining costs"]
+        + df[f"opportunity costs missed cash flow {year}"],
     )
-df.to_csv("plots/bruegel_oc_coal_worker_billion_usd.csv", index_label="alpha2")
+
+# Further rounding
+for col in ["opportunity costs compensation workers for lost wages", "opportunity costs retraining costs"]:
+    df[col] = do_round(df[col])
+df.to_csv("plots/bruegel/bruegel_oc_coal_worker_billion_usd.csv", index_label="alpha2")

@@ -1781,8 +1781,8 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("VN")
         # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
-        do_bruegel_heatmap()
-        exit()
+        #do_bruegel_heatmap()
+        #exit()
         do_bruegel_2()
 
         exit()
