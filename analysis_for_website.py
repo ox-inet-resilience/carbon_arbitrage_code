@@ -134,7 +134,8 @@ def do_website_sensitivity_analysis():
                         out_dict[learning_curve][str(lifetime)][coal_replacement][
                             str(last_year)
                         ][rho_mode] = dict(all_scs_output)
-    with open("cache/website_sensitivity_analysis_result.json", "w") as f:
+    git_branch = util.get_git_branch()
+    with open(f"cache/website_sensitivity_analysis_result_{git_branch}.json", "w") as f:
         json.dump(out_dict, f, separators=(",", ":"))
 
 
