@@ -207,7 +207,8 @@ def do_website_sensitivity_analysis_climate_financing():
 
     util.run_parallel_ncpus(8, fn, params_flat, ())
 
-    with open("cache/website_sensitivity_climate_financing.json", "w") as f:
+    git_branch = util.get_git_branch()
+    with open(f"cache/website_sensitivity_climate_financing_{git_branch}.json", "w") as f:
         json.dump(dict(output), f, separators=(",", ":"))
 
     # Reenable residual benefit again
