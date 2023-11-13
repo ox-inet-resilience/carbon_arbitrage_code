@@ -863,8 +863,6 @@ def generate_cost1_output(
         scenario,
         last_year,
         fraction_increase_after_peg_year,
-        non_discounted_2022_to_pegyear,
-        discounted_2022_to_pegyear,
         rev_ren,  # the value is either "revenue" or "renewable"
         _cost_new_method,
     ):
@@ -1132,8 +1130,6 @@ def generate_cost1_output(
                     scenario,
                     last_year,
                     fraction_increase_after_peg_year,
-                    cost_2022_to_pegyear_non_discounted_renewable,
-                    cost_2022_to_pegyear_discounted_renewable,
                     "renewable",
                     cost_new_method,
                 )
