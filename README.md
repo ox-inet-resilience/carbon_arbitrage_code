@@ -1,12 +1,24 @@
-This repository contains the code for the great carbon arbitrage paper. The
-data required for the analysis is confidential, but you can run it with your
-own data.
+# Great Carbon Arbitrage
 
-## Main code
-You should start with reading analysis_simplified.py, which has < 500 LOC, but
-already reproduces the main result of the paper, i.e. carbon arbitrage
-opportunity in trillion dollars (but excluding residual benefit, for
-simplicity).
+This repository contains the code for the great carbon arbitrage paper. The
+data required for the analysis is confidential, but you can run the
+self-contained version with public data (from NGFS and Our World in Data) in
+the public/ folder.
+
+You should start by reading the back of the envelope version,
+[public/back_of_the_envelope.py](public/back_of_the_envelope.py), which is
+self-contained and brief (~100 lines of code). You can run it by `cd public &&
+python back_of_the_envelope.py`. This version uses renewables LCOE for
+calculating the investment cost. A more elaborate version (that has Wright's
+law learning for renewables investment) that uses only public data can be found
+at [public/analysis_main_public_data.py](public/back_of_the_envelope.py). The
+only differences between the more elaborate version and the full private version
+are that it is missing the residual benefit and opportunity cost calculation.
+
+For analysis using confidential data, you may start by reading
+analysis_simplified.py, which has < 500 LOC, but already reproduces the main
+result of the paper, i.e. carbon arbitrage opportunity in trillion dollars (but
+excluding residual benefit, for simplicity).
 - analysis_main.py: contains the code for identifying the net social gain from
   phasing out coal, as well as the requisite climate financing to phase out
   coal
