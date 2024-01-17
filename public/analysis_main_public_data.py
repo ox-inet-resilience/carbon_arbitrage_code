@@ -63,10 +63,6 @@ def calculate_rho(beta):
     return rho
 
 
-def calculate_discount(rho, deltat):
-    return (1 + rho) ** -deltat
-
-
 def coal2GJ(x):
     # tonnes of coal to GJ
     # See https://en.wikipedia.org/wiki/Ton#Tonne_of_coal_equivalent
@@ -96,7 +92,7 @@ def calculate_emissions_and_production(ngfs_scenario, rho):
     f_p = interp1d(ngfs_years, production_values)
     production_timeseries = [f_p(y) for y in full_years]
     production_discounted = sum(
-        f_p(y) * calculate_discount(rho, y - 2022) for y in full_years
+        f_p(y) * with_learning.calculate_discount(rho, y - 2022) for y in full_years
     )
 
     return {
@@ -115,7 +111,7 @@ def calculate_ic_wrights_law(p_timeseries_cps, p_timeseries_nz2050, rho):
             - p_timeseries_nz2050[year - 2023] / p_timeseries_nz2050[0]
         )
         DeltaP = delta_e_fractional_increase * coal_production_by_country_2022
-        discount = calculate_discount(rho, year - 2022)
+        discount = with_learning.calculate_discount(rho, year - 2022)
         cost_obj.calculate_investment_cost(DeltaP, year, discount)
     cost_discounted = sum([sum(e.values()) for e in cost_obj.cost_discounted])
     return cost_discounted
