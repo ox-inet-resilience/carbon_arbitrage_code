@@ -1749,20 +1749,103 @@ def do_bruegel_2():
         last_years = [2030, 2050, 2100]
         for i, a2 in enumerate(emde_sorted_by_avoided_emissions):
             full_name = alpha2_to_full_name[a2]
-            opportunity_costs = [round(cs_by_last_year_total[last_year][a2] - cs_by_last_year_investment_cost[last_year][a2], 6) for last_year in last_years]
-            investment_costs = [cs_by_last_year_investment_cost[last_year][a2] for last_year in last_years]
+            opportunity_costs = [
+                round(
+                    cs_by_last_year_total[last_year][a2]
+                    - cs_by_last_year_investment_cost[last_year][a2],
+                    6,
+                )
+                for last_year in last_years
+            ]
+            investment_costs = [
+                cs_by_last_year_investment_cost[last_year][a2]
+                for last_year in last_years
+            ]
             total_costs = [
                 cs_by_last_year_total[last_year][a2] for last_year in last_years
             ]
             csvwriter.writerow(
-                [
-                    i,
-                    full_name,
-                    *opportunity_costs,
-                    *investment_costs,
-                    *total_costs
-                ]
+                [i, full_name, *opportunity_costs, *investment_costs, *total_costs]
             )
+
+
+def do_bruegel_4():
+    git_branch = util.get_git_branch()
+
+    (
+        _,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+
+    top20 = by_avoided_emissions[:20]
+
+    emerging_country_shortnames = util.get_emerging_countries()
+    developING_country_shortnames = util.get_developing_countries()
+    emde = emerging_country_shortnames + developING_country_shortnames
+    emde_minus_cn = [c for c in emde if c != "CN"]
+
+    for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
+        for last_year in [2030, 2050, 2100]:
+            fname = (
+                f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}.json"
+            )
+            (
+                cs_combined,
+                _,
+                zerocost,
+                _,
+            ) = common_prepare_cost_benefit_by_country(
+                fname, by_avoided_emissions, last_year=last_year
+            )
+            (
+                investment_cost,
+                _,
+                _,
+                _,
+            ) = common_prepare_cost_benefit_by_country(
+                fname,
+                by_avoided_emissions,
+                last_year=last_year,
+                cost_name="investment_cost",
+            )
+
+            def get_net_benefit_composite(action_group, group):
+                net_benefit = 0
+                for country_doing_action, v in zerocost.items():
+                    if country_doing_action not in action_group:
+                        continue
+                    net_benefit += (
+                        sum(vv for kk, vv in v.items() if kk in group)
+                        - cs_combined[country_doing_action]
+                        + (1 - public_funding_fraction)
+                        * investment_cost[country_doing_action]
+                    )
+                return net_benefit
+
+            country_groups = {
+                "CN": ["CN"],
+                "JP": ["JP"],
+                "EU": EU,
+                "US": ["US"],
+                "EU,US,JP,CA,UK": EU + ["US", "JP", "CA", "UK"],
+            }
+            action_groups = {"EMDE-CN": emde_minus_cn, **{k: k for k in top20}}
+
+            with open(
+                f"plots/bruegel/bruegel_4_{last_year}_{git_branch}_public_funding_{public_funding_fraction}.csv",
+                "w",
+            ) as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerow(["country"] + list(country_groups))
+                for ag_name, ag in action_groups.items():
+                    benefits = []
+                    for group_name, group in country_groups.items():
+                        # benefits.append(round(get_net_benefit_composite(ag, group), 2))
+                        benefits.append(int(get_net_benefit_composite(ag, group) * 1e3))
+                    csvwriter.writerow([ag_name, *benefits])
 
 
 if __name__ == "__main__":
@@ -1781,8 +1864,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("VN")
         # do_country_specific_scc_part7("IN", use_developed_for_zerocost=True)
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
-        #do_bruegel_heatmap()
-        #exit()
-        do_bruegel_2()
-
-        exit()
+        # do_bruegel_heatmap()
+        # exit()
+        # do_bruegel_2()
+        do_bruegel_4()
