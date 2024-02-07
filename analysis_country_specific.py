@@ -98,7 +98,9 @@ def apply_last_year(last_year):
         analysis_main.MID_YEAR = 2050
 
 
-def prepare_alpha2_to_full_name_concise(iso3166_df_alpha2):
+def prepare_alpha2_to_full_name_concise():
+    iso3166_df = util.read_iso3166()
+    iso3166_df_alpha2 = iso3166_df.set_index("alpha-2")
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
     alpha2_to_full_name["GB"] = "Great Britain"
     alpha2_to_full_name["US"] = "USA"
@@ -1507,13 +1509,13 @@ def do_country_specific_scc_part9():
 
 def do_bruegel_heatmap():
     (
-        iso3166_df,
-        iso3166_df_alpha2,
+        _,
+        _,
         _,
         _,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
-    alpha2_to_full_name = prepare_alpha2_to_full_name_concise(iso3166_df_alpha2)
+    alpha2_to_full_name = prepare_alpha2_to_full_name_concise()
 
     # Exclude developed countries
     # Reduce from 60 to 47
@@ -1560,7 +1562,7 @@ def do_bruegel_heatmap():
             developed_subset_y = developed_country_shortnames
 
             # y axis
-            country_groups = [
+            donor_groups = [
                 developed_country_shortnames,
                 G7,
                 EU_and_US,
@@ -1584,7 +1586,7 @@ def do_bruegel_heatmap():
                 return net_benefit
 
             matrix = []
-            for group in country_groups:
+            for group in donor_groups:
                 net_benefits = []
 
                 # EMDE
@@ -1787,11 +1789,55 @@ def do_bruegel_4():
     emde = emerging_country_shortnames + developING_country_shortnames
     emde_minus_cn = [c for c in emde if c != "CN"]
 
+    # For gov cost breakdown
+    gdp2022 = util.read_json("./data/all_countries_gdp_marketcap_2022.json")
+    gdp2022["UK"] = gdp2022["GB"]
+    # Data source https://www.imf.org/external/datamapper/GG_DEBT_GDP@GDD/CHN/FRA/DEU/ITA/JPN/GBR/USA/FADGDWORLD
+    imf_gov_debt_2022 = (
+        pd.read_csv("./bruegel/imf-dm-export-20240205.csv")[
+            ["General Government Debt (Percent of GDP)", "2022"]
+        ]
+        .set_index("General Government Debt (Percent of GDP)")["2022"]
+        .to_dict()
+    )
+    alpha2_to_full_name = prepare_alpha2_to_full_name_concise()
+    full_name_to_alpha2 = {v: k for k, v in alpha2_to_full_name.items()}
+    amendment = {
+        "Türkiye, Republic of": "TR",
+        "Bosnia and Herzegovina": "BA",
+        "China, People's Republic of": "CN",
+        "Congo, Dem. Rep. of the": "CD",
+        "Czech Republic": "CZ",
+        "Korea, Republic of": "KR",
+        "Kyrgyz Republic": "KG",
+        "Micronesia, Fed. States of": "FM",
+        "Moldova": "MD",
+        "North Macedonia ": "MK",
+        "Russian Federation": "RU",
+        "Slovak Republic": "SK",
+        "Taiwan Province of China": "TW",
+        "United Kingdom": "GB",
+        "United States": "US",
+        "Vietnam": "VN",
+    }
+    full_name_to_alpha2 = {**full_name_to_alpha2, **amendment}
+
+    imf_gov_debt_2022_percent = {
+        full_name_to_alpha2[k]: v for k, v in imf_gov_debt_2022.items()
+    }
+    imf_gov_debt_2022_percent["UK"] = imf_gov_debt_2022_percent["GB"]
+    # Missing data
+    # Taken from https://www.ceicdata.com/en/indicator/south-africa/government-debt--of-nominal-gdp
+    imf_gov_debt_2022_percent["ZA"] = 71.17
+    # Taken from https://www.ceicdata.com/en/mozambique/government-finance-statistics
+    imf_gov_debt_2022_percent["MZ"] = 130.30
+    # Taken from https://www.ceicdata.com/en/indicator/botswana/national-government-debt
+    imf_gov_debt_2022_percent["BW"] = 3581.92
+    # End of for gov cost breakdown
+
     for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
         for last_year in [2030, 2050, 2100]:
-            fname = (
-                f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}.json"
-            )
+            fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_cost.json"
             (
                 cs_combined,
                 _,
@@ -1800,17 +1846,13 @@ def do_bruegel_4():
             ) = common_prepare_cost_benefit_by_country(
                 fname, by_avoided_emissions, last_year=last_year
             )
-            (
-                investment_cost,
-                _,
-                _,
-                _,
-            ) = common_prepare_cost_benefit_by_country(
+            fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_investment_cost.json"
+            investment_cost = common_prepare_cost_benefit_by_country(
                 fname,
                 by_avoided_emissions,
                 last_year=last_year,
                 cost_name="investment_cost",
-            )
+            )[0]
 
             def get_net_benefit_composite(action_group, group):
                 net_benefit = 0
@@ -1825,27 +1867,101 @@ def do_bruegel_4():
                     )
                 return net_benefit
 
-            country_groups = {
+            donor_groups = {
                 "CN": ["CN"],
                 "JP": ["JP"],
                 "EU": EU,
                 "US": ["US"],
                 "EU,US,JP,CA,UK": EU + ["US", "JP", "CA", "UK"],
             }
-            action_groups = {"EMDE-CN": emde_minus_cn, **{k: k for k in top20}}
+            action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
 
             with open(
                 f"plots/bruegel/bruegel_4_{last_year}_{git_branch}_public_funding_{public_funding_fraction}.csv",
                 "w",
             ) as csvfile:
                 csvwriter = csv.writer(csvfile)
-                csvwriter.writerow(["country"] + list(country_groups))
+                csvwriter.writerow(["country"] + list(donor_groups))
                 for ag_name, ag in action_groups.items():
                     benefits = []
-                    for group_name, group in country_groups.items():
+                    for group_name, group in donor_groups.items():
                         # benefits.append(round(get_net_benefit_composite(ag, group), 2))
                         benefits.append(int(get_net_benefit_composite(ag, group) * 1e3))
                     csvwriter.writerow([ag_name, *benefits])
+
+            # Gov cost breakdown
+            with open(
+                f"plots/bruegel/bruegel_4_gov_cost_{last_year}_{git_branch}_{public_funding_fraction}.csv",
+                "w",
+            ) as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerow(
+                    [
+                        "Country name",
+                        "PV gov cost (billion $)",
+                        "PV opp costs (billion $)",
+                        "PV inv. costs (billion $)",
+                        *[
+                            [
+                                f"% of {donor_name} GDP",
+                                "% of 2022 gov debt",
+                                "Change in (2022 gov debt/2022 GDP)%",
+                            ]
+                            for donor_name in donor_groups
+                        ],
+                    ]
+                )
+                duration = last_year - (analysis_main.NGFS_PEG_YEAR + 1)
+                for ag_name, ag in action_groups.items():
+                    # Ignore developed countries
+                    if ag_name in ["AU", "US", "CA", "DE", "GR"]:
+                        continue
+                    # Billions USD
+                    opportunity_cost = round(
+                        sum(
+                            cs_combined[country] - investment_cost[country]
+                            for country in ag
+                            if country in cs_combined
+                        )
+                        * 1e3,
+                        2,
+                    )
+                    ic = int(
+                        public_funding_fraction
+                        * sum(
+                            investment_cost[country]
+                            for country in ag
+                            if country in investment_cost
+                        )
+                        * 1e3
+                    )
+                    gov_cost = int(opportunity_cost + ic)
+
+                    row = [ag_name, gov_cost, opportunity_cost, ic]
+
+                    for donor_name, dg in donor_groups.items():
+                        # In dollars
+                        gdp2022_donor = sum(gdp2022[country] for country in dg)
+                        # In dollars
+                        gov_debt = sum(
+                            gdp2022[country] * imf_gov_debt_2022_percent[country] / 100
+                            for country in dg
+                        )
+
+                        gov_cost_dollars = gov_cost * 1e9
+                        cumulative_gdp = gdp2022_donor * duration
+                        percent_of_gdp = round(gov_cost_dollars / cumulative_gdp * 100, 2)
+                        percent_of_gov_debt = round(gov_cost_dollars / gov_debt * 100, 2)
+                        change_in_gov_debt_over_gdp = round(
+                            gov_cost_dollars / gdp2022_donor * 100, 2
+                        )
+
+                        row += [
+                            percent_of_gdp,
+                            percent_of_gov_debt,
+                            change_in_gov_debt_over_gdp,
+                        ]
+                    csvwriter.writerow(row)
 
 
 if __name__ == "__main__":
