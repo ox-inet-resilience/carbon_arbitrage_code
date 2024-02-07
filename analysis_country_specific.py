@@ -1890,6 +1890,9 @@ def do_bruegel_4():
                     csvwriter.writerow([ag_name, *benefits])
 
             # Gov cost breakdown
+            def flatten_list_of_list(xss):
+                return [x for xs in xss for x in xs]
+
             with open(
                 f"plots/bruegel/bruegel_4_gov_cost_{last_year}_{git_branch}_{public_funding_fraction}.csv",
                 "w",
@@ -1901,14 +1904,16 @@ def do_bruegel_4():
                         "PV gov cost (billion $)",
                         "PV opp costs (billion $)",
                         "PV inv. costs (billion $)",
-                        *[
+                        *flatten_list_of_list(
                             [
-                                f"% of {donor_name} GDP",
-                                "% of 2022 gov debt",
-                                "Change in (2022 gov debt/2022 GDP)%",
+                                [
+                                    f"% of {donor_name} GDP",
+                                    "% of 2022 gov debt",
+                                    "Change in (2022 gov debt/2022 GDP)%",
+                                ]
+                                for donor_name in donor_groups
                             ]
-                            for donor_name in donor_groups
-                        ],
+                        ),
                     ]
                 )
                 duration = last_year - (analysis_main.NGFS_PEG_YEAR + 1)
@@ -1950,8 +1955,12 @@ def do_bruegel_4():
 
                         gov_cost_dollars = gov_cost * 1e9
                         cumulative_gdp = gdp2022_donor * duration
-                        percent_of_gdp = round(gov_cost_dollars / cumulative_gdp * 100, 2)
-                        percent_of_gov_debt = round(gov_cost_dollars / gov_debt * 100, 2)
+                        percent_of_gdp = round(
+                            gov_cost_dollars / cumulative_gdp * 100, 2
+                        )
+                        percent_of_gov_debt = round(
+                            gov_cost_dollars / gov_debt * 100, 2
+                        )
                         change_in_gov_debt_over_gdp = round(
                             gov_cost_dollars / gdp2022_donor * 100, 2
                         )
