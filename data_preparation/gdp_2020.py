@@ -2,6 +2,7 @@ import json
 
 import pandas as pd
 
+year = 2022
 iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
 iso3166_df = iso3166_df.set_index("alpha-3")
 alpha3_to_2 = iso3166_df["alpha-2"].to_dict()
@@ -20,17 +21,23 @@ if mode == "percapita":
 else:
     # Data taken from
     # https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
-    # "Last Updated Date","2021-12-16",
-    fname = "API_NY.GDP.MKTP.CD_DS2_en_csv_v2_3607744.csv"
-    indicator = "GDP (current US$)"
-    outname = "all_countries_gdp_marketcap_2020.json"
+    if year == 2022:
+        # "Last Updated Date","2023-12-18",
+        fname = "API_NY.GDP.MKTP.CD_DS2_en_csv_v2_6546136.csv"
+        indicator = "GDP (current US$)"
+        outname = "all_countries_gdp_marketcap_2022.json"
+    else:
+        # "Last Updated Date","2021-12-16",
+        fname = "API_NY.GDP.MKTP.CD_DS2_en_csv_v2_3607744.csv"
+        indicator = "GDP (current US$)"
+        outname = "all_countries_gdp_marketcap_2020.json"
 
 df = pd.read_csv(
     f"data_preparation/gdp/{fname}"
 )
 df = df[df["Indicator Name"] == indicator]
 df = df.set_index("Country Code")
-gdp_dict = df["2020"].to_dict()
+gdp_dict = df[str(year)].to_dict()
 
 iso_keys = set(alpha3_to_2.keys())
 worldbank_keys = set(gdp_dict.keys())
