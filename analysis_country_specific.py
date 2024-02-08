@@ -1835,6 +1835,30 @@ def do_bruegel_4():
     imf_gov_debt_2022_percent["BW"] = 3581.92
     # End of for gov cost breakdown
 
+    # For info, can be ignored
+    if False:
+        print("Country", "Gov_debt_percent", "GDP_2022")
+        for country in ["CN", "JP", "GB", "US"]:
+            print(
+                alpha2_to_full_name[country],
+                round(imf_gov_debt_2022_percent[country], 2),
+                round(gdp2022[country] / 1e12, 2),
+            )
+        eu_gdp = sum(gdp2022[country] for country in EU)
+        print(
+            "EU",
+            round(
+                sum(
+                    gdp2022[country] * imf_gov_debt_2022_percent[country]
+                    for country in EU
+                )
+                / eu_gdp,
+                2,
+            ),
+            round(eu_gdp / 1e12, 2),
+        )
+        exit()
+
     for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
         for last_year in [2030, 2050, 2100]:
             fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_cost.json"
