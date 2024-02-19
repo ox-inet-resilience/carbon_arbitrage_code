@@ -15,6 +15,11 @@ import analysis_main
 
 matplotlib.use("agg")
 
+
+def flatten_list_of_list(xss):
+    return [x for xs in xss for x in xs]
+
+
 # Countries that we have data for, for unilateral action.
 # We intentionally exclude XK.
 unilateral_countries = {
@@ -1771,7 +1776,7 @@ def do_bruegel_2():
             )
 
 
-def do_bruegel_4():
+def do_bruegel_4(action_groups):
     git_branch = util.get_git_branch()
 
     (
@@ -1781,13 +1786,6 @@ def do_bruegel_4():
         _,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
-
-    top20 = by_avoided_emissions[:20]
-
-    emerging_country_shortnames = util.get_emerging_countries()
-    developING_country_shortnames = util.get_developing_countries()
-    emde = emerging_country_shortnames + developING_country_shortnames
-    emde_minus_cn = [c for c in emde if c != "CN"]
 
     # For gov cost breakdown
     gdp2022 = util.read_json("./data/all_countries_gdp_marketcap_2022.json")
@@ -1860,7 +1858,8 @@ def do_bruegel_4():
         exit()
 
     for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
-        for last_year in [2030, 2050, 2100]:
+        # for last_year in [2030, 2050, 2100]:
+        for last_year in [2030, 2050]:
             fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_cost.json"
             (
                 cs_combined,
@@ -1898,7 +1897,6 @@ def do_bruegel_4():
                 "US": ["US"],
                 "EU,US,JP,CA,UK": EU + ["US", "JP", "CA", "UK"],
             }
-            action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
 
             with open(
                 f"plots/bruegel/bruegel_4_{last_year}_{git_branch}_public_funding_{public_funding_fraction}.csv",
@@ -1914,8 +1912,6 @@ def do_bruegel_4():
                     csvwriter.writerow([ag_name, *benefits])
 
             # Gov cost breakdown
-            def flatten_list_of_list(xss):
-                return [x for xs in xss for x in xs]
 
             with open(
                 f"plots/bruegel/bruegel_4_gov_cost_{last_year}_{git_branch}_{public_funding_fraction}.csv",
@@ -2016,4 +2012,37 @@ if __name__ == "__main__":
         # do_bruegel_heatmap()
         # exit()
         # do_bruegel_2()
-        do_bruegel_4()
+
+        if 0:
+            top20 = by_avoided_emissions[:20]
+            emerging_country_shortnames = util.get_emerging_countries()
+            developING_country_shortnames = util.get_developing_countries()
+            emde = emerging_country_shortnames + developING_country_shortnames
+            emde_minus_cn = [c for c in emde if c != "CN"]
+            action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
+        else:
+            iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+            (
+                region_countries_map,
+                regions,
+            ) = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
+            eurasia = "AM AZ GE KZ KG RU TJ TM UZ".split()
+            southeast_asia = "BN KH ID LA MY MM PH SG TH VN".split()
+            other_asia_min_cn_in = "AU BD JP KR KP MN NP NZ PK LK TW".split()
+            action_groups = {
+                "CN": ["CN"],
+                "IN": ["IN"],
+                # From https://www.iea.org/reports/scaling-up-private-finance-for-clean-energy-in-emerging-and-developing-economies
+                "Southeast Asia": southeast_asia,
+                # From https://www.iea.org/reports/scaling-up-private-finance-for-clean-energy-in-emerging-and-developing-economies
+                "Other Asia-CN-IN": other_asia_min_cn_in,
+                "Total Asia-CN-IN": southeast_asia + other_asia_min_cn_in,
+                "Africa": region_countries_map["Africa"],
+                "Latin America & the Carribean": region_countries_map[
+                    "Latin America & the Carribean"
+                ],
+                "Europe & Eurasia": list(set(region_countries_map["Europe"] + eurasia)),
+                "Middle East": "BH IR IQ JO KW LB OM QA SA SY AE YE".split(),
+                "World": flatten_list_of_list(list(region_countries_map.values())),
+            }
+        do_bruegel_4(action_groups)
