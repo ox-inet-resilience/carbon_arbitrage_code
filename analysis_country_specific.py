@@ -264,7 +264,7 @@ def calculate_country_specific_scc_data(
         if util.USE_NATURE_PAPER_SCC:
             cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
         else:
-            cache_name = f"cache/unilateral_benefit_trillion_{last_year}.json"
+            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}.json"
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
