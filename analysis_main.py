@@ -28,7 +28,6 @@ ENABLE_NEW_METHOD = 1
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 ENABLE_WRIGHTS_LAW = 1
-ENABLE_WRIGHT_USE_NGFS_DATA = 0
 ENABLE_RESIDUAL_BENEFIT = 1
 ENABLE_COAL_EXPORT = 0
 MID_YEAR = 2050
@@ -471,13 +470,6 @@ def calculate_cost1_info(
     return data, out_yearly_info
 
 
-ngfs_renewable_additional_capacity = None
-if ENABLE_WRIGHT_USE_NGFS_DATA:
-    ngfs_renewable_additional_capacity = util.read_json(
-        f"data/NGFS_renewable_additional_capacity_{util.NGFS_MODEL}.json"
-    )
-
-
 class InvestmentCostNewMethod:
     techs = ["solar", "onshore_wind", "offshore_wind"]
     weights_static_NGFS = {
@@ -557,16 +549,6 @@ class InvestmentCostNewMethod:
             total_R += R
         return total_R
 
-    def get_cumulative_G_from_NGFS(self, tech, year):
-        irena_2020 = self.global_installed_capacities_kW_2020[tech]
-        cumulative_G = irena_2020
-        for y, additional_capacity in ngfs_renewable_additional_capacity[tech].items():
-            if int(y) >= year:
-                break
-            # Multiplication by 1e6 converts from GW to kW
-            cumulative_G += irena_2020 + (additional_capacity * 1e6)
-        return cumulative_G
-
     def _calculate_wrights_law(self, tech, year, cumulative_G):
         # Equation WrightsLaw, i.e. 15
         return self.alphas[tech] * (cumulative_G ** -self.gammas[tech])
@@ -574,12 +556,9 @@ class InvestmentCostNewMethod:
     def calculate_wrights_law_investment_cost(self, tech, year):
         if year in self.cached_wrights_law_investment_costs[tech]:
             return self.cached_wrights_law_investment_costs[tech][year]
-        if ENABLE_WRIGHT_USE_NGFS_DATA:
-            cumulative_G = self.get_cumulative_G_from_NGFS(tech, year)
-        else:
-            cumulative_G = self.global_installed_capacities_kW_2020[
-                tech
-            ] + self.get_stock_without_degradation(tech, year)
+        cumulative_G = self.global_installed_capacities_kW_2020[
+            tech
+        ] + self.get_stock_without_degradation(tech, year)
         ic = self._calculate_wrights_law(tech, year, cumulative_G)
         self.cached_wrights_law_investment_costs[tech][year] = ic
         return ic
