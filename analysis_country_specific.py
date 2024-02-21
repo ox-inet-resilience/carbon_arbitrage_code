@@ -264,7 +264,7 @@ def calculate_country_specific_scc_data(
         if util.USE_NATURE_PAPER_SCC:
             cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
         else:
-            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}.json"
+            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}_coal_export_{analysis_main.ENABLE_COAL_EXPORT}.json"
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
@@ -1897,8 +1897,14 @@ def do_bruegel_4(action_groups):
                 "EU,US,JP,CA,UK": EU + ["US", "JP", "CA", "UK"],
             }
 
+            identifier = git_branch
+            if git_branch == "main" and analysis_main.ENABLE_COAL_EXPORT:
+                identifier = "coal_export"
+            elif git_branch == "battery" and analysis_main.ENABLE_COAL_EXPORT:
+                identifier = "coal_export_over_battery"
+
             with open(
-                f"plots/bruegel/bruegel_4_{last_year}_{git_branch}_public_funding_{public_funding_fraction}.csv",
+                f"plots/bruegel/bruegel_4_{last_year}_{identifier}_public_funding_{public_funding_fraction}.csv",
                 "w",
             ) as csvfile:
                 csvwriter = csv.writer(csvfile)
@@ -1913,7 +1919,7 @@ def do_bruegel_4(action_groups):
             # Gov cost breakdown
 
             with open(
-                f"plots/bruegel/bruegel_4_gov_cost_{last_year}_{git_branch}_{public_funding_fraction}.csv",
+                f"plots/bruegel/bruegel_4_gov_cost_{last_year}_{identifier}_{public_funding_fraction}.csv",
                 "w",
             ) as csvfile:
                 csvwriter = csv.writer(csvfile)
