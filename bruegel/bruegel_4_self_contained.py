@@ -5,7 +5,7 @@ import os
 import git
 import pandas as pd
 
-years = [2030, 2050]
+years = [2030, 2035, 2050]
 branches = ["coal_export", "main", "coal_export_over_battery", "battery"]
 
 def run(year, branch):
