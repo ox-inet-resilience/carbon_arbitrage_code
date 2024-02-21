@@ -438,6 +438,15 @@ def calculate_discount(rho, deltat):
     return (1 + rho) ** -deltat
 
 
+def sum_discounted(array, start_year=2022, rho_mode="default"):
+    import processed_revenue
+
+    rho = calculate_rho(processed_revenue.beta)
+    return sum(
+        e * calculate_discount(rho, start_year + i - 2022) for i, e in enumerate(array)
+    )
+
+
 def get_coal_nonpower_global_emissions_across_years(
     nonpower_coal, years, discounted=False, rho=None
 ):
