@@ -93,10 +93,8 @@ by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR
 
 
 def apply_last_year(last_year):
-    if last_year == 2070:
-        analysis_main.MID_YEAR = 2070
-    elif last_year == 2030:
-        analysis_main.MID_YEAR = 2030
+    if last_year in [2030, 2035, 2070]:
+        analysis_main.MID_YEAR = last_year
     else:
         # 2100 is included by default in the mid year of 2050.
         assert last_year in [2050, 2100], last_year
@@ -1859,7 +1857,8 @@ def do_bruegel_4(action_groups):
 
     for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
         # for last_year in [2030, 2050, 2100]:
-        for last_year in [2030, 2050]:
+        # for last_year in [2030, 2050]:
+        for last_year in [2035]:
             fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_cost.json"
             (
                 cs_combined,
