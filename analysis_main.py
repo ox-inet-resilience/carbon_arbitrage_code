@@ -30,6 +30,7 @@ ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 ENABLE_WRIGHTS_LAW = 1
 ENABLE_WRIGHT_USE_NGFS_DATA = 0
 ENABLE_RESIDUAL_BENEFIT = 1
+ENABLE_COAL_EXPORT = 0
 MID_YEAR = 2050
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
@@ -220,22 +221,13 @@ def add_array_of_mixed_objs(x, y):
     return out
 
 
-coal_export_content = util.read_json("coal_export/aggregated/combined_summed.json")
-products = [
-    270111,
-    270112,
-    270119,
-    270120,
-]
-
-from coal_export.common import (
-    get_export_fraction as common_get_export_fraction,
-    get_import_fraction as common_get_import_fraction,
-)
-from coal_export.common_data import non_masterdata_alpha2
-
-
 def modify_investment_cost_based_on_coal_export(investment_cost_array, production_2019):
+    from coal_export.common_data import non_masterdata_alpha2
+    from coal_export.common import (
+        get_export_fraction as common_get_export_fraction,
+        get_import_fraction as common_get_import_fraction,
+    )
+
     cached_export_fraction = {}
     cached_import_fraction = {}
 
@@ -279,7 +271,9 @@ def modify_investment_cost_based_on_coal_export(investment_cost_array, productio
         # Now we do non-masterdata countries, which only do
         # imports
         for country in non_masterdata_alpha2:
-            total_import = sum(get_import_fraction(cc, country) * vv for cc, vv in element.items())
+            total_import = sum(
+                get_import_fraction(cc, country) * vv for cc, vv in element.items()
+            )
             new[country] = total_import
 
         investment_cost_array[i] = new
@@ -788,7 +782,11 @@ def generate_cost1_output(
         MID_YEAR: None,
         2100: None,
     }
-    production_2019 = _df_nonpower.groupby("asset_country")._2019.sum()
+    production_2019 = (
+        _df_nonpower.groupby("asset_country")._2019.sum()
+        if ENABLE_COAL_EXPORT
+        else None
+    )
 
     weighted_emissions_factor_by_country_2020 = (
         calculate_weighted_emissions_factor_by_country_2020(_df_nonpower, _df_power)
@@ -1220,12 +1218,13 @@ def generate_cost1_output(
                 residual_emissions = 0.0
                 residual_production = 0.0
 
-            modify_investment_cost_based_on_coal_export(
-                cost_non_discounted_investment, production_2019
-            )
-            modify_investment_cost_based_on_coal_export(
-                cost_discounted_investment, production_2019
-            )
+            if ENABLE_COAL_EXPORT:
+                modify_investment_cost_based_on_coal_export(
+                    cost_non_discounted_investment, production_2019
+                )
+                modify_investment_cost_based_on_coal_export(
+                    cost_discounted_investment, production_2019
+                )
 
             # For gas sensitivty analysis
             if WEIGHT_GAS is None:
