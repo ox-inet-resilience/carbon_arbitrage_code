@@ -5,6 +5,7 @@ import math
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib
@@ -1777,13 +1778,7 @@ def do_bruegel_2():
 def do_bruegel_4(action_groups):
     git_branch = util.get_git_branch()
 
-    (
-        _,
-        _,
-        _,
-        _,
-        developed_country_shortnames,
-    ) = util.prepare_from_climate_financing_data()
+    developed_country_shortnames = util.prepare_from_climate_financing_data()[4]
 
     # For gov cost breakdown
     gdp2022 = util.read_json("./data/all_countries_gdp_marketcap_2022.json")
@@ -1998,6 +1993,40 @@ def do_bruegel_4(action_groups):
                     csvwriter.writerow(row)
 
 
+def do_bruegel_5(action_groups):
+    yearly_avoided_emissions_by_country = util.read_json(
+        "cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100_coal_export_False.json"
+    )
+
+    with open("plots/bruegel/bruegel_5_yearly_avoided_emissions.csv", "w") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(["country"] + list(range(2022, 2100 + 1)))
+
+        total = 0
+        for group, countries in action_groups.items():
+            if group == "World":
+                for c in countries:
+                    if c not in yearly_avoided_emissions_by_country:
+                        continue
+                    total += sum(yearly_avoided_emissions_by_country[c])
+                continue
+            timeseries = None
+            idx = 0
+            while True:
+                try:
+                    timeseries = np.array(yearly_avoided_emissions_by_country[countries[idx]])
+                    break
+                except KeyError:
+                    idx += 1
+
+            for c in countries[idx + 1:]:
+                if c not in yearly_avoided_emissions_by_country:
+                    continue
+                timeseries += yearly_avoided_emissions_by_country[c]
+            csvwriter.writerow([group] + list(timeseries))
+        print("Sanity check", total)
+
+
 if __name__ == "__main__":
     if 1:
         # country specific scc
@@ -2026,7 +2055,7 @@ if __name__ == "__main__":
             emde_minus_cn = [c for c in emde if c != "CN"]
             action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
         else:
-            iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+            iso3166_df = util.read_iso3166()
             (
                 region_countries_map,
                 regions,
@@ -2041,7 +2070,7 @@ if __name__ == "__main__":
                 "Southeast Asia": southeast_asia,
                 # From https://www.iea.org/reports/scaling-up-private-finance-for-clean-energy-in-emerging-and-developing-economies
                 "Other Asia-CN-IN": other_asia_min_cn_in,
-                "Total Asia-CN-IN": southeast_asia + other_asia_min_cn_in,
+                # "Total Asia-CN-IN": southeast_asia + other_asia_min_cn_in,
                 "Africa": region_countries_map["Africa"],
                 "Latin America & the Carribean": region_countries_map[
                     "Latin America & the Carribean"
@@ -2050,4 +2079,5 @@ if __name__ == "__main__":
                 "Middle East": "BH IR IQ JO KW LB OM QA SA SY AE YE".split(),
                 "World": flatten_list_of_list(list(region_countries_map.values())),
             }
-        do_bruegel_4(action_groups)
+        # do_bruegel_4(action_groups)
+        do_bruegel_5(action_groups)
