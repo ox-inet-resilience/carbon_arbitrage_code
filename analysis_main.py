@@ -69,6 +69,9 @@ print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
 print("WEIGHT_GAS", WEIGHT_GAS)
 
+if ENABLE_COAL_EXPORT:
+    from coal_export.common import modify_array_based_on_coal_export
+
 if ENABLE_NEW_METHOD:
     assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 
@@ -218,64 +221,6 @@ def add_array_of_mixed_objs(x, y):
             # float
             out.append(xi + yi)
     return out
-
-
-def modify_investment_cost_based_on_coal_export(investment_cost_array, production_2019):
-    from coal_export.common_data import non_masterdata_alpha2
-    from coal_export.common import (
-        get_export_fraction as common_get_export_fraction,
-        get_import_fraction as common_get_import_fraction,
-    )
-
-    cached_export_fraction = {}
-    cached_import_fraction = {}
-
-    def get_export_fraction(country):
-        if country in cached_export_fraction:
-            fraction = cached_export_fraction[country]
-        else:
-            fraction = common_get_export_fraction(country)
-            cached_export_fraction[country] = fraction
-        return fraction
-
-    def get_import_fraction(e, i):
-        key = f"{e}_{i}"
-        if key in cached_import_fraction:
-            fraction = cached_import_fraction[key]
-        else:
-            fraction = common_get_import_fraction(e, i)
-            cached_import_fraction[key] = fraction
-        return fraction
-
-    for i in range(len(investment_cost_array)):
-        element = investment_cost_array[i]
-        if isinstance(element, float):
-            continue
-        new = {}
-        for country, v in element.items():
-            # Production - Export
-            if math.isclose(v, 0.0):
-                domestic = 0.0
-            else:
-                fraction = get_export_fraction(country)
-                domestic = (1 - fraction) * v
-            # Import
-            total_import = 0
-            for cc, vv in element.items():
-                if cc == country:
-                    # Skip self
-                    continue
-                total_import += get_import_fraction(cc, country) * vv
-            new[country] = domestic + total_import
-        # Now we do non-masterdata countries, which only do
-        # imports
-        for country in non_masterdata_alpha2:
-            total_import = sum(
-                get_import_fraction(cc, country) * vv for cc, vv in element.items()
-            )
-            new[country] = total_import
-
-        investment_cost_array[i] = new
 
 
 def calculate_cost1_info(
@@ -1225,10 +1170,10 @@ def generate_cost1_output(
                 residual_production = 0.0
 
             if ENABLE_COAL_EXPORT:
-                modify_investment_cost_based_on_coal_export(
+                modify_array_based_on_coal_export(
                     cost_non_discounted_investment, production_2019
                 )
-                modify_investment_cost_based_on_coal_export(
+                modify_array_based_on_coal_export(
                     cost_discounted_investment, production_2019
                 )
 

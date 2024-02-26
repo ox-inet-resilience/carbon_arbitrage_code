@@ -1,3 +1,5 @@
+import math
+
 import util
 
 _, nonpower_coal, _ = util.read_masterdata()
@@ -59,3 +61,61 @@ def get_import_fraction(e, i):
         fraction = _import / production if production > 0 else 0
     assert 0 <= fraction <= 1, (fraction, i, e, production, _import)
     return fraction
+
+
+def modify_array_based_on_coal_export(arr, production_2019):
+    from coal_export.common_data import non_masterdata_alpha2
+    from coal_export.common import (
+        get_export_fraction as common_get_export_fraction,
+        get_import_fraction as common_get_import_fraction,
+    )
+
+    cached_export_fraction = {}
+    cached_import_fraction = {}
+
+    def get_export_fraction(country):
+        if country in cached_export_fraction:
+            fraction = cached_export_fraction[country]
+        else:
+            fraction = common_get_export_fraction(country)
+            cached_export_fraction[country] = fraction
+        return fraction
+
+    def get_import_fraction(e, i):
+        key = f"{e}_{i}"
+        if key in cached_import_fraction:
+            fraction = cached_import_fraction[key]
+        else:
+            fraction = common_get_import_fraction(e, i)
+            cached_import_fraction[key] = fraction
+        return fraction
+
+    for i in range(len(arr)):
+        element = arr[i]
+        if isinstance(element, float):
+            continue
+        new = {}
+        for country, v in element.items():
+            # Production - Export
+            if math.isclose(v, 0.0):
+                domestic = 0.0
+            else:
+                fraction = get_export_fraction(country)
+                domestic = (1 - fraction) * v
+            # Import
+            total_import = 0
+            for cc, vv in element.items():
+                if cc == country:
+                    # Skip self
+                    continue
+                total_import += get_import_fraction(cc, country) * vv
+            new[country] = domestic + total_import
+        # Now we do non-masterdata countries, which only do
+        # imports
+        for country in non_masterdata_alpha2:
+            total_import = sum(
+                get_import_fraction(cc, country) * vv for cc, vv in element.items()
+            )
+            new[country] = total_import
+
+        arr[i] = new
