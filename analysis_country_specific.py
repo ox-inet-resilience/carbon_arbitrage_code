@@ -12,7 +12,7 @@ import matplotlib
 
 import util
 import analysis_main
-
+from coal_export.common import modify_based_on_coal_export
 
 matplotlib.use("agg")
 
@@ -91,6 +91,7 @@ eurozone = "AT BE HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES".split()
 # Largest by avoided emissions
 # Taken from avoided_emissions_nonadjusted.csv (see Zulip).
 by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
+countries_after_coal_export = "AE AF AG AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BW BY BZ CA CD CG CH CI CL CN CO CR CY CZ DE DK DO EC EE EG ES ET FI FJ FR GB GD GE GH GR GT GY HK HN HR HU ID IE IL IN IR IS IT JM JO JP KE KG KH KM KR KW KZ LA LB LC LK LS LT LU LV LY MA MD ME MG MK ML MM MN MS MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NZ OM PA PE PF PH PK PL PS PT PY QA RO RS RU RW SA SC SE SG SI SK SN SV SZ TG TH TJ TN TR TT TZ UA UG US UY UZ VC VE VN XK YE ZA ZM ZW".split()
 
 
 def apply_last_year(last_year):
@@ -1993,12 +1994,29 @@ def do_bruegel_4(action_groups):
                     csvwriter.writerow(row)
 
 
-def do_bruegel_5(action_groups):
+def do_bruegel_5(action_groups, enable_coal_export):
     yearly_avoided_emissions_by_country = util.read_json(
-        "cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100_coal_export_False.json"
+        "cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json"
     )
+    if enable_coal_export:
+        # This is a roundabout way to account for coal export, but there is just no other simpler way.
+        length = len(yearly_avoided_emissions_by_country["US"])
+        new = {}
+        for i in range(length):
+            new_element = modify_based_on_coal_export(
+                {c: v[i] for c, v in yearly_avoided_emissions_by_country.items()}
+            )
+            for c, v in new_element.items():
+                if c in new:
+                    new[c].append(v)
+                else:
+                    new[c] = [v]
+        yearly_avoided_emissions_by_country = new
 
-    with open("plots/bruegel/bruegel_5_yearly_avoided_emissions.csv", "w") as csvfile:
+    with open(
+        f"plots/bruegel/bruegel_5_yearly_avoided_emissions_coal_export_{enable_coal_export}.csv",
+        "w",
+    ) as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(["country"] + list(range(2022, 2100 + 1)))
 
@@ -2014,12 +2032,14 @@ def do_bruegel_5(action_groups):
             idx = 0
             while True:
                 try:
-                    timeseries = np.array(yearly_avoided_emissions_by_country[countries[idx]])
+                    timeseries = np.array(
+                        yearly_avoided_emissions_by_country[countries[idx]]
+                    )
                     break
                 except KeyError:
                     idx += 1
 
-            for c in countries[idx + 1:]:
+            for c in countries[idx + 1 :]:
                 if c not in yearly_avoided_emissions_by_country:
                     continue
                 timeseries += yearly_avoided_emissions_by_country[c]
@@ -2055,6 +2075,7 @@ if __name__ == "__main__":
             emde_minus_cn = [c for c in emde if c != "CN"]
             action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
         else:
+            # New grouping
             iso3166_df = util.read_iso3166()
             (
                 region_countries_map,
@@ -2080,4 +2101,5 @@ if __name__ == "__main__":
                 "World": flatten_list_of_list(list(region_countries_map.values())),
             }
         # do_bruegel_4(action_groups)
-        do_bruegel_5(action_groups)
+        for enable_coal_export in [True, False]:
+            do_bruegel_5(action_groups, enable_coal_export)
