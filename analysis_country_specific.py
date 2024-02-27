@@ -266,7 +266,8 @@ def calculate_country_specific_scc_data(
         if util.USE_NATURE_PAPER_SCC:
             cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
         else:
-            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}_coal_export_{analysis_main.ENABLE_COAL_EXPORT}.json"
+            suffix = "with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
+            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}_{suffix}.json"
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
@@ -1778,8 +1779,6 @@ def do_bruegel_2():
 
 def do_bruegel_4(action_groups):
     git_branch = util.get_git_branch()
-
-    developed_country_shortnames = util.prepare_from_climate_financing_data()[4]
 
     # For gov cost breakdown
     gdp2022 = util.read_json("./data/all_countries_gdp_marketcap_2022.json")
