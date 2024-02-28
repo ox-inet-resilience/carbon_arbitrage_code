@@ -267,7 +267,9 @@ def calculate_country_specific_scc_data(
             cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
         else:
             suffix = "with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
-            cache_name = f"cache/unilateral_benefit_total_trillion_{last_year}_{suffix}.json"
+            cache_name = (
+                f"cache/unilateral_benefit_total_trillion_{last_year}_{suffix}.json"
+            )
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
@@ -1852,8 +1854,7 @@ def do_bruegel_4(action_groups):
 
     for public_funding_fraction in [1, 0.5, 0.2, 0.1]:
         # for last_year in [2030, 2050, 2100]:
-        # for last_year in [2030, 2050]:
-        for last_year in [2035]:
+        for last_year in [2030, 2050]:
             fname = f"cache/country_specific_data_bruegel_git_{last_year}_{git_branch}_cost.json"
             (
                 cs_combined,
@@ -2066,13 +2067,21 @@ if __name__ == "__main__":
         # exit()
         # do_bruegel_2()
 
-        if 0:
+        if 1:
+            # EMDE-CN
             top20 = by_avoided_emissions[:20]
             emerging_country_shortnames = util.get_emerging_countries()
             developING_country_shortnames = util.get_developing_countries()
             emde = emerging_country_shortnames + developING_country_shortnames
             emde_minus_cn = [c for c in emde if c != "CN"]
-            action_groups = {"EMDE-CN": emde_minus_cn, **{k: [k] for k in top20}}
+            developed_country_shortnames = util.prepare_from_climate_financing_data()[4]
+            top20_without_developed = [
+                c for c in top20 if c not in developed_country_shortnames
+            ]
+            action_groups = {
+                "EMDE-CN": emde_minus_cn,
+                **{k: [k] for k in top20_without_developed},
+            }
         else:
             # New grouping
             iso3166_df = util.read_iso3166()
@@ -2099,6 +2108,7 @@ if __name__ == "__main__":
                 "Middle East": "BH IR IQ JO KW LB OM QA SA SY AE YE".split(),
                 "World": flatten_list_of_list(list(region_countries_map.values())),
             }
-        # do_bruegel_4(action_groups)
-        for enable_coal_export in [True, False]:
-            do_bruegel_5(action_groups, enable_coal_export)
+        analysis_main.ENABLE_COAL_EXPORT = 1
+        do_bruegel_4(action_groups)
+        # for enable_coal_export in [True, False]:
+        #     do_bruegel_5(action_groups, enable_coal_export)
