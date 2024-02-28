@@ -6,7 +6,7 @@ import git
 import pandas as pd
 
 years = [2030, 2050]  # 2035
-branches = ["coal_export", "main"]  # , "coal_export_over_battery", "battery"]
+branches = ["coal_export", "main", "coal_export_over_battery", "battery"]
 
 public_funding_dict = {
     1: "Assumes public funding in full",
