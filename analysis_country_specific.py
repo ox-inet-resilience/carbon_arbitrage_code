@@ -1703,6 +1703,9 @@ def do_bruegel_2():
 
     avoided_emissions["level_development"] = avoided_emissions.Country.apply(get_level_development)
     avoided_emissions["region"] = avoided_emissions.Country.apply(get_region)
+    avoided_emissions.to_csv(
+        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_all{suffix}.csv", index=False
+    )
     ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)].copy()
     ae_emde.to_csv(
         f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv", index=False
