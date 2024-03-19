@@ -1670,21 +1670,42 @@ def do_bruegel_2():
     avoided_emissions = pd.read_csv(ae_csv_path)
 
     (
-        _,
+        iso3166_df,
         iso3166_df_alpha2,
         _,
         _,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
+    region_countries_map, _ = analysis_main.prepare_regions_for_climate_financing(
+        iso3166_df
+    )
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
+    full_name_to_alpha2 = {v: k for k, v in alpha2_to_full_name.items()}
     emerging_country_shortnames = util.get_emerging_countries()
     developING_country_shortnames = util.get_developing_countries()
     emde = emerging_country_shortnames + developING_country_shortnames
     emde_fullname = [alpha2_to_full_name.get(c, c) for c in emde]
 
-    ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)]
+    def get_level_development(country):
+        a2 = full_name_to_alpha2[country]
+        if a2 in developed_country_shortnames:
+            return "Developed"
+        elif a2 in developING_country_shortnames:
+            return "Developing"
+        return "Emerging Market"
+
+    def get_region(country):
+        a2 = full_name_to_alpha2[country]
+        for name, countries in region_countries_map.items():
+            if a2 in countries:
+                return name
+        return "N/A"
+
+    avoided_emissions["level_development"] = avoided_emissions.Country.apply(get_level_development)
+    avoided_emissions["region"] = avoided_emissions.Country.apply(get_region)
+    ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)].copy()
     ae_emde.to_csv(
-        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv"
+        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv", index=False
     )
 
     # SCC of EMDE
@@ -1710,7 +1731,7 @@ def do_bruegel_2():
             ],
         }
         _df = pd.DataFrame.from_dict(data)
-        _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}{suffix}.csv")
+        _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}{suffix}.csv", index=False)
         if name == "all":
             scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
 
@@ -1724,7 +1745,7 @@ def do_bruegel_2():
 
     benefit_emde = ae_emde.apply(func, axis=1)
     benefit_emde.to_csv(
-        f"plots/bruegel/bruegel_2_{git_branch}_benefit_emde{suffix}.csv"
+        f"plots/bruegel/bruegel_2_{git_branch}_benefit_emde{suffix}.csv", index=False
     )
     benefit_all = avoided_emissions.apply(func, axis=1)
     benefit_all.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_all{suffix}.csv")
