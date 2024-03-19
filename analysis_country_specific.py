@@ -1659,9 +1659,15 @@ def do_bruegel_heatmap():
 
 def do_bruegel_2():
     git_branch = util.get_git_branch()
-    avoided_emissions = pd.read_csv(
-        "./plots/avoided_emissions_nonadjusted.csv",
-    )
+    if analysis_main.ENABLE_COAL_EXPORT:
+        ae_csv_path = "./plots/avoided_emissions_modified_by_coal_export.csv"
+        suffix = "_modified_with_coal_export"
+        all_obj = by_avoided_emissions
+    else:
+        ae_csv_path = "./plots/avoided_emissions_nonadjusted.csv"
+        suffix = ""
+        all_obj = by_avoided_emissions
+    avoided_emissions = pd.read_csv(ae_csv_path)
 
     (
         _,
@@ -1677,7 +1683,9 @@ def do_bruegel_2():
     emde_fullname = [alpha2_to_full_name.get(c, c) for c in emde]
 
     ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)]
-    ae_emde.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde.csv")
+    ae_emde.to_csv(
+        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv"
+    )
 
     # SCC of EMDE
     scc_dict = read_country_specific_scc_filtered()
@@ -1702,26 +1710,28 @@ def do_bruegel_2():
             ],
         }
         _df = pd.DataFrame.from_dict(data)
-        _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}.csv")
+        _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}{suffix}.csv")
         if name == "all":
             scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
 
     def func(row):
         full_name = row.Country
-        scc = scc_80_dict[full_name]
+        scc = scc_80_dict.get(full_name, 0)
         row["2100"] *= scc
         row["2050"] *= scc
         row["2030"] *= scc
         return row
 
     benefit_emde = ae_emde.apply(func, axis=1)
-    benefit_emde.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_emde.csv")
+    benefit_emde.to_csv(
+        f"plots/bruegel/bruegel_2_{git_branch}_benefit_emde{suffix}.csv"
+    )
     benefit_all = avoided_emissions.apply(func, axis=1)
-    benefit_all.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_all.csv")
+    benefit_all.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_all{suffix}.csv")
 
     # Cost
     def get_cost(cost_name, obj, obj_name):
-        fname = f"cache/country_specific_data_bruegel_git_{git_branch}_{last_year}_{cost_name}_{obj_name}.json"
+        fname = f"cache/country_specific_data_bruegel_git_{git_branch}_{last_year}_{cost_name}_{obj_name}{suffix}.json"
         (
             cs_combined,
             _,
@@ -1738,7 +1748,7 @@ def do_bruegel_2():
     emde_sorted_by_avoided_emissions = [c for c in by_avoided_emissions if c in emde]
     for name, obj in [
         ("emde", emde_sorted_by_avoided_emissions),
-        ("all", by_avoided_emissions),
+        ("all", all_obj),
     ]:
         cs_by_last_year_total = {}
         cs_by_last_year_investment_cost = {}
@@ -1749,7 +1759,7 @@ def do_bruegel_2():
             cs_by_last_year_investment_cost[last_year] = cs_combined_investment_cost
 
         with open(
-            f"plots/bruegel/bruegel_2_{git_branch}_cost_{name}.csv", "w"
+            f"plots/bruegel/bruegel_2_{git_branch}_cost_{name}{suffix}.csv", "w"
         ) as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(
@@ -2076,6 +2086,9 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
         # do_bruegel_heatmap()
         # exit()
+        analysis_main.ENABLE_COAL_EXPORT = True
+        do_bruegel_2()
+        analysis_main.ENABLE_COAL_EXPORT = False
         do_bruegel_2()
         exit()
 
