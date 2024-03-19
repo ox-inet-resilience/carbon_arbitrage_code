@@ -266,9 +266,9 @@ def calculate_country_specific_scc_data(
         if util.USE_NATURE_PAPER_SCC:
             cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
         else:
-            suffix = "with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
+            suffix = "_with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
             cache_name = (
-                f"cache/unilateral_benefit_total_trillion_{last_year}_{suffix}.json"
+                f"cache/unilateral_benefit_total_trillion_{last_year}{suffix}.json"
             )
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
@@ -1660,7 +1660,7 @@ def do_bruegel_heatmap():
 def do_bruegel_2():
     git_branch = util.get_git_branch()
     avoided_emissions = pd.read_csv(
-        "./plots/avoided_emissions_nonadjusted.csv", header=None
+        "./plots/avoided_emissions_nonadjusted.csv",
     )
 
     (
@@ -1676,7 +1676,7 @@ def do_bruegel_2():
     emde = emerging_country_shortnames + developING_country_shortnames
     emde_fullname = [alpha2_to_full_name.get(c, c) for c in emde]
 
-    ae_emde = avoided_emissions[avoided_emissions[0].isin(emde_fullname)]
+    ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)]
     ae_emde.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde.csv")
 
     # SCC of EMDE
@@ -1684,6 +1684,7 @@ def do_bruegel_2():
     unscaled_global_scc = sum(scc_dict.values())
     scc_80_dict = None
     for name, filter_countries in [
+        ("all", list(scc_dict.keys())),
         ("emde", emde),
         ("developed", developed_country_shortnames),
     ]:
@@ -1702,22 +1703,25 @@ def do_bruegel_2():
         }
         _df = pd.DataFrame.from_dict(data)
         _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}.csv")
-        if name == "emde":
+        if name == "all":
             scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
 
     def func(row):
-        full_name = row[0]
+        full_name = row.Country
         scc = scc_80_dict[full_name]
-        row[1] *= scc
-        row[2] *= scc
+        row["2100"] *= scc
+        row["2050"] *= scc
+        row["2030"] *= scc
         return row
 
     benefit_emde = ae_emde.apply(func, axis=1)
     benefit_emde.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_emde.csv")
+    benefit_all = avoided_emissions.apply(func, axis=1)
+    benefit_all.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_benefit_all.csv")
 
     # Cost
-    def get_cost(cost_name):
-        fname = f"cache/country_specific_data_bruegel_git_{git_branch}_{last_year}_{cost_name}.json"
+    def get_cost(cost_name, obj, obj_name):
+        fname = f"cache/country_specific_data_bruegel_git_{git_branch}_{last_year}_{cost_name}_{obj_name}.json"
         (
             cs_combined,
             _,
@@ -1725,58 +1729,65 @@ def do_bruegel_2():
             _,
         ) = common_prepare_cost_benefit_by_country(
             fname,
-            emde_sorted_by_avoided_emissions,
+            obj,
             last_year=last_year,
             cost_name=cost_name,
         )
         return cs_combined
 
     emde_sorted_by_avoided_emissions = [c for c in by_avoided_emissions if c in emde]
-    cs_by_last_year_total = {}
-    cs_by_last_year_investment_cost = {}
-    for last_year in [2030, 2050, 2100]:
-        cs_combined_total = get_cost("cost")
-        cs_combined_investment_cost = get_cost("investment_cost")
-        cs_by_last_year_total[last_year] = cs_combined_total
-        cs_by_last_year_investment_cost[last_year] = cs_combined_investment_cost
-    with open(f"plots/bruegel/bruegel_2_{git_branch}_cost_emde.csv", "w") as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(
-            [
-                "index",
-                "country",
-                "opportunity_cost_2030",
-                "opportunity_cost_2050",
-                "opportunity_cost_2100",
-                "investment_cost_2030",
-                "investment_cost_2050",
-                "investment_cost_2100",
-                "total_cost_2030",
-                "total_cost_2050",
-                "total_cost_2100",
-            ]
-        )
-        last_years = [2030, 2050, 2100]
-        for i, a2 in enumerate(emde_sorted_by_avoided_emissions):
-            full_name = alpha2_to_full_name[a2]
-            opportunity_costs = [
-                round(
-                    cs_by_last_year_total[last_year][a2]
-                    - cs_by_last_year_investment_cost[last_year][a2],
-                    6,
-                )
-                for last_year in last_years
-            ]
-            investment_costs = [
-                cs_by_last_year_investment_cost[last_year][a2]
-                for last_year in last_years
-            ]
-            total_costs = [
-                cs_by_last_year_total[last_year][a2] for last_year in last_years
-            ]
+    for name, obj in [
+        ("emde", emde_sorted_by_avoided_emissions),
+        ("all", by_avoided_emissions),
+    ]:
+        cs_by_last_year_total = {}
+        cs_by_last_year_investment_cost = {}
+        for last_year in [2030, 2050, 2100]:
+            cs_combined_total = get_cost("cost", obj, name)
+            cs_combined_investment_cost = get_cost("investment_cost", obj, name)
+            cs_by_last_year_total[last_year] = cs_combined_total
+            cs_by_last_year_investment_cost[last_year] = cs_combined_investment_cost
+
+        with open(
+            f"plots/bruegel/bruegel_2_{git_branch}_cost_{name}.csv", "w"
+        ) as csvfile:
+            csvwriter = csv.writer(csvfile)
             csvwriter.writerow(
-                [i, full_name, *opportunity_costs, *investment_costs, *total_costs]
+                [
+                    "index",
+                    "country",
+                    "opportunity_cost_2030",
+                    "opportunity_cost_2050",
+                    "opportunity_cost_2100",
+                    "investment_cost_2030",
+                    "investment_cost_2050",
+                    "investment_cost_2100",
+                    "total_cost_2030",
+                    "total_cost_2050",
+                    "total_cost_2100",
+                ]
             )
+            last_years = [2030, 2050, 2100]
+            for i, a2 in enumerate(obj):
+                full_name = alpha2_to_full_name[a2]
+                opportunity_costs = [
+                    round(
+                        cs_by_last_year_total[last_year][a2]
+                        - cs_by_last_year_investment_cost[last_year][a2],
+                        6,
+                    )
+                    for last_year in last_years
+                ]
+                investment_costs = [
+                    cs_by_last_year_investment_cost[last_year][a2]
+                    for last_year in last_years
+                ]
+                total_costs = [
+                    cs_by_last_year_total[last_year][a2] for last_year in last_years
+                ]
+                csvwriter.writerow(
+                    [i, full_name, *opportunity_costs, *investment_costs, *total_costs]
+                )
 
 
 def do_bruegel_4(action_groups):
@@ -2065,7 +2076,8 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
         # do_bruegel_heatmap()
         # exit()
-        # do_bruegel_2()
+        do_bruegel_2()
+        exit()
 
         if 1:
             # EMDE-CN
