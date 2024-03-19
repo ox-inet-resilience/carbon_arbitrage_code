@@ -1,3 +1,7 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import util
 from coal_export.common import get_export_fraction, get_import_fraction
 from coal_export.common_data import all_alpha2s
@@ -230,6 +234,7 @@ print(
     sum(emissions_modified_by_export[2100].values()),
 )
 with open("plots/avoided_emissions_modified_by_coal_export.csv", "w") as f:
+    f.write("Country,2100,2050,2030")
     for k, v in emissions_modified_by_export[2100].items():
         v_2050 = emissions_modified_by_export[2050][k]
         v_2030 = emissions_modified_by_export[2030][k]
@@ -237,6 +242,7 @@ with open("plots/avoided_emissions_modified_by_coal_export.csv", "w") as f:
         f.write(f"{name},{v},{v_2050},{v_2030}\n")
 # print(json.dumps(emissions_full_name_version, indent=2))
 with open("plots/avoided_emissions_nonadjusted.csv", "w") as f:
+    f.write("Country,2100,2050,2030")
     for k, v in avoided_emissions_upto_2100.items():
         v_2050 = avoided_emissions_upto_2050[k]
         v_2030 = avoided_emissions_upto_2030[k]
