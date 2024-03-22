@@ -92,6 +92,9 @@ eurozone = "AT BE HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES".split()
 # Taken from avoided_emissions_nonadjusted.csv (see Zulip).
 by_avoided_emissions = "CN AU US IN RU ID ZA CA PL KZ CO DE MZ MN UA TR VN BW GR BR CZ BG RO TH RS GB UZ PH ZW NZ MX BD BA LA IR CL ES PK VE TZ HU ME SK ZM SI MG TJ MK GE AR MM JP KG MW NG NE PE NO ET CD".split()
 countries_after_coal_export = "AE AF AG AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BW BY BZ CA CD CG CH CI CL CN CO CR CY CZ DE DK DO EC EE EG ES ET FI FJ FR GB GD GE GH GR GT GY HK HN HR HU ID IE IL IN IR IS IT JM JO JP KE KG KH KM KR KW KZ LA LB LC LK LS LT LU LV LY MA MD ME MG MK ML MM MN MS MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NZ OM PA PE PF PH PK PL PS PT PY QA RO RS RU RW SA SC SE SG SI SK SN SV SZ TG TH TJ TN TR TT TZ UA UG US UY UZ VC VE VN XK YE ZA ZM ZW".split()
+# Doesn't have SCC value
+for c in "AG AW BB BF BH BM FJ GD HK LC MS MT MV NA PF PS SC SG XK".split():
+    countries_after_coal_export.remove(c)
 
 
 def apply_last_year(last_year):
@@ -190,8 +193,9 @@ def _do_sanity_check_for_calculate_cs_scc_data(
     # world_benefit_but_unilateral_action = sum(sum(v) for v in bs_region.values())
     world_benefit_but_unilateral_action = sum(sum(v) for v in bs.values())
     # Check that the computed world scc corresponds to the original world scc.
-    actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
-    assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+    if unilateral_emissions > 0:
+        actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
+        assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
     # SC2
     if not isa_climate_club:
         # The unilateral actor is a country
@@ -1662,7 +1666,7 @@ def do_bruegel_2():
     if analysis_main.ENABLE_COAL_EXPORT:
         ae_csv_path = "./plots/avoided_emissions_modified_by_coal_export.csv"
         suffix = "_modified_with_coal_export"
-        all_obj = by_avoided_emissions
+        all_obj = countries_after_coal_export
     else:
         ae_csv_path = "./plots/avoided_emissions_nonadjusted.csv"
         suffix = ""
