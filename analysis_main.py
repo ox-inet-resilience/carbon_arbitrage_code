@@ -2519,6 +2519,9 @@ def get_yearly_by_country():
         f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{git_branch}.csv"
     )
 
+    yearly_ae = util.read_json("./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json")
+    pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose().to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{git_branch}.csv")
+
 
 if __name__ == "__main__":
     if 1:
