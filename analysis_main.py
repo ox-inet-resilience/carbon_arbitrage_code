@@ -324,17 +324,17 @@ def calculate_cost1_info(
         # discount.
         cost_discounted_revenue = cost_non_discounted_revenue
         cost_discounted_investment = cost_non_discounted_investment
-        out_yearly_info[
-            "opportunity_cost"
-        ] = array_of_cost_non_discounted_revenue_trillions
-        out_yearly_info[
-            "investment_cost"
-        ] = array_of_cost_non_discounted_investment_trillions
+        out_yearly_info["opportunity_cost"] = (
+            array_of_cost_non_discounted_revenue_trillions
+        )
+        out_yearly_info["investment_cost"] = (
+            array_of_cost_non_discounted_investment_trillions
+        )
     else:
         out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
-        out_yearly_info[
-            "investment_cost"
-        ] = array_of_cost_discounted_investment_trillions
+        out_yearly_info["investment_cost"] = (
+            array_of_cost_discounted_investment_trillions
+        )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
@@ -453,9 +453,9 @@ class InvestmentCostNewMethod:
                 ]
                 * 1e3
             )
-            self.global_installed_capacities_kW_2020[
-                tech
-            ] = global_installed_capacity_kW
+            self.global_installed_capacities_kW_2020[tech] = (
+                global_installed_capacity_kW
+            )
             alpha = installed_cost / (
                 global_installed_capacity_kW ** -self.gammas[tech]
             )
@@ -2502,7 +2502,28 @@ def run_3_level_scc():
             print(" & ".join(caos_with_residual))
 
 
+def get_yearly_by_country():
+    out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
+    nz2050 = out["2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"]
+    # print(a["investment_cost"])
+    series_ics = []
+    series_ocs = []
+    for i in range(2, 2100 - 2022 + 1):
+        series_ocs.append(nz2050["opportunity_cost"][i].rename(2022 + i))
+        series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(2022 + i)))
+    git_branch = util.get_git_branch()
+    pd.concat(series_ocs, axis=1).to_csv(
+        f"plots/bruegel/yearly_by_country_opportunity_cost_NONDISCOUNTED_{git_branch}.csv"
+    )
+    pd.concat(series_ics, axis=1).to_csv(
+        f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{git_branch}.csv"
+    )
+
+
 if __name__ == "__main__":
+    if 1:
+        get_yearly_by_country()
+        exit()
     if 0:
         print("# exp cost6")
         # Figuring out all of the coal companies.
