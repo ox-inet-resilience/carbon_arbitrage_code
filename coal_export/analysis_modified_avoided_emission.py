@@ -198,17 +198,18 @@ avoided_emissions_upto_2030 = {
 
 emissions_modified_by_export = {2100: {}, 2050: {}, 2030: {}}
 
+aes = {
+    2100: avoided_emissions_upto_2100,
+    2050: avoided_emissions_upto_2050,
+    2030: avoided_emissions_upto_2030,
+}
 for last_year in (2100, 2050, 2030):
-    ae = {
-        2100: avoided_emissions_upto_2100,
-        2050: avoided_emissions_upto_2050,
-        2030: avoided_emissions_upto_2030,
-    }[last_year]
+    ae = aes[last_year]
     for country in all_alpha2s:
         emissions = ae.get(country, 0.0)
         modified_e = emissions * (1 - get_export_fraction(country)) + sum(
             v * get_import_fraction(k, country)
-            for k, v in avoided_emissions_upto_2100.items()
+            for k, v in ae.items()
             if k != country  # avoid self
         )
         emissions_modified_by_export[last_year][country] = modified_e
@@ -230,10 +231,13 @@ emissions_modified_by_export[2100] = dict(
     _,
 ) = util.prepare_from_climate_financing_data()
 alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
-print(
-    "sanity check should add up to ~1424",
-    sum(emissions_modified_by_export[2100].values()),
-)
+for year in [2030, 2050, 2100]:
+    ae = aes[year]
+    print(
+        f"sanity check {year}",
+        sum(emissions_modified_by_export[year].values()),
+        sum(ae.values()),
+    )
 with open("plots/avoided_emissions_modified_by_coal_export.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerow(["Country", 2100, 2050, 2030])
