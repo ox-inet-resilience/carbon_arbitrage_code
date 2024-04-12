@@ -106,24 +106,6 @@ def apply_last_year(last_year):
         analysis_main.MID_YEAR = 2050
 
 
-def prepare_alpha2_to_full_name_concise():
-    iso3166_df = util.read_iso3166()
-    iso3166_df_alpha2 = iso3166_df.set_index("alpha-2")
-    alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
-    alpha2_to_full_name["GB"] = "Great Britain"
-    alpha2_to_full_name["US"] = "USA"
-    alpha2_to_full_name["RU"] = "Russia"
-    alpha2_to_full_name["TW"] = "Taiwan"
-    alpha2_to_full_name["KR"] = "South Korea"
-    alpha2_to_full_name["LA"] = "Laos"
-    alpha2_to_full_name["VE"] = "Venezuela"
-    alpha2_to_full_name["CD"] = "Congo-Kinshasa"
-    alpha2_to_full_name["IR"] = "Iran"
-    alpha2_to_full_name["TZ"] = "Tanzania"
-    alpha2_to_full_name["BA"] = "B&H"
-    return alpha2_to_full_name
-
-
 def prepare_level_development():
     (
         iso3166_df,
@@ -1527,7 +1509,7 @@ def do_bruegel_heatmap():
         _,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
-    alpha2_to_full_name = prepare_alpha2_to_full_name_concise()
+    alpha2_to_full_name = util.prepare_alpha2_to_full_name_concise()
 
     # Exclude developed countries
     # Reduce from 60 to 47
@@ -1842,7 +1824,7 @@ def do_bruegel_4(action_groups):
         .set_index("General Government Debt (Percent of GDP)")["2022"]
         .to_dict()
     )
-    alpha2_to_full_name = prepare_alpha2_to_full_name_concise()
+    alpha2_to_full_name = util.prepare_alpha2_to_full_name_concise()
     full_name_to_alpha2 = {v: k for k, v in alpha2_to_full_name.items()}
     amendment = {
         "Türkiye, Republic of": "TR",

@@ -2512,15 +2512,24 @@ def get_yearly_by_country():
         series_ocs.append(nz2050["opportunity_cost"][i].rename(2022 + i))
         series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(2022 + i)))
     git_branch = util.get_git_branch()
-    pd.concat(series_ocs, axis=1).to_csv(
+    a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
+
+    df = pd.concat(series_ocs, axis=1)
+    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+    df.to_csv(
         f"plots/bruegel/yearly_by_country_opportunity_cost_NONDISCOUNTED_{git_branch}.csv"
     )
-    pd.concat(series_ics, axis=1).to_csv(
+
+    df = pd.concat(series_ics, axis=1)
+    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+    df.to_csv(
         f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{git_branch}.csv"
     )
 
     yearly_ae = util.read_json("./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json")
-    pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose().to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{git_branch}.csv")
+    df = pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose()
+    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+    df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{git_branch}.csv")
 
 
 if __name__ == "__main__":
