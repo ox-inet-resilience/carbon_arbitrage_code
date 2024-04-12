@@ -2526,7 +2526,13 @@ def get_yearly_by_country():
         f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{git_branch}.csv"
     )
 
-    yearly_ae = util.read_json("./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json")
+    yearly_ae = util.read_json(
+        "./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json"
+    )
+    if ENABLE_COAL_EXPORT:
+        from coal_export.common import modify_avoided_emissions_based_on_coal_export
+
+        yearly_ae = modify_avoided_emissions_based_on_coal_export(yearly_ae)
     df = pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose()
     df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
     df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{git_branch}.csv")

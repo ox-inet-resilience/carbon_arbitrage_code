@@ -12,7 +12,7 @@ import matplotlib
 
 import util
 import analysis_main
-from coal_export.common import modify_based_on_coal_export
+from coal_export.common import modify_avoided_emissions_based_on_coal_export
 
 matplotlib.use("agg")
 
@@ -177,7 +177,9 @@ def _do_sanity_check_for_calculate_cs_scc_data(
     # Check that the computed world scc corresponds to the original world scc.
     if unilateral_emissions > 0:
         actual_world_scc = world_benefit_but_unilateral_action / unilateral_emissions
-        assert math.isclose(actual_world_scc, util.social_cost_of_carbon), actual_world_scc
+        assert math.isclose(
+            actual_world_scc, util.social_cost_of_carbon
+        ), actual_world_scc
     # SC2
     if not isa_climate_club:
         # The unilateral actor is a country
@@ -1687,14 +1689,18 @@ def do_bruegel_2():
                 return name
         return "N/A"
 
-    avoided_emissions["level_development"] = avoided_emissions.Country.apply(get_level_development)
+    avoided_emissions["level_development"] = avoided_emissions.Country.apply(
+        get_level_development
+    )
     avoided_emissions["region"] = avoided_emissions.Country.apply(get_region)
     avoided_emissions.to_csv(
-        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_all{suffix}.csv", index=False
+        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_all{suffix}.csv",
+        index=False,
     )
     ae_emde = avoided_emissions[avoided_emissions.Country.isin(emde_fullname)].copy()
     ae_emde.to_csv(
-        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv", index=False
+        f"plots/bruegel/bruegel_2_{git_branch}_avoided_emissions_emde{suffix}.csv",
+        index=False,
     )
 
     # SCC of EMDE
@@ -1720,7 +1726,9 @@ def do_bruegel_2():
             ],
         }
         _df = pd.DataFrame.from_dict(data)
-        _df.to_csv(f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}{suffix}.csv", index=False)
+        _df.to_csv(
+            f"plots/bruegel/bruegel_2_{git_branch}_scc_{name}{suffix}.csv", index=False
+        )
         if name == "all":
             scc_80_dict = _df.set_index("name")["absolute (total 80)"].to_dict()
 
@@ -2031,18 +2039,11 @@ def do_bruegel_5(action_groups, enable_coal_export):
     )
     if enable_coal_export:
         # This is a roundabout way to account for coal export, but there is just no other simpler way.
-        length = len(yearly_avoided_emissions_by_country["US"])
-        new = {}
-        for i in range(length):
-            new_element = modify_based_on_coal_export(
-                {c: v[i] for c, v in yearly_avoided_emissions_by_country.items()}
+        yearly_avoided_emissions_by_country = (
+            modify_avoided_emissions_based_on_coal_export(
+                yearly_avoided_emissions_by_country
             )
-            for c, v in new_element.items():
-                if c in new:
-                    new[c].append(v)
-                else:
-                    new[c] = [v]
-        yearly_avoided_emissions_by_country = new
+        )
 
     with open(
         f"plots/bruegel/bruegel_5_yearly_avoided_emissions_coal_export_{enable_coal_export}.csv",

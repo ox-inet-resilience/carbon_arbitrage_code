@@ -20,9 +20,7 @@ def get_export_fraction(country):
     else:
         # Exclude self export
         export = sum(
-            v
-            for k, v in coal_export_content["export"][country].items()
-            if k != country
+            v for k, v in coal_export_content["export"][country].items() if k != country
         )
         export /= 1e3  # Convert kg to tonnes of coal
         production = production_2019[country]
@@ -120,3 +118,18 @@ def modify_array_based_on_coal_export(arr, production_2019):
     for i in range(len(arr)):
         new = modify_based_on_coal_export(arr[i])
         arr[i] = new
+
+
+def modify_avoided_emissions_based_on_coal_export(yearly_avoided_emissions_by_country):
+    length = len(yearly_avoided_emissions_by_country["US"])
+    new = {}
+    for i in range(length):
+        new_element = modify_based_on_coal_export(
+            {c: v[i] for c, v in yearly_avoided_emissions_by_country.items()}
+        )
+        for c, v in new_element.items():
+            if c in new:
+                new[c].append(v)
+            else:
+                new[c] = [v]
+    return new
