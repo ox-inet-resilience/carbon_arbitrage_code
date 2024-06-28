@@ -2509,6 +2509,7 @@ def get_yearly_by_country():
     series_ics = []
     series_ocs = []
     for i in range(2, 2100 - 2022 + 1):
+        # Trillions
         series_ocs.append(nz2050["opportunity_cost"][i].rename(2022 + i))
         series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(2022 + i)))
     git_branch = util.get_git_branch()
