@@ -2503,40 +2503,44 @@ def run_3_level_scc():
 
 
 def get_yearly_by_country():
-    out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
-    nz2050 = out["2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"]
-    # print(a["investment_cost"])
-    series_ics = []
-    series_ocs = []
-    for i in range(2, 2100 - 2022 + 1):
-        # Trillions
-        series_ocs.append(nz2050["opportunity_cost"][i].rename(2022 + i))
-        series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(2022 + i)))
-    git_branch = util.get_git_branch()
-    a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
+    global ENABLE_COAL_EXPORT
+    for enable in [False, True]:
+        ENABLE_COAL_EXPORT = enable
+        out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
+        nz2050 = out["2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"]
+        # print(a["investment_cost"])
+        series_ics = []
+        series_ocs = []
+        for i in range(2, 2100 - 2022 + 1):
+            # Trillions
+            series_ocs.append(nz2050["opportunity_cost"][i].rename(2022 + i))
+            series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(2022 + i)))
+        git_branch = util.get_git_branch()
+        a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
 
-    df = pd.concat(series_ocs, axis=1)
-    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
-    df.to_csv(
-        f"plots/bruegel/yearly_by_country_opportunity_cost_NONDISCOUNTED_{git_branch}.csv"
-    )
+        df = pd.concat(series_ocs, axis=1)
+        df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+        suffix = f"{git_branch}_coalexport_{enable}"
+        df.to_csv(
+            f"plots/bruegel/yearly_by_country_opportunity_cost_NONDISCOUNTED_{suffix}.csv"
+        )
 
-    df = pd.concat(series_ics, axis=1)
-    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
-    df.to_csv(
-        f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{git_branch}.csv"
-    )
+        df = pd.concat(series_ics, axis=1)
+        df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+        df.to_csv(
+            f"plots/bruegel/yearly_by_country_investment_cost_NONDISCOUNTED_{suffix}.csv"
+        )
 
-    yearly_ae = util.read_json(
-        "./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json"
-    )
-    if ENABLE_COAL_EXPORT:
-        from coal_export.common import modify_avoided_emissions_based_on_coal_export
+        yearly_ae = util.read_json(
+            "./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json"
+        )
+        if ENABLE_COAL_EXPORT:
+            from coal_export.common import modify_avoided_emissions_based_on_coal_export
 
-        yearly_ae = modify_avoided_emissions_based_on_coal_export(yearly_ae)
-    df = pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose()
-    df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
-    df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{git_branch}.csv")
+            yearly_ae = modify_avoided_emissions_based_on_coal_export(yearly_ae)
+        df = pd.DataFrame(yearly_ae, index=list(range(2022, 2100 + 1))).transpose()
+        df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
+        df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{suffix}.csv")
 
 
 if __name__ == "__main__":
