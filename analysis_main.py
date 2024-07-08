@@ -69,8 +69,6 @@ print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
 print("WEIGHT_GAS", WEIGHT_GAS)
 
-if ENABLE_COAL_EXPORT:
-    from coal_export.common import modify_array_based_on_coal_export
 
 if ENABLE_NEW_METHOD:
     assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
@@ -1170,6 +1168,8 @@ def generate_cost1_output(
                 residual_production = 0.0
 
             if ENABLE_COAL_EXPORT:
+                from coal_export.common import modify_array_based_on_coal_export
+
                 modify_array_based_on_coal_export(
                     cost_non_discounted_investment, production_2019
                 )
