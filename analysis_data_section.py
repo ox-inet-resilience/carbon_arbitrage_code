@@ -200,7 +200,7 @@ def plot_combined_2dii_ngfs_over_time(
     return out
 
 
-if 0:
+if 1:
 
     def get_ngfs_regional(_df):
         _df_regional = _df[_df.Region != "World"]
@@ -295,10 +295,12 @@ if 0:
 
     for i, mode in enumerate(["production", "emissions"]):
         plt.sca(axs[i])
-        for label, content in out_combined[mode].items():
+        for label, content in reversed(out_combined[mode].items()):
+            if "NDC" in label:
+                continue
             plt.plot(content["x"], content["y"], label=label)
         current_policies = out_combined[mode]["Current Policies "]
-        plot_halt_to_coal_production(current_policies["x"], current_policies["y"])
+        # plot_halt_to_coal_production(current_policies["x"], current_policies["y"])
         plt.xlabel("Time")
         if mode == "production":
             ylabel = "Coal production (Giga tonnes / year)"
@@ -318,8 +320,40 @@ if 0:
         bbox_to_anchor=(0.5, 0),
         ncol=2,
     )
-    # plt.tight_layout()
+    plt.tight_layout()
     plt.savefig("plots/exp16_34_combined.png", bbox_inches="tight")
+
+    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+    for i, mode in enumerate(["production", "emissions"]):
+        plt.sca(axs[i])
+        cps = out_combined[mode]["Current Policies "]
+        nz2050 = out_combined[mode]["Net Zero 2050"]
+        plt.plot(
+            nz2050["x"],
+            [
+                cps["y"][cps["x"].index(i)] - nz2050["y"][nz2050["x"].index(i)]
+                for i in nz2050["x"]
+            ],
+        )
+        plt.xlabel("Time")
+        if mode == "production":
+            ylabel = "Avoided coal production (Giga tonnes / year)"
+        else:
+            ylabel = "Avoided coal emissions (GtCO2 / year)"
+        plt.ylabel(ylabel)
+        for year in [2024, 2025, 2030, 2050]:
+            print(",".join([
+                mode,
+                str(year),
+                "cps",
+                str(cps["y"][cps["x"].index(year)]),
+                "nz2050",
+                str(nz2050["y"][nz2050["x"].index(year)]) if year != 2024 else "N/A",
+            ]))
+
+    plt.tight_layout()
+    plt.savefig("plots/exp16_34_combined_diff.png", bbox_inches="tight")
+
     exit()
 
 
@@ -370,7 +404,7 @@ def print_stat(series):
     print("quantiles 5%, 95%", np.nanquantile(series, [0.05, 0.95]))
 
 
-if 1:
+if 0:
     print("Pure coal companies")
     print("Coal company energy composition")
     all_companies = set(df.company_id)
