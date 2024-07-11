@@ -300,51 +300,6 @@ def read_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
     return df, nonpower_coal, power_coal
 
 
-def calculate_weighted_emissions_factor_gas(df):
-    # We weigh using the production in 2020 only
-
-    # Uncomment for power sector only
-    # - emissions factor unit is tonnes of CO2 per MWh per year
-    # - production unit is MW
-    power_companies = df[df.sector == "Power"]
-    power_gas = power_companies[power_companies.technology == "GasCap"]
-    # weighted_emissions_factor = (
-    #     power_gas._2020 * power_gas.emissions_factor
-    # ).sum() / power_gas._2020.sum()
-    # print("Power emissions factor in tCO2 per MWh per year", weighted_emissions_factor)
-    # # Convert tCO2/MWh tCO2/GJ (enable this only for power)
-    # weighted_emissions_factor /= MWh2GJ(1)
-    # # Convert tCO2/GJ to tCO2/tce
-    # weighted_emissions_factor /= GJ2coal(1)
-
-    # We use nonpower sector only
-    # - emissions factor unit is tonnes of CO2 per GJ
-    # - production unit is GJ
-    nonpower_gas = df[df.sector == "Oil&Gas"]
-    nonpower_gas = nonpower_gas[nonpower_gas.technology == "Gas"]
-    # weighted_emissions_factor = (
-    #     nonpower_gas._2020 * nonpower_gas.emissions_factor
-    # ).sum() / nonpower_gas._2020.sum()
-    # print("Nonpower emissions factor in tCO2 per GJ", weighted_emissions_factor)
-    # # Convert tCO2/GJ to tCO2/tce
-    # weighted_emissions_factor /= GJ2coal(1)
-
-    # Both
-    emissions_both = (
-        power_gas._2020 * power_gas.emissions_factor
-    ).sum() * hours_in_1year + (
-        nonpower_gas._2020 * nonpower_gas.emissions_factor
-    ).sum()
-    # In tCO2/tce
-    weighted_emissions_factor = emissions_both / (
-        MW2Gigatonnes_of_coal(power_gas._2020.sum()) * 1e9
-        + GJ2coal(nonpower_gas._2020.sum())
-    )
-    # print("Combined in tCO2/GJ", weighted_emissions_factor / coal2GJ(1))
-
-    return weighted_emissions_factor
-
-
 # Calculated using set(ngfs_global.Scenario)
 scenarios = [
     "Current Policies ",

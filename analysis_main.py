@@ -52,10 +52,6 @@ RHO_MODE = "default"
 # year.
 ENABLE_BENEFIT_NET_GROWTH = 0
 BENEFIT_NET_GROWTH_RATE = 0.01
-# None means disabled
-WEIGHT_GAS = None
-# WEIGHT_GAS = 0.1
-# WEIGHT_GAS = 0.33
 # This is used in Bruegel analysis. Might be deleted later.
 INVESTMENT_COST_DIVIDER = 1
 
@@ -67,7 +63,6 @@ print("Weight mode", NGFS_RENEWABLE_WEIGHT)
 print("Residual benefit", ENABLE_RESIDUAL_BENEFIT)
 print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
-print("WEIGHT_GAS", WEIGHT_GAS)
 
 
 if ENABLE_NEW_METHOD:
@@ -98,11 +93,6 @@ ngfss = util.read_ngfs_coal_and_power()
 
 df, nonpower_coal, power_coal = util.read_masterdata()
 
-if WEIGHT_GAS is None:
-    weighted_emissions_factor_gas = 0.0
-else:
-    weighted_emissions_factor_gas = util.calculate_weighted_emissions_factor_gas(df)
-
 # Reduce df to have companies only that do coal (both power and nonpower).
 # Note that these companies may have non-coal rows.
 # NOTE we don't do this anymore, because we use the same value for average unit
@@ -119,7 +109,6 @@ lcoe_cache = {}
 
 def get_lcoe(scenario, year):
     scenario = scenario.replace("Net Zero 2050", "NZ2050")
-    assert WEIGHT_GAS is None
     if (scenario, year) in lcoe_cache:
         return lcoe_cache[(scenario, year)]
     out = global_lcoe_average
@@ -236,7 +225,6 @@ def calculate_cost1_info(
     never_discount_the_cost=False,
     residual_emissions=0.0,
     residual_production=0.0,
-    cost_gas_investment=0.0,
 ):
     if INVESTMENT_COST_DIVIDER > 1:
         array_of_cost_discounted_investment = divide_array_of_mixed_objs(
@@ -339,23 +327,7 @@ def calculate_cost1_info(
 
     # Costs of avoiding coal emissions
     assert cost_discounted_investment >= 0
-    if WEIGHT_GAS is None:
-        cost_discounted = cost_discounted_revenue + cost_discounted_investment
-    else:
-        # Take into account of gas, when enabled.
-        # The unit is tCO2/tce * (Gtce)
-        # We multiply by 1e9 to go from Gtce to tce
-        emissions_gas = weighted_emissions_factor_gas * total_production_avoided * 1e9
-        # We divide by 1e12 to get trilllion USD
-        benefit_non_discounted -= (
-            WEIGHT_GAS * social_cost_of_carbon * emissions_gas / 1e12
-        )
-        weight_non_gas = 1 - WEIGHT_GAS
-        cost_discounted = (
-            cost_discounted_revenue
-            + weight_non_gas * cost_discounted_investment
-            + cost_gas_investment
-        )
+    cost_discounted = cost_discounted_revenue + cost_discounted_investment
 
     # Equation 1 in the paper
     net_benefit = benefit_non_discounted - cost_discounted
@@ -1177,39 +1149,6 @@ def generate_cost1_output(
                     cost_discounted_investment, production_2019
                 )
 
-            # For gas sensitivty analysis
-            if WEIGHT_GAS is None:
-                cost_gas_investment = 0.0
-            else:
-                (
-                    cost_non_discounted_investment,
-                    cost_discounted_investment,
-                ) = get_cost_including_ngfs_both(
-                    original_ngfs_peg_year,
-                    _df_nonpower,
-                    _df_power,
-                    rho,
-                    fraction_increase_after_peg_year_CPS,
-                    scenario,
-                    last_year,
-                    fraction_increase_after_peg_year,
-                    cost_2022_to_pegyear_non_discounted_renewable,
-                    cost_2022_to_pegyear_discounted_renewable,
-                    "renewable",
-                )
-                raise Exception(
-                    "Using LCOE with gas is not implemented yet; Use get_lcoe"
-                )
-                discounted_production = (
-                    sum_array_of_mixed_objs(cost_discounted_investment)
-                    / global_lcoe_average
-                )
-
-                lcoe_gas = 69.8  # $/MWh
-                cost_gas_investment = (
-                    lcoe_gas * WEIGHT_GAS * discounted_production / 1e12
-                )
-
             for never_discount in [False, True]:
                 never_discount_text = " NON-DISCOUNTED" if never_discount else ""
                 text = f"2022-{last_year} {scenario_formatted}{never_discount_text}"
@@ -1228,7 +1167,6 @@ def generate_cost1_output(
                     never_discount_the_cost=never_discount,
                     residual_emissions=residual_emissions,
                     residual_production=residual_production,
-                    cost_gas_investment=cost_gas_investment,
                 )
                 out[text] = cost1_info
                 out_yearly[text] = yearly_info
