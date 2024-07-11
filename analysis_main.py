@@ -24,7 +24,6 @@ os.makedirs("plots", exist_ok=True)
 # Params that can be modified
 lcoe_mode = "solar+wind"
 # lcoe_mode="solar+wind+gas"
-ENABLE_NEW_METHOD = 1
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 ENABLE_WRIGHTS_LAW = 1
@@ -55,7 +54,6 @@ BENEFIT_NET_GROWTH_RATE = 0.01
 # This is used in Bruegel analysis. Might be deleted later.
 INVESTMENT_COST_DIVIDER = 1
 
-print("Use new method:", ENABLE_NEW_METHOD)
 print("Renewable degradation:", ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
 print("30 year lifespan:", ENABLE_RENEWABLE_30Y_LIFESPAN)
 print("Wright's law", ENABLE_WRIGHTS_LAW)
@@ -65,8 +63,7 @@ print("Sector included", SECTOR_INCLUDED)
 print("BENEFIT NET GROWTH", ENABLE_BENEFIT_NET_GROWTH)
 
 
-if ENABLE_NEW_METHOD:
-    assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
+assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 
 assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS", "dynamic_NGFS"]
 
@@ -647,7 +644,7 @@ def calculate_weighted_emissions_factor_by_country_2020(_df_nonpower, _df_power)
     return ef
 
 
-def get_cost_including_ngfs_both(
+def get_cost_including_ngfs_revenue(
     original_ngfs_peg_year,
     _df_nonpower,
     _df_power,
@@ -658,7 +655,6 @@ def get_cost_including_ngfs_both(
     fraction_increase_after_peg_year,
     non_discounted_2022_to_pegyear,
     discounted_2022_to_pegyear,
-    rev_ren,  # the value is either "revenue" or "renewable"
 ):
     if scenario == "Net Zero 2050":
         # If the scenario is NZ2050, the 2022-NGFS_PEG_YEAR values are
@@ -689,34 +685,23 @@ def get_cost_including_ngfs_both(
         coal_production_by_country = grouped[f"_{year}"].sum()
         in_gj = _convert2GJ(coal_production_by_country)
 
-        if rev_ren == "revenue":
-            # In this case, the energy-type-specific is coal
-            # aup is the same across the df rows anyway
-            if len(_df) > 0:
-                aup = _df.energy_type_specific_average_unit_profit.iloc[0]
-            else:
-                aup = 0.0
-            cost = aup * in_gj
+        # In this case, the energy-type-specific is coal
+        # aup is the same across the df rows anyway
+        if len(_df) > 0:
+            aup = _df.energy_type_specific_average_unit_profit.iloc[0]
         else:
-            assert rev_ren == "renewable"
-
-            cost = util.GJ2MWh(in_gj) * get_lcoe(scenario, year)
+            aup = 0.0
+        cost = aup * in_gj
         return cost
 
     _c_sum_nonpower = calculate_cost("Coal", NGFS_PEG_YEAR)
     _c_sum_power = calculate_cost("Power", NGFS_PEG_YEAR)
     lcoe_peg_year = None
-    if rev_ren == "renewable":
-        lcoe_peg_year = get_lcoe(scenario, NGFS_PEG_YEAR)
     for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
         if (last_year == MID_YEAR) and y > MID_YEAR:
             break
         # The following commented out code is for sensitivity analysis.
-        # if rev_ren == "revenue":
-        #     discount = util.calculate_discount(rho + 0.005, y - 2022)
-        # else:
-        #     assert rev_ren == "renewable"
-        #     discount = util.calculate_discount(rho, y - 2022)
+        # discount = util.calculate_discount(rho + 0.005, y - 2022)
         discount = util.calculate_discount(rho, y - 2022)
         if scenario == "Net Zero 2050":
             if y <= 2026:
@@ -738,9 +723,6 @@ def get_cost_including_ngfs_both(
             v_p = fraction_increase_after_peg_year["Power"][y]
         # discount and v are scalar
         _c_sum_v = (_c_sum_nonpower * v_np).add(_c_sum_power * v_p, fill_value=0.0)
-        if rev_ren == "renewable":
-            # Rescale to factor in LCOE learning
-            _c_sum_v *= get_lcoe(scenario, y) / lcoe_peg_year
         if (scenario == "Net Zero 2050") and y <= 2026:
             # Sanity check, because we will use masterdata for CPS
             # here.
@@ -767,7 +749,7 @@ def get_cost_including_ngfs_both(
     )
 
 
-def get_cost_including_ngfs_both_renewable_new_method(
+def get_cost_including_ngfs_renewable(
     _df_nonpower,
     _df_power,
     rho,
@@ -776,7 +758,6 @@ def get_cost_including_ngfs_both_renewable_new_method(
     scenario,
     last_year,
     fraction_increase_after_peg_year,
-    rev_ren,  # the value is either "revenue" or "renewable"
     _cost_new_method,
 ):
     # We copy _cost_new_method because it is going to be reused for
@@ -865,7 +846,6 @@ def generate_cost1_output(
     _df_nonpower,
     _df_power,
     years_masterdata,
-    use_new_method=False,
 ):
     # Sanity check, assert the year range is 2022-2026 inclusive.
     assert len(total_production_by_year["Coal"]) == 5
@@ -932,10 +912,7 @@ def generate_cost1_output(
         cost_2022_to_pegyear_discounted_revenue = []
         cost_2022_to_pegyear_non_discounted_renewable = []
         cost_2022_to_pegyear_discounted_renewable = []
-        if use_new_method:
-            cost_new_method = InvestmentCostNewMethod()
-        else:
-            cost_new_method = None
+        cost_new_method = InvestmentCostNewMethod()
         for year in years_masterdata_up_to_peg:
             if year <= original_ngfs_peg_year:
                 # From 2022 up to original peg year, the companies follow
@@ -945,10 +922,9 @@ def generate_cost1_output(
                 cost_2022_to_pegyear_discounted_revenue.append(0.0)
                 cost_2022_to_pegyear_non_discounted_renewable.append(0.0)
                 cost_2022_to_pegyear_discounted_renewable.append(0.0)
-                if use_new_method:
-                    deltaP = 0.0
-                    discount = 0.0
-                    cost_new_method.calculate_investment_cost(deltaP, year, discount)
+                deltaP = 0.0
+                discount = 0.0
+                cost_new_method.calculate_investment_cost(deltaP, year, discount)
                 continue
 
             def get_c(sector):
@@ -971,10 +947,7 @@ def generate_cost1_output(
                 grouped = _df.groupby("asset_country")
                 _c = grouped[f"_{year}_cost"].sum()
                 _c_renewable = grouped[f"_{year}_cost_renewable"].sum()
-                if use_new_method:
-                    deltaP = grouped[f"_{year}_GJ"].sum()
-                else:
-                    deltaP = None
+                deltaP = grouped[f"_{year}_GJ"].sum()
                 return _c, _c_renewable, deltaP
 
             _c_np, _c_renewable_np, deltaP_np = get_c("Coal")
@@ -987,10 +960,9 @@ def generate_cost1_output(
             cost_2022_to_pegyear_non_discounted_renewable.append(_c_renewable)
             cost_2022_to_pegyear_discounted_renewable.append(discount * _c_renewable)
 
-            if use_new_method:
-                cost_new_method.calculate_investment_cost(
-                    deltaP_np.add(deltaP_p), year, discount
-                )
+            cost_new_method.calculate_investment_cost(
+                deltaP_np.add(deltaP_p), year, discount
+            )
 
         total_production_peg_year = {
             "Coal": total_production_by_year["Coal"][NGFS_PEG_YEAR - 2022],
@@ -1087,7 +1059,7 @@ def generate_cost1_output(
             (
                 cost_non_discounted_revenue,
                 cost_discounted_revenue,
-            ) = get_cost_including_ngfs_both(
+            ) = get_cost_including_ngfs_revenue(
                 original_ngfs_peg_year,
                 _df_nonpower,
                 _df_power,
@@ -1098,46 +1070,23 @@ def generate_cost1_output(
                 fraction_increase_after_peg_year,
                 cost_2022_to_pegyear_non_discounted_revenue,
                 cost_2022_to_pegyear_discounted_revenue,
-                "revenue",
             )
-            if use_new_method:
-                (
-                    cost_non_discounted_investment,
-                    cost_discounted_investment,
-                    residual_emissions,
-                    residual_production,
-                ) = get_cost_including_ngfs_both_renewable_new_method(
-                    _df_nonpower,
-                    _df_power,
-                    rho,
-                    fraction_increase_after_peg_year_CPS,
-                    weighted_emissions_factor_by_country_2020,
-                    scenario,
-                    last_year,
-                    fraction_increase_after_peg_year,
-                    "renewable",
-                    cost_new_method,
-                )
-            else:
-                # We cannot remove the old method because the LCOE is used in gas sensitivity analysis.
-                (
-                    cost_non_discounted_investment,
-                    cost_discounted_investment,
-                ) = get_cost_including_ngfs_both(
-                    original_ngfs_peg_year,
-                    _df_nonpower,
-                    _df_power,
-                    rho,
-                    fraction_increase_after_peg_year_CPS,
-                    scenario,
-                    last_year,
-                    fraction_increase_after_peg_year,
-                    cost_2022_to_pegyear_non_discounted_renewable,
-                    cost_2022_to_pegyear_discounted_renewable,
-                    "renewable",
-                )
-                residual_emissions = 0.0
-                residual_production = 0.0
+            (
+                cost_non_discounted_investment,
+                cost_discounted_investment,
+                residual_emissions,
+                residual_production,
+            ) = get_cost_including_ngfs_renewable(
+                _df_nonpower,
+                _df_power,
+                rho,
+                fraction_increase_after_peg_year_CPS,
+                weighted_emissions_factor_by_country_2020,
+                scenario,
+                last_year,
+                fraction_increase_after_peg_year,
+                cost_new_method,
+            )
 
             if ENABLE_COAL_EXPORT:
                 from coal_export.common import modify_array_based_on_coal_export
@@ -1236,7 +1185,6 @@ def run_cost1(
     plot_yearly=False,
     return_yearly=False,
 ):
-    use_new_method = ENABLE_NEW_METHOD
     # print("# exp cost1")
     # Non-Power cost
 
@@ -1302,7 +1250,6 @@ def run_cost1(
         nonpower_coal,
         power_coal,
         years_masterdata,
-        use_new_method=use_new_method,
     )
     # if to_csv:
     #     uid = util.get_unique_id(include_date=False)
@@ -1332,8 +1279,6 @@ def run_cost1(
             ext += "_30Y"
         if ENABLE_WRIGHTS_LAW:
             ext += "_wright"
-        if not ENABLE_NEW_METHOD:
-            ext = ""
         fname = f"plots/cost1_both_{uid}{ext}_{social_cost_of_carbon}.csv"
         pd.DataFrame(both_dict).T.to_csv(fname)
 
@@ -2283,12 +2228,10 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
         "30Y_noE": "30Y, D, no E",
         "50Y": "50Y, D, E",
         "200Y": "Lifetime\nby D, E",
-        "LCOE": "LCOE proxy",
     }
 
     def reset():
-        global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN
-        ENABLE_NEW_METHOD = 1
+        global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN
         ENABLE_WRIGHTS_LAW = 1
         RENEWABLE_LIFESPAN = 30
 
@@ -2297,14 +2240,12 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
         (2051, 2070): {},
         (2071, 2100): {},
     }
-    global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN
+    global ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     plt.sca(axs[0])
     for key, label in label_map.items():
         reset()
-        if key == "LCOE":
-            ENABLE_NEW_METHOD = 0
-        elif key.endswith("Y"):
+        if key.endswith("Y"):
             RENEWABLE_LIFESPAN = int(key[:-1])
         else:
             assert key == "30Y_noE"
