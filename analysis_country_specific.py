@@ -1770,32 +1770,52 @@ def do_bruegel_2():
     ]:
         cs_by_last_year_total = {}
         cs_by_last_year_investment_cost = {}
+        cs_by_last_year_battery = defaultdict(dict)
+        battery_cost_names = [
+            "cost_battery_short",
+            "cost_battery_long",
+            "cost_battery_pe",
+            "cost_battery_grid",
+        ]
+        if git_branch != "battery":
+            battery_cost_names = []
         for last_year in [2030, 2050, 2100]:
             cs_combined_total = get_cost("cost", obj, name)
             cs_combined_investment_cost = get_cost("investment_cost", obj, name)
+            for cost_name in battery_cost_names:
+                cs_by_last_year_battery[cost_name][last_year] = get_cost(
+                    cost_name, obj, name
+                )
             cs_by_last_year_total[last_year] = cs_combined_total
             cs_by_last_year_investment_cost[last_year] = cs_combined_investment_cost
 
         with open(
             f"plots/bruegel/bruegel_2_{git_branch}_cost_{name}{suffix}.csv", "w"
         ) as csvfile:
+            last_years = [2030, 2050, 2100]
+
+            def create_column_multiple_years(columns):
+                output = []
+                for column in columns:
+                    for year in last_years:
+                        output.append(f"{column}_{year}")
+                return output
+
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(
                 [
                     "index",
                     "country",
-                    "opportunity_cost_2030",
-                    "opportunity_cost_2050",
-                    "opportunity_cost_2100",
-                    "investment_cost_2030",
-                    "investment_cost_2050",
-                    "investment_cost_2100",
-                    "total_cost_2030",
-                    "total_cost_2050",
-                    "total_cost_2100",
+                    *create_column_multiple_years(
+                        [
+                            "opportunity_cost",
+                            "investment_cost",
+                            "total_cost",
+                            *battery_cost_names,
+                        ]
+                    ),
                 ]
             )
-            last_years = [2030, 2050, 2100]
             for i, a2 in enumerate(obj):
                 full_name = alpha2_to_full_name[a2]
                 opportunity_costs = [
@@ -1813,9 +1833,11 @@ def do_bruegel_2():
                 total_costs = [
                     cs_by_last_year_total[last_year][a2] for last_year in last_years
                 ]
-                csvwriter.writerow(
-                    [i, full_name, *opportunity_costs, *investment_costs, *total_costs]
-                )
+                row = [i, full_name, *opportunity_costs, *investment_costs, *total_costs]
+                for battery_cost_name, cs_last_years in cs_by_last_year_battery.items():
+                    cs = [cs_last_years[last_year][a2] for last_year in last_years]
+                    row += cs
+                csvwriter.writerow(row)
 
 
 def do_bruegel_4(action_groups):
