@@ -251,6 +251,7 @@ def calculate_cost1_info(
     never_discount_the_cost=False,
     residual_emissions=0.0,
     residual_production=0.0,
+    final_cost_new_method=None,
 ):
     if INVESTMENT_COST_DIVIDER > 1:
         array_of_cost_discounted_investment = divide_array_of_mixed_objs(
@@ -331,6 +332,19 @@ def calculate_cost1_info(
     # Convert to Gigatonnes of CO2
     residual_emissions /= 1e9
 
+    # rho is the same everywhere
+    rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+
+    def discount_the_array(arr):
+        out = []
+        for i, e in enumerate(arr):
+            discount = util.calculate_discount(rho, i)
+            if len(e) == 0:
+                out.append(0.0)
+            else:
+                out.append({k: v * discount for k, v in e.items()})
+        return out
+
     if never_discount_the_cost:
         # This is a quick hack so that we can have the result without the
         # discount.
@@ -342,10 +356,34 @@ def calculate_cost1_info(
         out_yearly_info["investment_cost"] = (
             array_of_cost_non_discounted_investment_trillions
         )
+        out_yearly_info["cost_battery_short"] = (
+            final_cost_new_method.cost_non_discounted_battery_short_by_country
+        )
+        out_yearly_info["cost_battery_long"] = (
+            final_cost_new_method.cost_non_discounted_battery_long_by_country
+        )
+        out_yearly_info["cost_battery_pe"] = (
+            final_cost_new_method.cost_non_discounted_battery_pe_by_country
+        )
+        out_yearly_info["cost_battery_grid"] = (
+            final_cost_new_method.cost_non_discounted_battery_grid_by_country
+        )
     else:
         out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
         out_yearly_info["investment_cost"] = (
             array_of_cost_discounted_investment_trillions
+        )
+        out_yearly_info["cost_battery_short"] = discount_the_array(
+            final_cost_new_method.cost_non_discounted_battery_short_by_country
+        )
+        out_yearly_info["cost_battery_long"] = discount_the_array(
+            final_cost_new_method.cost_non_discounted_battery_long_by_country
+        )
+        out_yearly_info["cost_battery_pe"] = discount_the_array(
+            final_cost_new_method.cost_non_discounted_battery_pe_by_country
+        )
+        out_yearly_info["cost_battery_grid"] = discount_the_array(
+            final_cost_new_method.cost_non_discounted_battery_grid_by_country
         )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
@@ -468,7 +506,9 @@ class InvestmentCostNewMethod:
         self.gamma_battery_long = -math.log2(1 - 0.086)
         # The 1313 is in $/kW
         self.alpha_2020_long_per_kW = 1313
-        self.alpha_battery_long = self.alpha_2020_long_per_kW / (self.G_battery_long_2020**-self.gamma_battery_long)
+        self.alpha_battery_long = self.alpha_2020_long_per_kW / (
+            self.G_battery_long_2020**-self.gamma_battery_long
+        )
         self.sigma_battery_long = 1 / 12
         self.stocks_kW = {tech: {} for tech in self.techs}
         self.stocks_GJ_battery_short = defaultdict(dict)
@@ -482,6 +522,11 @@ class InvestmentCostNewMethod:
         self.cost_non_discounted_battery_long = []
         self.cost_non_discounted_battery_pe = []
         self.cost_non_discounted_battery_grid = []
+        self.cost_non_discounted_battery_short_by_country = []
+        self.cost_non_discounted_battery_long_by_country = []
+        self.cost_non_discounted_battery_pe_by_country = []
+        self.cost_non_discounted_battery_grid_by_country = []
+
         self.battery_unit_ic = {
             "short": {},
             "long": {},
@@ -566,7 +611,9 @@ class InvestmentCostNewMethod:
         cumulative_G = self.G_battery_short_2020 + stock_without_degradation
         # $/GJ
         if ENABLE_WRIGHTS_LAW:
-            unit_ic = self.alpha_battery_short * (cumulative_G**-self.gamma_battery_short)
+            unit_ic = self.alpha_battery_short * (
+                cumulative_G**-self.gamma_battery_short
+            )
         else:
             unit_ic = self.alpha_2020_short_per_GJ
         # End of calculating unit_ic
@@ -583,7 +630,9 @@ class InvestmentCostNewMethod:
         # kW
         S_battery_long = self.get_stock_battery_long(year, country_name)
         # kW
-        G_long = max(0, self.GJ2kW(total_R) * self.sigma_battery_long / psi / fe - S_battery_long)
+        G_long = max(
+            0, self.GJ2kW(total_R) * self.sigma_battery_long / psi / fe - S_battery_long
+        )
 
         # Calculating unit_ic
         stock_without_degradation = 0.0
@@ -716,12 +765,26 @@ class InvestmentCostNewMethod:
         self.cost_non_discounted_battery_long[-1] += investment_cost_battery_long
         self.cost_non_discounted_battery_pe[-1] += ic_battery_pe
         self.cost_non_discounted_battery_grid[-1] += ic_battery_grid
+        self.cost_non_discounted_battery_short_by_country[-1][country_name] = (
+            investment_cost_battery_short
+        )
+        self.cost_non_discounted_battery_long_by_country[-1][country_name] = (
+            investment_cost_battery_long
+        )
+        self.cost_non_discounted_battery_pe_by_country[-1][country_name] = ic_battery_pe
+        self.cost_non_discounted_battery_grid_by_country[-1][country_name] = (
+            ic_battery_grid
+        )
 
     def calculate_investment_cost(self, DeltaP, year, discount):
         self.cost_non_discounted_battery_short.append(0.0)
         self.cost_non_discounted_battery_long.append(0.0)
         self.cost_non_discounted_battery_pe.append(0.0)
         self.cost_non_discounted_battery_grid.append(0.0)
+        self.cost_non_discounted_battery_short_by_country.append({})
+        self.cost_non_discounted_battery_long_by_country.append({})
+        self.cost_non_discounted_battery_pe_by_country.append({})
+        self.cost_non_discounted_battery_grid_by_country.append({})
         if isinstance(DeltaP, float):
             assert math.isclose(DeltaP, 0)
             self.cost_non_discounted.append(0.0)
@@ -1085,11 +1148,22 @@ def get_cost_including_ngfs_renewable(
         weighted_emissions_factor_by_country_2020,
     )
     if last_year == 2100:
-        global_cost_non_discounted[scenario] = [sum(i.values()) if isinstance(i, dict) else i for i in temp_cost_new_method.cost_non_discounted]
-        global_cost_non_discounted_battery_short[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_short)
-        global_cost_non_discounted_battery_long[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_long)
-        global_cost_non_discounted_battery_pe[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_pe)
-        global_cost_non_discounted_battery_grid[scenario] = list(temp_cost_new_method.cost_non_discounted_battery_grid)
+        global_cost_non_discounted[scenario] = [
+            sum(i.values()) if isinstance(i, dict) else i
+            for i in temp_cost_new_method.cost_non_discounted
+        ]
+        global_cost_non_discounted_battery_short[scenario] = list(
+            temp_cost_new_method.cost_non_discounted_battery_short
+        )
+        global_cost_non_discounted_battery_long[scenario] = list(
+            temp_cost_new_method.cost_non_discounted_battery_long
+        )
+        global_cost_non_discounted_battery_pe[scenario] = list(
+            temp_cost_new_method.cost_non_discounted_battery_pe
+        )
+        global_cost_non_discounted_battery_grid[scenario] = list(
+            temp_cost_new_method.cost_non_discounted_battery_grid
+        )
         if scenario == "Net Zero 2050":
             global global_battery_unit_ic, global_unit_ic, global_cumulative_G
             global_battery_unit_ic = temp_cost_new_method.battery_unit_ic
@@ -1100,6 +1174,7 @@ def get_cost_including_ngfs_renewable(
         out_discounted,
         residual_emissions,
         residual_production,
+        temp_cost_new_method,
     )
 
 
@@ -1342,6 +1417,7 @@ def generate_cost1_output(
                 cost_discounted_investment,
                 residual_emissions,
                 residual_production,
+                final_cost_new_method,
             ) = get_cost_including_ngfs_renewable(
                 _df_nonpower,
                 _df_power,
@@ -1382,6 +1458,7 @@ def generate_cost1_output(
                     never_discount_the_cost=never_discount,
                     residual_emissions=residual_emissions,
                     residual_production=residual_production,
+                    final_cost_new_method=final_cost_new_method,
                 )
                 out[text] = cost1_info
                 out_yearly[text] = yearly_info
@@ -1785,7 +1862,8 @@ def calculate_each_countries_cost_with_cache(
                 if isinstance(e, float):
                     assert math.isclose(e, 0.0)
                 elif isinstance(e, dict):
-                    country_level_cost += e[country_name]
+                    # .get instead of [], for battery's case
+                    country_level_cost += e.get(country_name, 0.0)
                 else:
                     # Pandas series
                     country_level_cost += e.loc[country_name]
@@ -2591,8 +2669,13 @@ def do_cf_battery_yearly():
         "30Y, D, no E, S+L+O",
     ]
     import coal_worker
+
     cw_out = coal_worker.calculate("default", full_version=True)
-    retraining_series = cw_out["wage_lost_series"] * coal_worker.ic_usa / coal_worker.wage_usd_dict["US"]
+    retraining_series = (
+        cw_out["wage_lost_series"]
+        * coal_worker.ic_usa
+        / coal_worker.wage_usd_dict["US"]
+    )
     # Set 2022 value to 0
     retraining_series = np.insert(retraining_series, 0, 0)
     opportunity_cost_series = cw_out["opportunity_cost_series"]
@@ -2613,7 +2696,13 @@ def do_cf_battery_yearly():
     }
 
     def reset():
-        global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, ENABLE_BATTERY_SHORT, ENABLE_BATTERY_LONG, ENABLE_BATTERY_GRID
+        global \
+            ENABLE_NEW_METHOD, \
+            ENABLE_WRIGHTS_LAW, \
+            RENEWABLE_LIFESPAN, \
+            ENABLE_BATTERY_SHORT, \
+            ENABLE_BATTERY_LONG, \
+            ENABLE_BATTERY_GRID
         ENABLE_NEW_METHOD = 1
         ENABLE_WRIGHTS_LAW = 1
         RENEWABLE_LIFESPAN = 30
@@ -2623,7 +2712,12 @@ def do_cf_battery_yearly():
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     plt.sca(axs[0])
-    global ENABLE_NEW_METHOD, ENABLE_WRIGHTS_LAW, RENEWABLE_LIFESPAN, ENABLE_BATTERY_SHORT, ENABLE_BATTERY_LONG
+    global \
+        ENABLE_NEW_METHOD, \
+        ENABLE_WRIGHTS_LAW, \
+        RENEWABLE_LIFESPAN, \
+        ENABLE_BATTERY_SHORT, \
+        ENABLE_BATTERY_LONG
     for key, label in label_map_original.items():
         reset()
         if key == "LCOE":
@@ -2686,13 +2780,17 @@ def do_cf_battery_yearly():
                 yearly += retraining_series / 1e3
             yearly_all[label] = list(yearly)
 
-            yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario_discounted)
+            yearly_discounted = calculate_yearly_world_cost(
+                chosen_s2_scenario_discounted
+            )
             for year_start, year_end in [
                 (NGFS_PEG_YEAR + 1, 2050),
                 (2051, 2070),
                 (2071, 2100),
             ]:
-                aggregate = _get_year_range_cost(year_start, year_end, yearly_discounted)
+                aggregate = _get_year_range_cost(
+                    year_start, year_end, yearly_discounted
+                )
                 extra_data_for_barchart[f"{year_start}-{year_end}"][label] = aggregate
         with open(fname, "w") as f:
             json.dump([yearly_all, extra_data_for_barchart], f)
@@ -2886,13 +2984,23 @@ def make_battery_plot():
     ic_pe_trillion = np.array(ic_pe) / 1e12
     ic_grid = global_cost_non_discounted_battery_grid[scenario]
     ic_grid_trillion = np.array(ic_grid) / 1e12
-    ic_baseline_trillion = ic_trillion - ic_short_trillion - ic_long_trillion - ic_pe_trillion - ic_grid_trillion
+    ic_baseline_trillion = (
+        ic_trillion
+        - ic_short_trillion
+        - ic_long_trillion
+        - ic_pe_trillion
+        - ic_grid_trillion
+    )
     plt.plot(years, ic_baseline_trillion, label="Main")
     plt.plot(years, ic_short_trillion, label="Short")
     plt.plot(years, ic_pe_trillion, label="PE")
     plt.plot(years, ic_grid_trillion, label="Grid")
     plt.plot(years, ic_long_trillion + ic_pe_trillion, label="Long+PE")
-    plt.plot(years, ic_baseline_trillion + ic_long_trillion + ic_pe_trillion, label="Main+Long+PE")
+    plt.plot(
+        years,
+        ic_baseline_trillion + ic_long_trillion + ic_pe_trillion,
+        label="Main+Long+PE",
+    )
     plt.plot(years, ic_trillion, label="All")
     plt.legend()
     plt.xlabel("Time")
@@ -2920,14 +3028,22 @@ def make_battery_unit_ic_plot():
     plt.plot(years, global_unit_ic["onshore_wind"].values(), label="Wind onshore")
     plt.plot(years, global_unit_ic["offshore_wind"].values(), label="Wind offshore")
     # Need to convert $/GJ to $/kWh
-    plt.plot(years, convert_unit(global_battery_unit_ic["short"].values()), label="Short")
+    plt.plot(
+        years, convert_unit(global_battery_unit_ic["short"].values()), label="Short"
+    )
     plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
     plt.xlabel("Time")
     plt.ylabel("Unit investment cost ($/kW)")
     plt.sca(axs[1])
     plt.plot(years, kW2TW(global_cumulative_G["solar"].values()), label="Solar")
-    plt.plot(years, kW2TW(global_cumulative_G["onshore_wind"].values()), label="Wind onshore")
-    plt.plot(years, kW2TW(global_cumulative_G["offshore_wind"].values()), label="Wind offshore")
+    plt.plot(
+        years, kW2TW(global_cumulative_G["onshore_wind"].values()), label="Wind onshore"
+    )
+    plt.plot(
+        years,
+        kW2TW(global_cumulative_G["offshore_wind"].values()),
+        label="Wind offshore",
+    )
     # Need to convert GJ to TW
     print("short", GJ2TW(global_cumulative_G["short"].values()))
     print("long", kW2TW(global_cumulative_G["long"].values()))
@@ -2952,7 +3068,7 @@ def make_battery_unit_ic_plot():
 
 
 if __name__ == "__main__":
-    if 1:
+    if 0:
         get_yearly_by_country()
         exit()
     if 0:
@@ -2995,7 +3111,7 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 0:
+    if 1:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
