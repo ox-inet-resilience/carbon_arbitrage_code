@@ -32,10 +32,7 @@ ENABLE_COAL_EXPORT = 0
 MID_YEAR = 2050
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
-NGFS_PEG_YEAR = 2023
-# Assert the peg year to be at most the last year of masterdata.
-assert NGFS_PEG_YEAR <= 2026
-NGFS_PEG_YEAR_ORIGINAL = NGFS_PEG_YEAR
+NGFS_PEG_YEAR = 2022
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
 NGFS_RENEWABLE_WEIGHT = "static_50%"
@@ -330,10 +327,7 @@ def calculate_cost1_info(
     net_benefit = benefit_non_discounted - cost_discounted
 
     last_year = int(time_period.split("-")[1])
-    # We use NGFS_PEG_YEAR_ORIGINAL instead of NGFS_PEG_YEAR because the
-    # arbitrage period starts in the same year for either scenario, even though
-    # in CPS, the s1 is the same as masterdata up till 2026.
-    arbitrage_period = 1 + (last_year - (NGFS_PEG_YEAR_ORIGINAL + 1))
+    arbitrage_period = 1 + (last_year - (NGFS_PEG_YEAR + 1))
 
     data = {
         "Using production projections of data set": data_set,
@@ -645,7 +639,6 @@ def calculate_weighted_emissions_factor_by_country_2020(_df_nonpower, _df_power)
 
 
 def get_cost_including_ngfs_revenue(
-    original_ngfs_peg_year,
     _df_nonpower,
     _df_power,
     rho,
@@ -666,7 +659,7 @@ def get_cost_including_ngfs_revenue(
         assert scenario == "Current Policies ", scenario
         out_non_discounted = non_discounted_2022_to_pegyear.copy()
         out_discounted = discounted_2022_to_pegyear.copy()
-        original_ngfs_peg_year_index = original_ngfs_peg_year - 2022
+        original_ngfs_peg_year_index = NGFS_PEG_YEAR - 2022
         # We specify such that if scenario is current policies, only
         # set the cost to nonzero only after the peg year.
         for i in range(original_ngfs_peg_year_index + 1):
@@ -696,7 +689,6 @@ def get_cost_including_ngfs_revenue(
 
     _c_sum_nonpower = calculate_cost("Coal", NGFS_PEG_YEAR)
     _c_sum_power = calculate_cost("Power", NGFS_PEG_YEAR)
-    lcoe_peg_year = None
     for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
         if (last_year == MID_YEAR) and y > MID_YEAR:
             break
@@ -704,39 +696,20 @@ def get_cost_including_ngfs_revenue(
         # discount = util.calculate_discount(rho + 0.005, y - 2022)
         discount = util.calculate_discount(rho, y - 2022)
         if scenario == "Net Zero 2050":
-            if y <= 2026:
-                # If the year is <= 2026, we use masterdata for CPS later.
-                v_np = -fraction_increase_np
-                v_p = -fraction_increase_after_peg_year["Power"][y]
-            else:
-                v_np = (
-                    fraction_increase_after_peg_year_CPS["Coal"][y]
-                    - fraction_increase_np
-                )
-                v_p = (
-                    fraction_increase_after_peg_year_CPS["Power"][y]
-                    - fraction_increase_after_peg_year["Power"][y]
-                )
+            v_np = (
+                fraction_increase_after_peg_year_CPS["Coal"][y]
+                - fraction_increase_np
+            )
+            v_p = (
+                fraction_increase_after_peg_year_CPS["Power"][y]
+                - fraction_increase_after_peg_year["Power"][y]
+            )
         else:
             assert scenario == "Current Policies ", scenario
             v_np = fraction_increase_np
             v_p = fraction_increase_after_peg_year["Power"][y]
         # discount and v are scalar
         _c_sum_v = (_c_sum_nonpower * v_np).add(_c_sum_power * v_p, fill_value=0.0)
-        if (scenario == "Net Zero 2050") and y <= 2026:
-            # Sanity check, because we will use masterdata for CPS
-            # here.
-            assert v_np <= 0.0
-            assert v_p <= 0.0
-            # It's slightly more complicated to calculate DeltaP in
-            # this case, because we have to use the masterdata value
-            # (obtained via calculate_cost) instead of the NGFS
-            # fractional increase from NGFS_PEG_YEAR..
-            _c_sum_nonpower_y = calculate_cost("Coal", y)
-            _c_sum_power_y = calculate_cost("Power", y)
-            _c_sum_v = _c_sum_v.add(_c_sum_nonpower_y, fill_value=0.0).add(
-                _c_sum_power_y, fill_value=0.0
-            )
 
         out_non_discounted.append(_c_sum_v)
         out_discounted.append(_c_sum_v * discount)
@@ -784,38 +757,19 @@ def get_cost_including_ngfs_renewable(
             break
         discount = util.calculate_discount(rho, y - 2022)
         if scenario == "Net Zero 2050":
-            if y <= 2026:
-                # If the year is <= 2026, we use masterdata for CPS later.
-                v_np = -fraction_increase_np
-                v_p = -fraction_increase_after_peg_year["Power"][y]
-            else:
-                v_np = (
-                    fraction_increase_after_peg_year_CPS["Coal"][y]
-                    - fraction_increase_np
-                )
-                v_p = (
-                    fraction_increase_after_peg_year_CPS["Power"][y]
-                    - fraction_increase_after_peg_year["Power"][y]
-                )
+            v_np = (
+                fraction_increase_after_peg_year_CPS["Coal"][y]
+                - fraction_increase_np
+            )
+            v_p = (
+                fraction_increase_after_peg_year_CPS["Power"][y]
+                - fraction_increase_after_peg_year["Power"][y]
+            )
         else:
             assert scenario == "Current Policies ", scenario
             v_np = fraction_increase_np
             v_p = fraction_increase_after_peg_year["Power"][y]
         DeltaP = (_gj_sum_nonpower * v_np).add(_gj_sum_power * v_p, fill_value=0.0)
-        if (scenario == "Net Zero 2050") and y <= 2026:
-            # Sanity check, because we will use masterdata for CPS
-            # here.
-            assert v_np <= 0.0
-            assert v_p <= 0.0
-            # It's slightly more complicated to calculate DeltaP in
-            # this case, because we have to use the masterdata value
-            # (obtained via calculate_gj_and_c) instead of the NGFS
-            # fractional increase from NGFS_PEG_YEAR..
-            _gj_sum_nonpower_y = calculate_gj("Coal", y)
-            _gj_sum_power_y = calculate_gj("Power", y)
-            DeltaP = DeltaP.add(_gj_sum_nonpower_y, fill_value=0.0).add(
-                _gj_sum_power_y, fill_value=0.0
-            )
 
         temp_cost_new_method.calculate_investment_cost(DeltaP, y, discount)
     out_non_discounted = list(temp_cost_new_method.cost_non_discounted)
@@ -851,12 +805,6 @@ def generate_cost1_output(
     assert len(total_production_by_year["Coal"]) == 5
     assert len(total_emissions_masterdata_by_year_non_discounted["Coal"]) == 5
     assert len(total_emissions_by_year_discounted["Coal"]) == 5
-
-    global NGFS_PEG_YEAR
-
-    # We need to save the peg year value, because NGFS_PEG_YEAR will change to
-    # 2026 for current policies scenario.
-    original_ngfs_peg_year = NGFS_PEG_YEAR
 
     out = {}
     out_yearly = {}
@@ -899,11 +847,6 @@ def generate_cost1_output(
 
     fraction_increase_after_peg_year_CPS = None
     for scenario in ["Current Policies ", "Net Zero 2050"]:
-        if scenario == "Current Policies ":
-            NGFS_PEG_YEAR = 2026
-        else:
-            assert scenario == "Net Zero 2050"
-            NGFS_PEG_YEAR = original_ngfs_peg_year
 
         years_masterdata_up_to_peg = list(range(2022, NGFS_PEG_YEAR + 1))
 
@@ -914,55 +857,16 @@ def generate_cost1_output(
         cost_2022_to_pegyear_discounted_renewable = []
         cost_new_method = InvestmentCostNewMethod()
         for year in years_masterdata_up_to_peg:
-            if year <= original_ngfs_peg_year:
-                # From 2022 up to original peg year, the companies follow
-                # the original unchanged trajectory, and so there is no new
-                # investment yet.
-                cost_2022_to_pegyear_non_discounted_revenue.append(0.0)
-                cost_2022_to_pegyear_discounted_revenue.append(0.0)
-                cost_2022_to_pegyear_non_discounted_renewable.append(0.0)
-                cost_2022_to_pegyear_discounted_renewable.append(0.0)
-                deltaP = 0.0
-                discount = 0.0
-                cost_new_method.calculate_investment_cost(deltaP, year, discount)
-                continue
-
-            def get_c(sector):
-                if sector == "Coal":
-                    _df = _df_nonpower
-                    _convert2GJ = util.coal2GJ
-                else:
-                    _df = _df_power
-                    _convert2GJ = util.MW2GJ
-                coal_production = _df[f"_{year}"]
-                _gj = _convert2GJ(coal_production)
-                # In this case, the energy-type-specific is coal
-                _df[f"_{year}_cost"] = (
-                    _df.energy_type_specific_average_unit_profit * _gj
-                )
-                _df[f"_{year}_cost_renewable"] = util.GJ2MWh(_gj) * get_lcoe(
-                    scenario, year
-                )
-                _df[f"_{year}_GJ"] = _gj
-                grouped = _df.groupby("asset_country")
-                _c = grouped[f"_{year}_cost"].sum()
-                _c_renewable = grouped[f"_{year}_cost_renewable"].sum()
-                deltaP = grouped[f"_{year}_GJ"].sum()
-                return _c, _c_renewable, deltaP
-
-            _c_np, _c_renewable_np, deltaP_np = get_c("Coal")
-            _c_p, _c_renewable_p, deltaP_p = get_c("Power")
-            _c = _c_np.add(_c_p, fill_value=0.0)
-            _c_renewable = _c_renewable_np.add(_c_renewable_p, fill_value=0.0)
-            discount = util.calculate_discount(rho, year - 2022)
-            cost_2022_to_pegyear_non_discounted_revenue.append(_c)
-            cost_2022_to_pegyear_discounted_revenue.append(discount * _c)
-            cost_2022_to_pegyear_non_discounted_renewable.append(_c_renewable)
-            cost_2022_to_pegyear_discounted_renewable.append(discount * _c_renewable)
-
-            cost_new_method.calculate_investment_cost(
-                deltaP_np.add(deltaP_p), year, discount
-            )
+            # From 2022 up to peg year, the companies follow
+            # the original unchanged trajectory, and so there is no new
+            # investment yet.
+            cost_2022_to_pegyear_non_discounted_revenue.append(0.0)
+            cost_2022_to_pegyear_discounted_revenue.append(0.0)
+            cost_2022_to_pegyear_non_discounted_renewable.append(0.0)
+            cost_2022_to_pegyear_discounted_renewable.append(0.0)
+            deltaP = 0.0
+            discount = 0.0
+            cost_new_method.calculate_investment_cost(deltaP, year, discount)
 
         total_production_peg_year = {
             "Coal": total_production_by_year["Coal"][NGFS_PEG_YEAR - 2022],
@@ -1010,7 +914,7 @@ def generate_cost1_output(
             # To prepare for the s2-s1 for NZ2050
             fraction_increase_after_peg_year_CPS = {
                 sector: util.calculate_ngfs_fractional_increase(
-                    ngfss, sector, scenario, start_year=original_ngfs_peg_year
+                    ngfss, sector, scenario, start_year=NGFS_PEG_YEAR
                 )
                 for sector in ["Coal", "Power"]
             }
@@ -1060,7 +964,6 @@ def generate_cost1_output(
                 cost_non_discounted_revenue,
                 cost_discounted_revenue,
             ) = get_cost_including_ngfs_revenue(
-                original_ngfs_peg_year,
                 _df_nonpower,
                 _df_power,
                 rho,
@@ -2423,7 +2326,7 @@ def get_yearly_by_country():
 
 
 if __name__ == "__main__":
-    if 1:
+    if 0:
         get_yearly_by_country()
         exit()
     if 0:
@@ -2460,7 +2363,7 @@ if __name__ == "__main__":
     if 0:
         run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         exit()
-    if 0:
+    if 1:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()
