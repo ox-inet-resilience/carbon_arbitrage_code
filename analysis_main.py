@@ -36,7 +36,7 @@ NGFS_PEG_YEAR = 2022
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
 NGFS_RENEWABLE_WEIGHT = "static_50%"
-SECTOR_INCLUDED = "nonpower"
+SECTOR_INCLUDED = "Coal"
 RENEWABLE_WEIGHTS = {
     "solar": 0.5,
     "onshore_wind": 0.25,
@@ -64,7 +64,7 @@ assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 
 assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS", "dynamic_NGFS"]
 
-assert SECTOR_INCLUDED in ["power", "nonpower"]
+assert SECTOR_INCLUDED in ["Power", "Coal"]
 
 
 def round2(x):
@@ -659,16 +659,14 @@ def get_cost_including_ngfs_revenue(
         aup = 0.0
     _c_sum_nonpower = aup * in_gj
 
-    for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
+    for y, fraction_increase_np in fraction_increase_after_peg_year.items():
         if (last_year == MID_YEAR) and y > MID_YEAR:
             break
         # The following commented out code is for sensitivity analysis.
         # discount = util.calculate_discount(rho + 0.005, y - 2022)
         discount = util.calculate_discount(rho, y - 2022)
         if scenario == "Net Zero 2050":
-            v_np = (
-                fraction_increase_after_peg_year_CPS["Coal"][y] - fraction_increase_np
-            )
+            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
         else:
             assert scenario == "Current Policies ", scenario
             v_np = fraction_increase_np
@@ -709,14 +707,12 @@ def get_cost_including_ngfs_renewable(
         return in_gj
 
     _gj_sum_nonpower = calculate_gj(NGFS_PEG_YEAR)
-    for y, fraction_increase_np in fraction_increase_after_peg_year["Coal"].items():
+    for y, fraction_increase_np in fraction_increase_after_peg_year.items():
         if (last_year == MID_YEAR) and y > MID_YEAR:
             break
         discount = util.calculate_discount(rho, y - 2022)
         if scenario == "Net Zero 2050":
-            v_np = (
-                fraction_increase_after_peg_year_CPS["Coal"][y] - fraction_increase_np
-            )
+            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
         else:
             assert scenario == "Current Policies ", scenario
             v_np = fraction_increase_np
@@ -752,9 +748,9 @@ def generate_cost1_output(
     years_masterdata,
 ):
     # Sanity check, assert the year range is 2022-2026 inclusive.
-    assert len(total_production_by_year["Coal"]) == 5
-    assert len(total_emissions_masterdata_by_year_non_discounted["Coal"]) == 5
-    assert len(total_emissions_by_year_discounted["Coal"]) == 5
+    assert len(total_production_by_year) == 5
+    assert len(total_emissions_masterdata_by_year_non_discounted) == 5
+    assert len(total_emissions_by_year_discounted) == 5
 
     out = {}
     out_yearly = {}
@@ -774,7 +770,7 @@ def generate_cost1_output(
     )
 
     def get_emissions_after_peg_year_discounted(
-        last_year, fraction_increase_after_peg_year, sector
+        last_year, fraction_increase_after_peg_year
     ):
         # In GtCO2
         _df = _df_nonpower
@@ -782,7 +778,7 @@ def generate_cost1_output(
         emissions_peg_year_summed = emissions_peg_year.sum()
 
         out = 0.0
-        for y, v in fraction_increase_after_peg_year[sector].items():
+        for y, v in fraction_increase_after_peg_year.items():
             if (last_year == MID_YEAR) and y > MID_YEAR:
                 break
             discount = util.calculate_discount(rho, y - 2022)
@@ -813,49 +809,35 @@ def generate_cost1_output(
             discount = 0.0
             cost_new_method.calculate_investment_cost(deltaP, year, discount)
 
-        total_production_peg_year = {
-            "Coal": total_production_by_year["Coal"][NGFS_PEG_YEAR - 2022],
-        }
+        total_production_peg_year = (total_production_by_year[NGFS_PEG_YEAR - 2022],)
 
-        total_emissions_peg_year_non_discounted = {
-            "Coal": total_emissions_masterdata_by_year_non_discounted["Coal"][
-                NGFS_PEG_YEAR - 2022
-            ],
-        }
+        total_emissions_peg_year_non_discounted = (
+            total_emissions_masterdata_by_year_non_discounted[NGFS_PEG_YEAR - 2022]
+        )
 
-        fraction_increase_after_peg_year = {
-            sector: util.calculate_ngfs_fractional_increase(
-                ngfss, sector, scenario, start_year=NGFS_PEG_YEAR
-            )
-            for sector in ["Coal"]
-        }
+        fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
+            ngfss, SECTOR_INCLUDED, scenario, start_year=NGFS_PEG_YEAR
+        )
         total_production_masterdata = sum(
-            sum(total_production_by_year[sector][: len(years_masterdata_up_to_peg)])
-            for sector in ["Coal"]
+            total_production_by_year[: len(years_masterdata_up_to_peg)]
         )
         total_emissions_masterdata_discounted = sum(
-            sum(
-                total_emissions_by_year_discounted[sector][
-                    : len(years_masterdata_up_to_peg)
-                ]
-            )
-            for sector in ["Coal"]
+            total_emissions_by_year_discounted[: len(years_masterdata_up_to_peg)]
         )
 
         array_of_total_emissions_masterdata_non_discounted = (
-            total_emissions_masterdata_by_year_non_discounted["Coal"][
+            total_emissions_masterdata_by_year_non_discounted[
                 : len(years_masterdata_up_to_peg)
             ]
         )
 
         if scenario == "Current Policies ":
             # To prepare for the s2-s1 for NZ2050
-            fraction_increase_after_peg_year_CPS = {
-                sector: util.calculate_ngfs_fractional_increase(
-                    ngfss, sector, scenario, start_year=NGFS_PEG_YEAR
+            fraction_increase_after_peg_year_CPS = (
+                util.calculate_ngfs_fractional_increase(
+                    ngfss, SECTOR_INCLUDED, scenario, start_year=NGFS_PEG_YEAR
                 )
-                for sector in ["Coal"]
-            }
+            )
 
         # Remove weird character
         scenario = scenario.replace("Â", "")
@@ -863,32 +845,26 @@ def generate_cost1_output(
 
         for last_year in [MID_YEAR, 2100]:
             # 2022-last_year
-            sum_frac_increase_non_discounted = {
-                sector: sum(
-                    v
-                    for k, v in fraction_increase_after_peg_year[sector].items()
-                    if k <= last_year
-                )
-                for sector in ["Coal"]
-            }
+            sum_frac_increase_non_discounted = sum(
+                v for k, v in fraction_increase_after_peg_year.items() if k <= last_year
+            )
 
             gigatonnes_coal_production = (
                 total_production_masterdata
-                + total_production_peg_year["Coal"]
-                * sum_frac_increase_non_discounted["Coal"]
+                + total_production_peg_year * sum_frac_increase_non_discounted
             )
             array_of_total_emissions_non_discounted = (
                 array_of_total_emissions_masterdata_non_discounted
                 + [
-                    total_emissions_peg_year_non_discounted["Coal"] * v_np
-                    for k, v_np in fraction_increase_after_peg_year["Coal"].items()
+                    total_emissions_peg_year_non_discounted * v_np
+                    for k, v_np in fraction_increase_after_peg_year.items()
                     if k <= last_year
                 ]
             )
             total_emissions_discounted = (
                 total_emissions_masterdata_discounted
                 + get_emissions_after_peg_year_discounted(
-                    last_year, fraction_increase_after_peg_year, "Coal"
+                    last_year, fraction_increase_after_peg_year
                 )
             )
             (
@@ -1006,10 +982,6 @@ def do_plot_yearly_cost1(yearly_both):
         plt.close()
 
 
-def list_elementwise_sum(x, y):
-    return [x[i] + y[i] for i in range(len(x))]
-
-
 def run_cost1(
     x,
     to_csv=False,
@@ -1026,9 +998,7 @@ def run_cost1(
             nonpower_coal, years_masterdata
         )
     )
-    total_production_by_year = {
-        "Coal": total_production_by_year_nonpower,
-    }
+    total_production_by_year = total_production_by_year_nonpower
 
     # Emissions non-discounted
     total_emissions_by_year_non_discounted_nonpower = (
@@ -1036,9 +1006,9 @@ def run_cost1(
             nonpower_coal, years_masterdata
         )
     )
-    total_emissions_by_year_non_discounted = {
-        "Coal": total_emissions_by_year_non_discounted_nonpower,
-    }
+    total_emissions_by_year_non_discounted = (
+        total_emissions_by_year_non_discounted_nonpower
+    )
 
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
@@ -1052,9 +1022,7 @@ def run_cost1(
             rho=rho,
         )
     )
-    total_emissions_by_year_discounted = {
-        "Coal": total_emissions_by_year_discounted_nonpower,
-    }
+    total_emissions_by_year_discounted = total_emissions_by_year_discounted_nonpower
 
     out, yearly = generate_cost1_output(
         rho,
@@ -1119,10 +1087,8 @@ def prepare_per_company_emissions_and_profit(
 
     peg_year = 2026
 
-    assert SECTOR_INCLUDED == "nonpower"
-
     nonpower_fraction_increase_after_2026 = util.calculate_ngfs_fractional_increase(
-        ngfss, "Coal", scenario, start_year=peg_year
+        ngfss, SECTOR_INCLUDED, scenario, start_year=peg_year
     )
 
     nonpower_per_company_emissions = (
@@ -1314,71 +1280,6 @@ def calculate_each_countries_cost_with_cache(
             with open(cache_json_path, "w") as f:
                 json.dump(costs_dict, f)
     return costs_dict
-
-
-def make_climate_financing_plot_by_developed_countries(plotname_suffix=""):
-    # This plot is probably unused, and can be removed.
-    raise Exception("Not used")
-    # plt.figure(figsize=(7, 5))
-    # domestic = [developed_total_cost] + [
-    #     costs_dict.get(country_shortname, 0.0)
-    #     for country_shortname in developed_country_shortnames
-    # ]
-    # foreign = [developing_cost_for_avoiding] + [
-    #     foreign_costs_dict[country_shortname]
-    #     for country_shortname in developed_country_shortnames
-    # ]
-    # developed_country_longnames = [
-    #     iso3166_df_alpha2.loc[sn]["name"] if sn != "GB" else "United Kingdom"
-    #     for sn in developed_country_shortnames
-    # ]
-    # xticks = ["Developed"] + developed_country_longnames
-    # util.plot_stacked_bar(
-    #     xticks,
-    #     [
-    #         ("Domestic climate\nfinance (subsidy)", domestic),
-    #         ("Foreign aid climate\nfinance (subsidy)", foreign),
-    #     ],
-    # )
-    # plt.xticks(xticks, rotation=90)
-    # plt.ylabel("Requisite climate financing provision\n(trillion dollars)")
-    # plt.legend(loc="upper right")
-    # plt.tight_layout()
-    # util.savefig(f"climate_financing{plotname_suffix}")
-
-    # # Now we do the same but scaled by GDP
-    # plt.figure(figsize=(7, 5))
-    # # Multiplication by 1e12 converts the cost from trillion dollars back to dollars
-    # # Multiplication of GDP by 1e6 converts it from million dollars back to dollars
-    # domestic = [developed_total_cost * 1e12 / (total_developed_gdp * 1e6) * 100] + [
-    #     costs_dict.get(country_shortname, 0.0)
-    #     * 1e12
-    #     / (get_gdp(country_shortname) * 1e6)
-    #     * 100
-    #     for country_shortname in developed_country_shortnames
-    # ]
-    # foreign = [
-    #     developing_cost_for_avoiding * 1e12 / (total_developed_gdp * 1e6) * 100
-    # ] + [
-    #     foreign_costs_dict[country_shortname]
-    #     * 1e12
-    #     / (get_gdp(country_shortname) * 1e6)
-    #     * 100
-    #     for country_shortname in developed_country_shortnames
-    # ]
-    # util.plot_stacked_bar(
-    #     xticks,
-    #     [
-    #         ("Domestic climate\nfinance (subsidy)", domestic),
-    #         ("Foreign aid climate\nfinance (subsidy)", foreign),
-    #     ],
-    # )
-    # plt.xticks(xticks, rotation=90)
-    # plt.ylabel("Requisite climate financing provision\nrelative to GDP (%)")
-    # plt.legend(loc="upper right")
-    # plt.tight_layout()
-    # util.savefig(f"climate_financing_relative{plotname_suffix}")
-    # plt.close()
 
 
 def do_climate_financing_sanity_check(
