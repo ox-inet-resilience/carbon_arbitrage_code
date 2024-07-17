@@ -295,9 +295,9 @@ def read_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
     # {'Coal', 'Oil&Gas', 'Aviation', 'Shipping', 'HDV', 'Steel', 'Power',
     # 'Automotive', 'Cement'}
     nonpower_coal = df[df.sector == "Coal"].copy()
-    power_companies = df[df.sector == "Power"]
-    power_coal = power_companies[power_companies.technology == "CoalCap"].copy()
-    return df, nonpower_coal, power_coal
+    # power_companies = df[df.sector == "Power"]
+    # power_coal = power_companies[power_companies.technology == "CoalCap"].copy()
+    return df, nonpower_coal
 
 
 # Calculated using set(ngfs_global.Scenario)
