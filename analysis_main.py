@@ -1264,7 +1264,14 @@ def calculate_each_countries_cost_with_cache(
         costs_dict = {}
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
         yearly_cost_for_avoiding = out[chosen_s2_scenario][cost_name]
-        country_names = list(yearly_cost_for_avoiding[-1].keys())
+        country_names = set()
+        for e in yearly_cost_for_avoiding:
+            if isinstance(e, float):
+                continue
+            elif isinstance(e, dict):
+                country_names = country_names.union(e.keys())
+            else:
+                raise Exception("Should not happen")
         for country_name in country_names:
             country_level_cost = 0.0
             for e in yearly_cost_for_avoiding:

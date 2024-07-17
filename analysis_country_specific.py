@@ -1184,7 +1184,7 @@ def common_prepare_cost_benefit_by_country(
         )
 
         # This code chunk is used to calculate global_benefit_by_country
-        global_benefit = calculate_global_benefit()
+        global_benefit = calculate_global_benefit(last_year=last_year)
         scc_dict = read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         global_benefit_by_country = {}
