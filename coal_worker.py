@@ -135,8 +135,8 @@ rho_mode_map = {
 # End of website sensitivity params
 
 # Data analysis part
-years = range(2023, 2101)
-_, nonpower_coal, _ = util.read_masterdata()
+years = range(2023, 2100 + 1)
+_, nonpower_coal = util.read_masterdata()
 ngfss = util.read_ngfs_coal_and_power()
 countries = list(set(nonpower_coal.asset_country))
 
@@ -148,6 +148,7 @@ for year in years_masterdata:
     total_production_by_year_masterdata.append(production)
 
 ic_usa = 7231
+
 
 def calculate(rho_mode, do_plot=False, full_version=False):
     scenario = "Net Zero 2050"
@@ -246,9 +247,11 @@ def calculate(rho_mode, do_plot=False, full_version=False):
 
     out = {
         "compensation workers for lost wages": reduce_precision(
-            opportunity_cost_by_country
+            opportunity_cost_by_country  # billion dollars
         ),
-        "retraining costs": reduce_precision(retraining_cost_by_country),
+        "retraining costs": reduce_precision(
+            retraining_cost_by_country
+        ),  # billion dollars
     }
     # This is used in the battery branch for yearly climate financing.
     if full_version:
