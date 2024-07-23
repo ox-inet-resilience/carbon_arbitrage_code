@@ -1,0 +1,243 @@
+country_name,iso2,region_id,region_name
+Akrotiri,QZ,,
+British Indian Ocean Territory,IO,,
+Christmas Island,CX,,
+Dhekelia,XD,,
+Falkland Islands (Islas Malvinas),FK,,
+Gaza Strip,XG,,
+Liechtenstein,LI,,
+Monaco,MC,,
+Benin,BJ,7,Middle East and Africa
+Niue,NU,,
+Norfolk Island,NF,,
+Northern Mariana Islands,MP,,
+South Georgia And South Sandwich Islands,GS,,
+Svalbard,XR,,
+Wallis And Futuna,WF,,
+West Bank,XW,,
+Western Sahara,EH,,
+Latvia,LV,6,Europe
+Indonesia,ID,2,Asia-Pacific
+"Virgin Islands, British",VG,4,South and Central America
+"Micronesia, Federated States Of",FM,2,Asia-Pacific
+Ukraine,UA,6,Europe
+Oman,OM,7,Middle East and Africa
+Cameroon,CM,7,Middle East and Africa
+Malaysia,MY,2,Asia-Pacific
+New Zealand,NZ,2,Asia-Pacific
+Slovakia,SK,6,Europe
+Uganda,UG,7,Middle East and Africa
+Timor-Leste,TL,2,Asia-Pacific
+Mali,ML,7,Middle East and Africa
+Chile,CL,4,South and Central America
+Denmark,DK,6,Europe
+Luxembourg,LU,6,Europe
+Syria,SY,7,Middle East and Africa
+Georgia,GE,6,Europe
+Moldova,MD,6,Europe
+Aruba,AW,4,South and Central America
+Israel,IL,7,Middle East and Africa
+Nepal,NP,2,Asia-Pacific
+Nicaragua,NI,4,South and Central America
+Tuvalu,TV,2,Asia-Pacific
+Montserrat,MS,4,South and Central America
+Saint Vincent And The Grenadines,VC,4,South and Central America
+Nigeria,NG,7,Middle East and Africa
+Russia,RU,6,Europe
+Somalia,SO,7,Middle East and Africa
+Kiribati,KI,2,Asia-Pacific
+Laos,LA,2,Asia-Pacific
+Uruguay,UY,4,South and Central America
+Saint Lucia,LC,4,South and Central America
+Turks And Caicos Islands,TC,4,South and Central America
+Ghana,GH,7,Middle East and Africa
+Djibouti,DJ,7,Middle East and Africa
+Swaziland,SZ,7,Middle East and Africa
+Jersey,JE,6,Europe
+Armenia,AM,6,Europe
+Niger,NE,7,Middle East and Africa
+Burma,MM,2,Asia-Pacific
+Tunisia,TN,7,Middle East and Africa
+Marshall Islands,MH,2,Asia-Pacific
+Congo (Brazzaville),CG,7,Middle East and Africa
+Mayotte,YT,7,Middle East and Africa
+Guinea,GN,7,Middle East and Africa
+Norway,NO,6,Europe
+Malta,MT,6,Europe
+Australia,AU,2,Asia-Pacific
+New Caledonia,NC,2,Asia-Pacific
+Burkina Faso,BF,7,Middle East and Africa
+Mongolia,MN,2,Asia-Pacific
+Burundi,BI,7,Middle East and Africa
+Guernsey,GG,6,Europe
+United Kingdom,GB,4,South and Central America
+Sri Lanka,LK,2,Asia-Pacific
+Lebanon,LB,7,Middle East and Africa
+China,CN,2,Asia-Pacific
+Montenegro,ME,6,Europe
+Honduras,HN,4,South and Central America
+Uzbekistan,UZ,6,Europe
+Brazil,BR,4,South and Central America
+Gabon,GA,3,Middle East and Africa
+Tonga,TO,2,Asia-Pacific
+Hong Kong,HK,2,Asia-Pacific
+Saint Barthelemy,BL,4,South and Central America
+Japan,JP,2,Asia-Pacific
+Ireland,IE,6,Europe
+Guinea-Bissau,GW,7,Middle East and Africa
+Italy,IT,6,Europe
+Puerto Rico,PR,5,North America
+Kenya,KE,7,Middle East and Africa
+Ethiopia,ET,7,Middle East and Africa
+Antigua And Barbuda,AG,4,South and Central America
+Qatar,QA,7,Middle East and Africa
+Greenland,GL,5,Asia-Pacific
+Romania,RO,6,Europe
+Malawi,MW,7,Middle East and Africa
+Sudan,SD,7,Middle East and Africa
+Fiji,FJ,2,Asia-Pacific
+Reunion,RE,7,Middle East and Africa
+Croatia,HR,6,Europe
+Sierra Leone,SL,7,Middle East and Africa
+Cura√ßao,CW,4,South and Central America
+Paraguay,PY,4,South and Central America
+Zimbabwe,ZW,7,Middle East and Africa
+Pakistan,PK,2,Asia-Pacific
+Trinidad And Tobago,TT,4,South and Central America
+Finland,FI,6,Europe
+Netherlands,NL,6,Europe
+Grenada,GD,4,South and Central America
+Kyrgyzstan,KG,2,Asia-Pacific
+Turkey,TR,7,Middle East and Africa
+Singapore,SG,2,Asia-Pacific
+Kazakhstan,KZ,6,Europe
+Faroe Islands,FO,6,Europe
+Saint Pierre And Miquelon,PM,5,North America
+Namibia,NA,7,Middle East and Africa
+French Guiana,GF,4,South and Central America
+Angola,AO,7,Middle East and Africa
+Cayman Islands,KY,4,South and Central America
+"Bahamas, The",BS,4,South and Central America
+Venezuela,VE,4,South and Central America
+Chad,TD,7,Middle East and Africa
+Solomon Islands,SB,2,Asia-Pacific
+Ecuador,EC,4,South and Central America
+Comoros,KM,7,Middle East and Africa
+Seychelles,SC,7,Middle East and Africa
+Equatorial Guinea,GQ,7,Middle East and Africa
+Palau,PW,2,Asia-Pacific
+Cuba,CU,4,South and Central America
+Morocco,MA,7,Middle East and Africa
+Libya,LY,7,Middle East and Africa
+Vanuatu,VU,2,Asia-Pacific
+Nauru,NR,2,Asia-Pacific
+Thailand,TH,2,Asia-Pacific
+Panama,PA,4,South and Central America
+Gibraltar,GI,6,Europe
+Martinique,MQ,4,South and Central America
+Saint Martin,MF,5,North America
+Bhutan,BT,2,Asia-Pacific
+U.S. Virgin Islands,VI,5,North America
+Congo (Kinshasa),CD,7,Middle East and Africa
+Taiwan,TW,2,Asia-Pacific
+Jamaica,JM,4,South and Central America
+Mexico,MX,4,South and Central America
+American Samoa,AS,2,Asia-Pacific
+Mauritius,MU,7,Middle East and Africa
+Lithuania,LT,6,Europe
+"Korea, South",KR,2,Asia-Pacific
+Portugal,PT,6,Europe
+Belarus,BY,6,Europe
+Canada,CA,5,North America
+Isle Of Man,IM,6,Europe
+Kuwait,KW,7,Middle East and Africa
+Costa Rica,CR,4,South and Central America
+Egypt,EG,7,Middle East and Africa
+Samoa,WS,2,Asia-Pacific
+Argentina,AR,4,South and Central America
+Turkmenistan,TM,2,Asia-Pacific
+Madagascar,MG,7,Middle East and Africa
+France,FR,6,Europe
+Algeria,DZ,7,Middle East and Africa
+Germany,DE,6,Europe
+Austria,AT,6,Europe
+"Saint Helena, Ascension, And Tristan Da Cunha",SH,7,Middle East and Africa
+Sweden,SE,6,Europe
+Andorra,AD,6,Europe
+Jordan,JO,7,Middle East and Africa
+Yemen,YE,7,Middle East and Africa
+Iceland,IS,6,Europe
+Philippines,PH,2,Asia-Pacific
+Czechia,CZ,6,Europe
+Azerbaijan,AZ,6,Europe
+Iraq,IQ,7,Middle East and Africa
+Rwanda,RW,7,Middle East and Africa
+Haiti,HT,4,South and Central America
+Cook Islands,CK,2,Asia-Pacific
+Colombia,CO,4,South and Central America
+Estonia,EE,6,Europe
+Switzerland,CH,6,Europe
+Bosnia And Herzegovina,BA,6,Europe
+C√¥te D‚ÄôIvoire,CI,7,Middle East and Africa
+Guatemala,GT,4,South and Central America
+San Marino,SM,6,Europe
+Guyana,GY,4,South and Central America
+South Africa,ZA,7,Middle East and Africa
+"Korea, North",KP,2,Asia-Pacific
+Afghanistan,AF,2,Asia-Pacific
+Cabo Verde,CV,7,Middle East and Africa
+Brunei,BN,2,Asia-Pacific
+Sint Maarten,SX,5,North America
+Bahrain,BH,7,Middle East and Africa
+Serbia,RS,6,Europe
+Cambodia,KH,2,Asia-Pacific
+Barbados,BB,4,South and Central America
+Anguilla,AI,4,South and Central America
+Saudi Arabia,SA,7,Middle East and Africa
+United States of America,US,5,North America
+Macedonia,MK,6,Europe
+Greece,GR,6,Europe
+Dominica,DM,4,South and Central America
+Poland,PL,6,Europe
+Senegal,SN,7,Middle East and Africa
+French Polynesia,PF,2,Asia-Pacific
+Guadeloupe,GP,4,South and Central America
+Bulgaria,BG,6,Europe
+Saint Kitts And Nevis,KN,4,South and Central America
+Maldives,MV,2,Asia-Pacific
+Belize,BZ,4,South and Central America
+Kosovo,XK,6,Europe
+Peru,PE,4,South and Central America
+Tajikistan,TJ,2,Asia-Pacific
+Spain,ES,6,Europe
+Albania,AL,6,Europe
+Botswana,BW,7,Middle East and Africa
+Sao Tome And Principe,ST,7,Middle East and Africa
+Bermuda,BM,5,North America
+Central African Republic,CF,7,Middle East and Africa
+Liberia,LR,7,Middle East and Africa
+Belgium,BE,6,Europe
+Dominican Republic,DO,4,South and Central America
+Bolivia,BO,4,South and Central America
+Iran,IR,7,Middle East and Africa
+Papua New Guinea,PG,2,Asia-Pacific
+Tanzania,TZ,7,Middle East and Africa
+Macau,MO,2,Asia-Pacific
+Eritrea,ER,7,Middle East and Africa
+Zambia,ZM,7,Middle East and Africa
+Vietnam,VN,2,Asia-Pacific
+"Gambia, The",GM,7,Middle East and Africa
+Bangladesh,BD,2,Asia-Pacific
+Slovenia,SI,6,Europe
+Guam,GU,2,Asia-Pacific
+Togo,TG,7,Middle East and Africa
+Cyprus,CY,6,Europe
+Hungary,HU,6,Europe
+Mauritania,MR,7,Middle East and Africa
+El Salvador,SV,4,South and Central America
+Suriname,SR,4,South and Central America
+United Arab Emirates,AE,7,Middle East and Africa
+South Sudan,SS,7,Middle East and Africa
+Mozambique,MZ,7,Middle East and Africa
+India,IN,2,Asia-Pacific
+Lesotho,LS,7,Middle East and Africa
