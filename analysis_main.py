@@ -85,7 +85,7 @@ def set_matplotlib_tick_spacing(tick_spacing):
 
 ngfss = util.read_ngfs_coal_and_power()
 
-df, nonpower_coal = util.read_masterdata()
+df, nonpower_coal = util.read_forward_analytics_data()
 
 # Prepare lcoe
 # Unit is $/MWh
@@ -143,7 +143,7 @@ else:
     NGFS_dynamic_weight = None
 
 # We re-generate nonpower_coal again now that df has "energy_type_specific_average_unit_profit".
-_, nonpower_coal = util.read_masterdata(df)
+_, nonpower_coal = util.read_forward_analytics_data(df)
 
 
 def sum_array_of_mixed_objs(x):
@@ -592,25 +592,21 @@ class InvestmentCostNewMethod:
         return residual_emissions, residual_production
 
 
-def calculate_weighted_emissions_factor_by_country_2020(_df_nonpower):
+def calculate_weighted_emissions_factor_by_country_2022(_df_nonpower):
     if not ENABLE_RESIDUAL_BENEFIT:
         return None
-    colname = "_2020"
-    # In tonnes of CO2
-    _df_nonpower["emissions_2020"] = (
-        _df_nonpower[colname] * _df_nonpower.emissions_factor
-    )
+    colname = "_2022"
 
     grouped_np = _df_nonpower.groupby("asset_country")
 
     # In tce
-    production_2020_np = grouped_np[colname].sum()
-    production_2020 = production_2020_np
+    production_pegyear_np = grouped_np[colname].sum()
+    production_pegyear = production_pegyear_np
 
-    # In tonnes of CO2
-    emissions_2020_np = grouped_np["emissions_2020"].sum()
-    emissions_2020 = emissions_2020_np
-    ef = emissions_2020 / production_2020
+    # Convert million tonnes of CO2 to tCO2
+    emissions_pegyear_np = grouped_np[util.EMISSIONS_COLNAME].sum() * 1e6
+    emissions_pegyear = emissions_pegyear_np
+    ef = emissions_pegyear / production_pegyear
     # There are some countries with 0 production, and so it is division by
     # zero. We set them to 0.0 for now
     ef = ef.fillna(0.0)
@@ -688,7 +684,7 @@ def get_cost_including_ngfs_renewable(
     _df_nonpower,
     rho,
     fraction_increase_after_peg_year_CPS,
-    weighted_emissions_factor_by_country_2020,
+    weighted_emissions_factor_by_country_2022,
     scenario,
     last_year,
     fraction_increase_after_peg_year,
@@ -728,7 +724,7 @@ def get_cost_including_ngfs_renewable(
     ) = temp_cost_new_method.calculate_residual(
         last_year + 1,
         last_year + residual_benefits_years_offset,
-        weighted_emissions_factor_by_country_2020,
+        weighted_emissions_factor_by_country_2022,
     )
     return (
         out_non_discounted,
@@ -747,11 +743,6 @@ def generate_cost1_output(
     _df_nonpower,
     years_masterdata,
 ):
-    # Sanity check, assert the year range is 2022-2026 inclusive.
-    assert len(total_production_by_year) == 5
-    assert len(total_emissions_masterdata_by_year_non_discounted) == 5
-    assert len(total_emissions_by_year_discounted) == 5
-
     out = {}
     out_yearly = {}
 
@@ -765,8 +756,8 @@ def generate_cost1_output(
         else None
     )
 
-    weighted_emissions_factor_by_country_2020 = (
-        calculate_weighted_emissions_factor_by_country_2020(_df_nonpower)
+    weighted_emissions_factor_by_country_2022 = (
+        calculate_weighted_emissions_factor_by_country_2022(_df_nonpower)
     )
 
     def get_emissions_after_peg_year_discounted(
@@ -774,7 +765,7 @@ def generate_cost1_output(
     ):
         # In GtCO2
         _df = _df_nonpower
-        emissions_peg_year = _df[f"_{NGFS_PEG_YEAR}"] * _df.emissions_factor / 1e9
+        emissions_peg_year = _df[util.EMISSIONS_COLNAME] / 1e3
         emissions_peg_year_summed = emissions_peg_year.sum()
 
         out = 0.0
@@ -809,7 +800,7 @@ def generate_cost1_output(
             discount = 0.0
             cost_new_method.calculate_investment_cost(deltaP, year, discount)
 
-        total_production_peg_year = (total_production_by_year[NGFS_PEG_YEAR - 2022],)
+        total_production_peg_year = total_production_by_year[NGFS_PEG_YEAR - 2022]
 
         total_emissions_peg_year_non_discounted = (
             total_emissions_masterdata_by_year_non_discounted[NGFS_PEG_YEAR - 2022]
@@ -889,7 +880,7 @@ def generate_cost1_output(
                 _df_nonpower,
                 rho,
                 fraction_increase_after_peg_year_CPS,
-                weighted_emissions_factor_by_country_2020,
+                weighted_emissions_factor_by_country_2022,
                 scenario,
                 last_year,
                 fraction_increase_after_peg_year,
@@ -2068,7 +2059,7 @@ def run_3_level_scc():
             raise Exception(f"condition not expected: {condition}")
         print(last_year, info, "with residual:")
         # print(" & ".join(caos))
-        if ENABLE_RESIDUAL_BENEFIT and (cao_name != cao_name_with_residual):
+        if ENABLE_RESIDUAL_BENEFIT:
             # print("With residual:")
             print(" & ".join(caos_with_residual))
 
@@ -2120,8 +2111,9 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 0:
-        run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
+    if 1:
+        out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
+        print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
     if 1:
         run_3_level_scc()

@@ -44,7 +44,7 @@ seconds_in_1hour = 3600  # seconds
 # The years in NGFS data
 ngfs_years = list(range(2005, 2105, 5))
 # The years in masterdata.
-years_masterdata = range(2022, 2027)
+years_masterdata = range(2022, 2022 + 1)
 
 # Constants
 # We obtain 114.9 by averaging 61.4 and 168.4.
@@ -64,7 +64,8 @@ if USE_NATURE_PAPER_SCC:
 # social_cost_of_carbon = social_cost_of_carbon_mid
 # social_cost_of_carbon = social_cost_of_carbon_upper_bound
 world_gdp_2020 = 84.705  # trillion dolars
-
+EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
+# EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
 
 def read_json(filename):
     with open(filename) as f:
@@ -238,15 +239,11 @@ def MW2Gigatonnes_of_coal(x):
     return tc / 1e9
 
 
-def maybe_load_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
-    if use_pams:
-        print("Reading from PAMS")
-        filename = f"pams_{pams_mode}.csv.gz"
-        encoding = None
-    else:
-        print("Reading from Masterdata")
-        filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
-        encoding = "latin1"
+def maybe_load_forward_analytics_data(pre_existing_df=None):
+    print("Reading from Masterdata")
+    filename = "forward_analytics_coal_only_preprocessed_1.0.csv.gz"
+    # filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
+    # encoding = "latin1"
     if pre_existing_df is None:
         _str_type = "string[pyarrow]"
         # TODO We use str for now even though pyarrow is more performant. There
@@ -255,16 +252,16 @@ def maybe_load_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total
         df = pd.read_csv(
             f"data_private/{filename}",
             compression="gzip",
-            encoding=encoding,
+            # encoding=encoding,
             dtype={
-                "company_name": _str_type,
-                "company_id": int,
+                # "company_name": _str_type,
+                # "company_id": int,
                 "sector": _str_type,
-                "technology": _str_type,
-                "technology_type": _str_type,
+                # "technology": _str_type,
+                # "technology_type": _str_type,
                 "asset_country": _str_type,
-                "emissions_factor_unit": _str_type,
-                "unit": _str_type,
+                # "emissions_factor_unit": _str_type,
+                # "unit": _str_type,
             },
         )
     else:
@@ -286,15 +283,15 @@ def replace_countries(_df):
     _df.loc[_df.asset_country.isin(vi), "asset_country"] = "US"
 
 
-def read_masterdata(pre_existing_df=None, use_pams=False, pams_mode="total"):
-    df = maybe_load_masterdata(pre_existing_df, use_pams, pams_mode)
+def read_forward_analytics_data(pre_existing_df=None):
+    df = maybe_load_forward_analytics_data(pre_existing_df)
     replace_countries(df)
     # Remove rows without proper asset_country.
     # df = df[~pd.isna(df.asset_country)]
     # All sectors are:
     # {'Coal', 'Oil&Gas', 'Aviation', 'Shipping', 'HDV', 'Steel', 'Power',
     # 'Automotive', 'Cement'}
-    nonpower_coal = df[df.sector == "Coal"].copy()
+    nonpower_coal = df[df.sector == "coal"].copy()
     # power_companies = df[df.sector == "Power"]
     # power_coal = power_companies[power_companies.technology == "CoalCap"].copy()
     return df, nonpower_coal
@@ -410,16 +407,13 @@ def get_coal_nonpower_global_emissions_across_years(
         assert years[0] == 2022
         assert rho is not None
     for year in years:
-        tonnes_coal = nonpower_coal[f"_{year}"]
         discount = 1
         if discounted:
             discount = calculate_discount(rho, year - 2022)
-        # This is equation 3 in the carbon arbitrage paper.
-        # emissions_factor unit is tonnes of CO2 per tonnes of coal.
-        # The division by 1e9 converts to GtCO2.
+        # The division by 1e3 converts MtCO2 to GtCO2.
         emissions = (
-            tonnes_coal * nonpower_coal.emissions_factor * discount
-        ).sum() / 1e9
+            nonpower_coal[EMISSIONS_COLNAME] * discount
+        ).sum() / 1e3
         emissions_list.append(emissions)
     return emissions_list
 
@@ -481,7 +475,7 @@ def get_coal_nonpower_global_generation_across_years(nonpower_coal, years):
     production_list = []
     for year in years:
         tonnes_coal = nonpower_coal[f"_{year}"]
-        production = tonnes_coal.sum() / 1e9  # convert to giga tonnes of coal
+        production = tonnes_coal.sum() / 1e3  # convert to giga tonnes of coal
         production_list.append(production)
     return production_list
 
@@ -710,7 +704,7 @@ def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None):
 
 
 def read_csv_1d_list(filename):
-    return list(pd.read_csv(filename, header=None)[0])
+    return list(pd.read_csv(filename, header=None, dtype=str, keep_default_na=False)[0])
 
 
 def get_developing_countries():
