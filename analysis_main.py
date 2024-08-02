@@ -36,7 +36,8 @@ NGFS_PEG_YEAR = 2022
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
 NGFS_RENEWABLE_WEIGHT = "static_50%"
-SECTOR_INCLUDED = "Coal"
+# SECTOR_INCLUDED = "Coal"
+SECTOR_INCLUDED = "Power"
 RENEWABLE_WEIGHTS = {
     "solar": 0.5,
     "onshore_wind": 0.25,
@@ -85,7 +86,7 @@ def set_matplotlib_tick_spacing(tick_spacing):
 
 ngfss = util.read_ngfs_coal_and_power()
 
-df, nonpower_coal = util.read_forward_analytics_data()
+df, nonpower_coal = util.read_forward_analytics_data(SECTOR_INCLUDED)
 
 # Prepare lcoe
 # Unit is $/MWh
@@ -143,7 +144,7 @@ else:
     NGFS_dynamic_weight = None
 
 # We re-generate nonpower_coal again now that df has "energy_type_specific_average_unit_profit".
-_, nonpower_coal = util.read_forward_analytics_data(df)
+_, nonpower_coal = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
 
 
 def sum_array_of_mixed_objs(x):
@@ -361,7 +362,7 @@ def calculate_cost1_info(
     return data, out_yearly_info
 
 
-class InvestmentCostNewMethod:
+class InvestmentCostWithLearning:
     techs = ["solar", "onshore_wind", "offshore_wind"]
     weights_static_NGFS = {
         "solar": 55.98399919148438 / 100,
@@ -787,7 +788,7 @@ def generate_cost1_output(
         cost_2022_to_pegyear_discounted_revenue = []
         cost_2022_to_pegyear_non_discounted_renewable = []
         cost_2022_to_pegyear_discounted_renewable = []
-        cost_new_method = InvestmentCostNewMethod()
+        cost_new_method = InvestmentCostWithLearning()
         for year in years_masterdata_up_to_peg:
             # From 2022 up to peg year, the companies follow
             # the original unchanged trajectory, and so there is no new

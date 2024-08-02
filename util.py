@@ -241,9 +241,10 @@ def MW2Gigatonnes_of_coal(x):
 
 def maybe_load_forward_analytics_data(pre_existing_df=None):
     print("Reading from Masterdata")
-    filename = "forward_analytics_coal_only_preprocessed_1.0.csv.gz"
+    filename = "v3_power_Forward_Analytics2024.csv.zip"
     # filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
     # encoding = "latin1"
+    compression = "gzip" if filename.endswith(".gz") else "zip"
     if pre_existing_df is None:
         _str_type = "string[pyarrow]"
         # TODO We use str for now even though pyarrow is more performant. There
@@ -251,7 +252,7 @@ def maybe_load_forward_analytics_data(pre_existing_df=None):
         _str_type = str
         df = pd.read_csv(
             f"data_private/{filename}",
-            compression="gzip",
+            compression=compression,
             # encoding=encoding,
             dtype={
                 # "company_name": _str_type,
@@ -283,7 +284,7 @@ def replace_countries(_df):
     _df.loc[_df.asset_country.isin(vi), "asset_country"] = "US"
 
 
-def read_forward_analytics_data(pre_existing_df=None):
+def read_forward_analytics_data(sector, pre_existing_df=None):
     df = maybe_load_forward_analytics_data(pre_existing_df)
     replace_countries(df)
     # Remove rows without proper asset_country.
@@ -291,7 +292,7 @@ def read_forward_analytics_data(pre_existing_df=None):
     # All sectors are:
     # {'Coal', 'Oil&Gas', 'Aviation', 'Shipping', 'HDV', 'Steel', 'Power',
     # 'Automotive', 'Cement'}
-    nonpower_coal = df[df.sector == "coal"].copy()
+    nonpower_coal = df[df.sector == sector].copy()
     # power_companies = df[df.sector == "Power"]
     # power_coal = power_companies[power_companies.technology == "CoalCap"].copy()
     return df, nonpower_coal
