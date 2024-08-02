@@ -43,8 +43,6 @@ hours_in_1year = 24 * 365.25
 seconds_in_1hour = 3600  # seconds
 # The years in NGFS data
 ngfs_years = list(range(2005, 2105, 5))
-# The years in masterdata.
-years_masterdata = range(2022, 2022 + 1)
 
 # Constants
 # We obtain 114.9 by averaging 61.4 and 168.4.
@@ -66,6 +64,7 @@ if USE_NATURE_PAPER_SCC:
 world_gdp_2020 = 84.705  # trillion dolars
 EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
 # EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
+EMISSIONS_COLNAME = "annualco2tyear"
 
 def read_json(filename):
     with open(filename) as f:
@@ -242,6 +241,7 @@ def MW2Gigatonnes_of_coal(x):
 def maybe_load_forward_analytics_data(pre_existing_df=None):
     print("Reading from Masterdata")
     filename = "v3_power_Forward_Analytics2024.csv.zip"
+    filename = "FA2024_power_only_preprocessed.csv.gz"
     # filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
     # encoding = "latin1"
     compression = "gzip" if filename.endswith(".gz") else "zip"
@@ -400,23 +400,15 @@ def sum_discounted(array, start_year=2022, rho_mode="default"):
     )
 
 
-def get_coal_nonpower_global_emissions_across_years(
-    nonpower_coal, years, discounted=False, rho=None
+def get_coal_nonpower_global_emissions(
+    nonpower_coal, year, discounted=False
 ):
-    emissions_list = []
-    if discounted:
-        assert years[0] == 2022
-        assert rho is not None
-    for year in years:
-        discount = 1
-        if discounted:
-            discount = calculate_discount(rho, year - 2022)
-        # The division by 1e3 converts MtCO2 to GtCO2.
-        emissions = (
-            nonpower_coal[EMISSIONS_COLNAME] * discount
-        ).sum() / 1e3
-        emissions_list.append(emissions)
-    return emissions_list
+    assert year == 2022
+    # The division by 1e3 converts MtCO2 to GtCO2.
+    emissions = (
+        nonpower_coal[EMISSIONS_COLNAME]
+    ).sum() / 1e3
+    return emissions
 
 
 def get_coal_nonpower_per_company_NON_discounted_emissions_summed_over_years(
@@ -472,13 +464,10 @@ def get_coal_nonpower_per_company_NON_discounted_emissions_summed_over_years(
     return sum(emissions_list)
 
 
-def get_coal_nonpower_global_generation_across_years(nonpower_coal, years):
-    production_list = []
-    for year in years:
-        tonnes_coal = nonpower_coal[f"_{year}"]
-        production = tonnes_coal.sum() / 1e3  # convert to giga tonnes of coal
-        production_list.append(production)
-    return production_list
+def get_coal_nonpower_global_generation(nonpower_coal):
+    tonnes_coal = nonpower_coal["activity"]
+    production = tonnes_coal.sum() / 1e3  # convert to giga tonnes of coal
+    return production
 
 
 def get_coal_nonpower_per_company_discounted_PROFIT_summed_over_years(
