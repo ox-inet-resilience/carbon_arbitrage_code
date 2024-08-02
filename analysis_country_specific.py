@@ -97,15 +97,6 @@ for c in "AG AW BB BF BH BM FJ GD HK LC MS MT MV NA PF PS SC SG XK".split():
     countries_after_coal_export.remove(c)
 
 
-def apply_last_year(last_year):
-    if last_year in [2030, 2035, 2070]:
-        analysis_main.MID_YEAR = last_year
-    else:
-        # 2100 is included by default in the mid year of 2050.
-        assert last_year in [2050, 2100], last_year
-        analysis_main.MID_YEAR = 2050
-
-
 def prepare_level_development():
     (
         iso3166_df,
@@ -217,7 +208,7 @@ def calculate_country_specific_scc_data(
     if last_year is None:
         last_year = 2100
     chosen_s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
-    apply_last_year(last_year)
+    analysis_main.LAST_YEAR = last_year
     costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
         chosen_s2_scenario,
         "plots/country_specific_cost.json",
