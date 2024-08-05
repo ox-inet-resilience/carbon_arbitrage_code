@@ -3,6 +3,7 @@ import json
 import subprocess
 import multiprocessing as mp
 import os
+from functools import lru_cache 
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,16 +29,6 @@ plt.rc("legend", fontsize=11, title_fontsize=11)
 # End font
 
 USE_NATURE_PAPER_SCC = False
-# Possible models are:
-# {'REMIND-MAgPIE 2.1-4.2', 'REMIND-MAgPIE 2.1-4.2 IntegratedPhysicalDamages
-# (95th)', 'GCAM5.3_NGFS',
-# 'REMIND-MAgPIE 2.1-4.2 IntegratedPhysicalDamages (median)',
-# 'MESSAGEix-GLOBIOM 1.1'}
-NGFS_MODEL = "GCAM5.3_NGFS"
-# NGFS_MODEL = "MESSAGEix-GLOBIOM 1.1"
-# NGFS_MODEL = "REMIND-MAgPIE 2.1-4.2"
-# CPS stands for current policies scenario
-NGFS_MODEL_FOR_CPS = "GCAM5.3_NGFS"
 
 hours_in_1year = 24 * 365.25
 seconds_in_1hour = 3600  # seconds
@@ -65,6 +56,7 @@ world_gdp_2020 = 84.705  # trillion dolars
 EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
 # EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
 EMISSIONS_COLNAME = "annualco2tyear"
+
 
 def read_json(filename):
     with open(filename) as f:
@@ -145,6 +137,23 @@ def get_in_between_year(year):
     return rounded, rounded + 5
 
 
+def add_array(a, b):
+    assert len(a) == len(b)
+    return [a[i] + b[i] for i in range(len(a))]
+
+
+def subtract_array(a, b):
+    assert len(a) == len(b)
+
+    def subtract(x, y):
+        if isinstance(x, float):
+            return x - y
+        assert len(x) == len(y)
+        return {c: v - y[c] for c, v in x.items()}
+
+    return [a[i] - b[i] for i in range(len(a))]
+
+
 def get_country_to_region():
     with open("data/2DII-country-name-shortcuts.csv") as f:
         country_to_region = {}
@@ -196,7 +205,10 @@ def coal2GJ(x):
     # See https://en.wikipedia.org/wiki/Ton#Tonne_of_coal_equivalent
     # 1 tce is 29.3076 GJ
     # 1 tce is 8.141 MWh
-    return x * 29.3076
+    mul = 29.3076
+    if isinstance(x, list):
+        return [e * mul for e in x]
+    return x * mul
 
 
 def GJ2coal(x):
@@ -298,54 +310,98 @@ def read_forward_analytics_data(sector, pre_existing_df=None):
     return df, nonpower_coal
 
 
-# Calculated using set(ngfs_global.Scenario)
-scenarios = [
-    "Current Policies ",
-    "Delayed transition",
-    "Below 2Â°C",
-    "Net Zero 2050",
-    "Nationally Determined Contributions (NDCs) ",
-    "Divergent Net Zero",
-]
-
-
-def read_ngfs_coal_and_power():
+def read_ngfs():
     return {
-        "Coal": pd.read_csv("data/ngfs_scenario_production_fossil.csv"),
-        "Power": pd.read_csv(
-            "data/NGFS-Power-Sector-Scenarios.csv.gz", compression="gzip"
-        ),
+        "production": pd.read_csv("data/2-GCAM6-filtered-prim-and-secon-energy.csv.gz"),
+        "emissions": pd.read_csv("data/3-GCAM6-emissions.csv.gz"),
     }
 
 
-def calculate_ngfs_fractional_increase(ngfss, sector, scenario, start_year):
+def calculate_ngfs_projection(
+    production_or_emissions,
+    value_fa,
+    ngfs_df,
+    sector,
+    scenario,
+    start_year,
+    last_year,
+    alpha2_to_alpha3,
+):
+    assert sector == "Power"
+    ngfs = ngfs_df[production_or_emissions]
+    ngfs = ngfs[ngfs.Scenario == scenario]
     if sector == "Coal":
         variable = "Primary Energy|Coal"
-    else:
-        variable = "Capacity|Electricity|Coal"
-    ngfs = ngfss[sector]
-    ngfs_global = ngfs[ngfs.Region == "World"]
-    ngfs_global_coal = ngfs_global[ngfs_global.Variable == variable]
-    ngfs_model = NGFS_MODEL_FOR_CPS if scenario == "Current Policies " else NGFS_MODEL
-    ngfs_global_coal = ngfs_global_coal[ngfs_global_coal.Model == ngfs_model]
-    ngfs_global_coal_scenario = ngfs_global_coal[
-        ngfs_global_coal.Scenario == scenario
-    ].iloc[0]
-    years_interpolated = list(range(2005, 2101))
-    ngfs_production_across_years = [
-        ngfs_global_coal_scenario[str(year)] for year in ngfs_years
+    subsectors = ["Coal", "Oil", "Gas"]
+    years_interpolated = list(range(start_year, 2101))
+    countries = value_fa.index.get_level_values("asset_country").to_list()
+    out = None
+
+    ngfs_country_wo_iea_stats = ngfs[
+        ngfs.Region == "Downscaling|Countries without IEA statistics"
     ]
-    f = interp1d(ngfs_years, ngfs_production_across_years)
-    ngfs_production_across_years_interpolated = f(years_interpolated)
-    ngfs_interpolated_dict = {
-        years_interpolated[i]: ngfs_production_across_years_interpolated[i]
-        for i in range(len(years_interpolated))
-    }
-    fraction_increase_after_start_year = {
-        year: (ngfs_interpolated_dict[year] / ngfs_interpolated_dict[start_year])
-        for year in range(start_year + 1, 2101)
-    }
-    return fraction_increase_after_start_year
+
+    def country_mapper(alpha2):
+        return alpha2_to_alpha3[alpha2]
+
+    for country in countries:
+        ngfs_country = ngfs[ngfs.Region == country_mapper(country)]
+        if len(ngfs_country) == 0:
+            ngfs_country = ngfs_country_wo_iea_stats
+        value_fa_country = value_fa[country]
+        timeseries = None
+        for subsector in subsectors:
+            if subsector not in value_fa_country:
+                continue
+            variable = f"Secondary Energy|Electricity|{subsector}"
+            ngfs_country_subsector = ngfs_country[
+                ngfs_country.Variable == variable
+            ].iloc[0]
+            across_years = [
+                ngfs_country_subsector[str(year)] for year in years_interpolated
+            ]
+            if across_years[0] == 0:
+                print("TODO FIX THIS", country, subsector)
+                ngfs_country_subsector = ngfs_country_wo_iea_stats[
+                    ngfs_country_wo_iea_stats.Variable == variable
+                ].iloc[0]
+                across_years = [
+                    ngfs_country_subsector[str(year)] for year in years_interpolated
+                ]
+            # rescale NGFS part, so that at the first year, it is 1
+            across_years = [
+                value_fa[country][subsector] * e / across_years[0] for e in across_years
+            ]
+            if timeseries is None:
+                timeseries = across_years.copy()
+            else:
+                timeseries = add_array(timeseries, across_years)
+        if production_or_emissions == "emissions":
+            if out is None:
+                out = timeseries.copy()
+            else:
+                if timeseries is None:
+                    continue
+                out = add_array(out, timeseries)
+        else:
+            if out is None:
+                out = {country: timeseries}
+            else:
+                if timeseries is None:
+                    continue
+                out[country] = timeseries
+    if production_or_emissions == "production":
+        summed = 0
+        for value in out.values():
+            summed += sum(value)
+        _out = []
+        for i in range(len(years_interpolated)):
+            _out.append(
+                pd.Series({country: value[i] for country, value in out.items()})
+            )
+        out = _out
+        return out, summed
+    return out
 
 
 def calculate_rho(beta, rho_mode="default"):
@@ -391,133 +447,38 @@ def calculate_discount(rho, deltat):
     return (1 + rho) ** -deltat
 
 
-def sum_discounted(array, start_year=2022, rho_mode="default"):
-    import processed_revenue
-
-    rho = calculate_rho(processed_revenue.beta)
+def sum_discounted(array, rho, start_year=2022):
     return sum(
         e * calculate_discount(rho, start_year + i - 2022) for i, e in enumerate(array)
     )
 
 
-def get_coal_nonpower_global_emissions(
-    nonpower_coal, year, discounted=False
-):
-    assert year == 2022
+def discount_array(array, rho, start_year=2022):
+    return [
+        e * calculate_discount(rho, start_year + i - 2022) for i, e in enumerate(array)
+    ]
+
+
+def get_emissions_by_country(nonpower_coal, discounted=False):
     # The division by 1e3 converts MtCO2 to GtCO2.
     emissions = (
-        nonpower_coal[EMISSIONS_COLNAME]
-    ).sum() / 1e3
+        nonpower_coal.groupby(["asset_country", "subsector"])[EMISSIONS_COLNAME].sum()
+        / 1e3
+    )
     return emissions
 
 
-def get_coal_nonpower_per_company_NON_discounted_emissions_summed_over_years(
-    ngfs_peg_year,
-    nonpower_coal,
-    masterdata_years,
-    fraction_increase_after_peg_year,
-    x=1,
-    multiply_by_country_tax_increase=False,
-    summation_start_year=None,
-):
-    emissions_list = []
-    assert ngfs_peg_year == 2026
-    assert masterdata_years[0] == 2022
-    assert summation_start_year is not None
-    grouped = nonpower_coal.groupby("company_id")
-    for year in masterdata_years:
-        if year < summation_start_year:
-            continue
-
-        def process(g):
-            if multiply_by_country_tax_increase:
-                # The unit no longer make sense if we
-                # multiply by g.country_tax_increase. But we
-                # add a conditional branch here to minimize
-                # code duplication.
-                tonnes_coal = g[f"_{year}"] * g.country_tax_increase
-            else:
-                tonnes_coal = g[f"_{year}"]
-            # emissions_factor unit tonnes of CO2 per tonnes of coal
-            emissions_of_g = (tonnes_coal * g.emissions_factor).sum()  # in tCO2
-            return emissions_of_g
-
-        emissions = grouped.apply(process)
-        emissions_list.append(emissions)
-    # From NGFS
-
-    def process(g):
-        # This function is the same as the previous process() except for
-        # tonnes_coal.
-        if multiply_by_country_tax_increase:
-            tonnes_coal = g[f"_{ngfs_peg_year}"] * g.country_tax_increase
-        else:
-            tonnes_coal = g[f"_{ngfs_peg_year}"]
-        # emissions_factor unit tonnes of CO2 per tonnes of coal
-        emissions_of_g = (tonnes_coal * g.emissions_factor).sum()  # in tCO2
-        return emissions_of_g
-
-    emissions_peg_year = grouped.apply(process)
-
-    sum_frac_increase = sum(fraction_increase_after_peg_year.values())
-    emissions_list.append(emissions_peg_year * sum_frac_increase)
-    return sum(emissions_list)
-
-
-def get_coal_nonpower_global_generation(nonpower_coal):
-    tonnes_coal = nonpower_coal["activity"]
-    production = tonnes_coal.sum() / 1e3  # convert to giga tonnes of coal
+def get_production_by_country(_df, sector):
+    # convert to giga tonnes of coal
+    if sector == "Extraction":
+        mul = 1e-3  # From mega tonnes to giga tonnes
+    elif sector == "Power":
+        # From MWh to MJ to GJ to giga tonnes of coal
+        mul = seconds_in_1hour / 1e3 * GJ2coal(1) / 1e9
+    else:
+        raise Exception("Should never happen")
+    production = _df.groupby(["asset_country", "subsector"])["activity"].sum() * mul
     return production
-
-
-def get_coal_nonpower_per_company_discounted_PROFIT_summed_over_years(
-    ngfs_peg_year,
-    nonpower_coal,
-    masterdata_years,
-    fraction_increase_after_peg_year,
-    beta,
-    x=1,
-    summation_start_year=None,
-):
-    profits_list = []
-    assert ngfs_peg_year == 2026
-    assert masterdata_years[0] == 2022
-    assert summation_start_year is not None
-    assert len(masterdata_years) == (ngfs_peg_year - 2022 + 1)
-    assert beta is not None
-    rho = calculate_rho(beta)
-    grouped = nonpower_coal.groupby("company_id")
-    for year in masterdata_years:
-        if year < summation_start_year:
-            continue
-
-        discount = calculate_discount(rho, year - 2022)
-
-        def process(g):
-            tonnes_coal = g[f"_{year}"]
-            gj = coal2GJ(tonnes_coal)
-            return (gj * g.energy_type_specific_average_unit_profit * discount).sum()
-
-        profits = grouped.apply(process)
-        profits_list.append(profits)
-    # From NGFS
-
-    def process(g):
-        # This function is the same as the previous process() except for
-        # tonnes_coal.
-        tonnes_coal = g[f"_{ngfs_peg_year}"]
-        gj = coal2GJ(tonnes_coal)
-        return (gj * g.energy_type_specific_average_unit_profit).sum()
-
-    profits_peg_year = grouped.apply(process)
-
-    sum_frac_increase = 0.0
-    for year, v in fraction_increase_after_peg_year.items():
-        discount = calculate_discount(rho, year - 2022)
-        sum_frac_increase += discount * v
-
-    profits_list.append(profits_peg_year * sum_frac_increase)
-    return sum(profits_list)
 
 
 def get_capacity_factor(iea_df, year):
@@ -552,64 +513,6 @@ def get_coal_power_global_emissions_across_years(
         emissions /= 1e9
         emissions_list.append(emissions)
     return emissions_list
-
-
-def get_coal_power_per_company_NON_discounted_emissions_summed_over_years(
-    ngfs_peg_year,
-    power_coal,
-    masterdata_years,
-    fraction_increase_after_peg_year,
-    x=1,
-    multiply_by_country_tax_increase=False,
-    summation_start_year=None,
-):
-    emissions_list = []
-    assert ngfs_peg_year == 2026
-    assert masterdata_years[0] == 2022
-    assert summation_start_year is not None
-    assert len(masterdata_years) == (ngfs_peg_year - 2022 + 1)
-    grouped = power_coal.groupby("company_id")
-    for year in masterdata_years:
-        if year < summation_start_year:
-            continue
-
-        def process(g):
-            if multiply_by_country_tax_increase:
-                # The unit no longer make sense if we
-                # multiply by g.country_tax_increase. But we
-                # add a conditional branch here to minimize
-                # code duplication.
-                mw_coal = g[f"_{year}"] * g.country_tax_increase
-            else:
-                mw_coal = g[f"_{year}"]
-            # the emissions_factor unit is "tonnes of CO2 per MWh"
-            emissions_of_g = (
-                mw_coal * hours_in_1year * g.emissions_factor
-            ).sum()  # in tCO2
-            return emissions_of_g
-
-        emissions = grouped.apply(process)
-        emissions_list.append(emissions)
-    # From NGFS
-
-    def process(g):
-        # This function is the same as the previous process(), except for
-        # the mw_coal calculation.
-        if multiply_by_country_tax_increase:
-            mw_coal = g[f"_{ngfs_peg_year}"] * g.country_tax_increase
-        else:
-            mw_coal = g[f"_{ngfs_peg_year}"]
-        # the emissions_factor unit is "tonnes of CO2 per MWh"
-        emissions_of_g = (
-            mw_coal * hours_in_1year * g.emissions_factor
-        ).sum()  # in tCO2
-        return emissions_of_g
-
-    emissions_peg_year = grouped.apply(process)
-
-    sum_frac_increase = sum(fraction_increase_after_peg_year.values())
-    emissions_list.append(emissions_peg_year * sum_frac_increase)
-    return sum(emissions_list)
 
 
 def get_coal_power_global_generation_across_years(power_coal, years):

@@ -17,24 +17,25 @@ from util import (
 )
 import with_learning
 
+# TODO these globals could be removed.
 global_cost_non_discounted = {
-    "Current Policies ": None,
+    "Current Policies": None,
     "Net Zero 2050": None,
 }
 global_cost_non_discounted_battery_short = {
-    "Current Policies ": None,
+    "Current Policies": None,
     "Net Zero 2050": None,
 }
 global_cost_non_discounted_battery_long = {
-    "Current Policies ": None,
+    "Current Policies": None,
     "Net Zero 2050": None,
 }
 global_cost_non_discounted_battery_pe = {
-    "Current Policies ": None,
+    "Current Policies": None,
     "Net Zero 2050": None,
 }
 global_cost_non_discounted_battery_grid = {
-    "Current Policies ": None,
+    "Current Policies": None,
     "Net Zero 2050": None,
 }
 global_unit_ic = None
@@ -90,7 +91,9 @@ def set_matplotlib_tick_spacing(tick_spacing):
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
 
-ngfss = util.read_ngfs_coal_and_power()
+ngfs_df = util.read_ngfs()
+iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df, nonpower_coal = util.read_forward_analytics_data(SECTOR_INCLUDED)
 
@@ -142,6 +145,10 @@ def add_array_of_mixed_objs(x, y):
 
         if isinstance(xi, dict):
             z = {}
+            if isinstance(yi, float) and yi == 0.0:
+                z = xi
+                out.append(z)
+                continue
             # We need to include keys from both xi and yi, because recently in
             # the coal export, there are 100% importer countries that are not
             # part of masterdata.
@@ -190,14 +197,14 @@ def calculate_cost1_info(
         array_of_cost_discounted_investment
     )
     if current_policies is None:
-        assert data_set == "2DII" or "Current Policies" in data_set, data_set
+        assert data_set == "FA" or "Current Policies" in data_set, data_set
         saved_non_discounted = sum(array_of_total_emissions_non_discounted)
         total_production_avoided = total_production
         out_yearly_info["benefit_non_discounted"] = np.array(
             array_of_total_emissions_non_discounted
         )
     else:
-        assert not (data_set == "2DII" or "Current Policies" in data_set)
+        assert not (data_set == "FA" or "Current Policies" in data_set)
         saved_non_discounted = sum(current_policies["emissions_non_discounted"]) - sum(
             array_of_total_emissions_non_discounted
         )
@@ -382,66 +389,22 @@ def calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower):
 
 
 def get_cost_including_ngfs_revenue(
-    _df_nonpower,
+    _df,
     rho,
-    fraction_increase_after_peg_year_CPS,
+    DeltaP,
     scenario,
     last_year,
-    fraction_increase_after_peg_year,
-    non_discounted_2022_to_pegyear,
-    discounted_2022_to_pegyear,
 ):
-    if scenario == "Net Zero 2050":
-        # If the scenario is NZ2050, the 2022-NGFS_PEG_YEAR values are
-        # force-set to 0, because the diff of s2-s1 in
-        # 2022-NGFS_PEG_YEAR is 0.
-        out_non_discounted = [0.0] * len(non_discounted_2022_to_pegyear)
-        out_discounted = [0.0] * len(discounted_2022_to_pegyear)
-    else:
-        assert scenario == "Current Policies ", scenario
-        out_non_discounted = non_discounted_2022_to_pegyear.copy()
-        out_discounted = discounted_2022_to_pegyear.copy()
-        original_ngfs_peg_year_index = NGFS_PEG_YEAR - 2022
-        # We specify such that if scenario is current policies, only
-        # set the cost to nonzero only after the peg year.
-        for i in range(original_ngfs_peg_year_index + 1):
-            out_non_discounted[i] = 0.0
-            out_discounted[i] = 0.0
-
-    # Calculate cost
-    _df = _df_nonpower
-
-    grouped = _df.groupby("asset_country")
-    coal_production_by_country = grouped["activity"].sum()
-    in_gj = util.coal2GJ(coal_production_by_country)
-
     # In this case, the energy-type-specific is coal
     # aup is the same across the df rows anyway
     if len(_df) > 0:
         aup = _df.energy_type_specific_average_unit_profit.iloc[0]
     else:
         aup = 0.0
-    _c_sum_nonpower = aup * in_gj
 
-    for y, fraction_increase_np in fraction_increase_after_peg_year.items():
-        if (last_year == LAST_YEAR) and y > LAST_YEAR:
-            break
-        # The following commented out code is for sensitivity analysis.
-        # discount = util.calculate_discount(rho + 0.005, y - 2022)
-        discount = util.calculate_discount(rho, y - 2022)
-        if scenario == "Net Zero 2050":
-            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
-        else:
-            assert scenario == "Current Policies ", scenario
-            v_np = fraction_increase_np
-        # discount and v are scalar
-        _c_sum_v = _c_sum_nonpower * v_np
-
-        out_non_discounted.append(_c_sum_v)
-        out_discounted.append(_c_sum_v * discount)
-
-    out_non_discounted = list(out_non_discounted)
-    out_discounted = list(out_discounted)
+    # Calculate cost
+    out_non_discounted = [dp * aup for dp in DeltaP]
+    out_discounted = util.discount_array(out_non_discounted, rho)
     return (
         out_non_discounted,
         out_discounted,
@@ -451,34 +414,20 @@ def get_cost_including_ngfs_revenue(
 def get_cost_including_ngfs_renewable(
     _df_nonpower,
     rho,
-    fraction_increase_after_peg_year_CPS,
+    DeltaP,
     weighted_emissions_factor_by_country_peg_year,
     scenario,
     last_year,
-    fraction_increase_after_peg_year,
     _cost_new_method,
 ):
     # We copy _cost_new_method because it is going to be reused for
     # different scenario and year range.
     temp_cost_new_method = copy.deepcopy(_cost_new_method)
 
-    # Activity in GJ
-    grouped = _df_nonpower.groupby("asset_country")
-    coal_production_by_country = grouped["activity"].sum()
-    _gj_sum_nonpower = util.coal2GJ(coal_production_by_country)
+    for i, dp in enumerate(DeltaP):
+        discount = util.calculate_discount(rho, i)
+        temp_cost_new_method.calculate_investment_cost(dp, NGFS_PEG_YEAR + i, discount)
 
-    for y, fraction_increase_np in fraction_increase_after_peg_year.items():
-        if (last_year == LAST_YEAR) and y > LAST_YEAR:
-            break
-        discount = util.calculate_discount(rho, y - 2022)
-        if scenario == "Net Zero 2050":
-            v_np = fraction_increase_after_peg_year_CPS[y] - fraction_increase_np
-        else:
-            assert scenario == "Current Policies ", scenario
-            v_np = fraction_increase_np
-        DeltaP = _gj_sum_nonpower * v_np
-
-        temp_cost_new_method.calculate_investment_cost(DeltaP, y, discount)
     out_non_discounted = list(temp_cost_new_method.cost_non_discounted)
     out_discounted = list(temp_cost_new_method.cost_discounted)
     residual_benefits_years_offset = with_learning.RENEWABLE_LIFESPAN
@@ -524,16 +473,20 @@ def get_cost_including_ngfs_renewable(
 def generate_cost1_output(
     rho,
     do_round,
-    total_production,
-    total_emissions_fa,
     _df_nonpower,
 ):
     out = {}
     out_yearly = {}
 
+    # Production
+    # Giga tonnes of coal
+    total_production_fa = util.get_production_by_country(nonpower_coal, SECTOR_INCLUDED)
+
+    # Emissions
+    emissions_fa = util.get_emissions_by_country(nonpower_coal)
+
     current_policies = {
         LAST_YEAR: None,
-        2100: None,
     }
     production_2019 = (
         _df_nonpower.groupby("asset_country")._2019.sum()
@@ -545,88 +498,67 @@ def generate_cost1_output(
         calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower)
     )
 
-    def get_emissions_after_peg_year_discounted(
-        last_year, fraction_increase_after_peg_year
-    ):
-        # In GtCO2
-        _df = _df_nonpower
-        emissions_peg_year = _df[util.EMISSIONS_COLNAME] / 1e3
-        emissions_peg_year_summed = emissions_peg_year.sum()
-
-        out = 0.0
-        for y, v in fraction_increase_after_peg_year.items():
-            if (last_year == LAST_YEAR) and y > LAST_YEAR:
-                break
-            discount = util.calculate_discount(rho, y - 2022)
-            # v and discount are scalar
-            out += v * discount
-        out *= emissions_peg_year_summed
-        return out
-
-    fraction_increase_after_peg_year_CPS = None
-    for scenario in ["Current Policies ", "Net Zero 2050"]:
+    production_ngfs_projection_CPS = None
+    for scenario in ["Current Policies", "Net Zero 2050"]:
         # NGFS_PEG_YEAR
-        cost_2022_to_pegyear_non_discounted_revenue = [0.0]
-        cost_2022_to_pegyear_discounted_revenue = [0.0]
         cost_new_method = with_learning.InvestmentCostWithLearning()
         deltaP = 0.0
         discount = 0.0
         cost_new_method.calculate_investment_cost(deltaP, NGFS_PEG_YEAR, discount)
 
-        total_production_peg_year = total_production
-
-        total_emissions_peg_year_non_discounted = total_emissions_fa
-
-        fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
-            ngfss, SECTOR_INCLUDED, scenario, start_year=NGFS_PEG_YEAR
-        )
-        total_production_masterdata = total_production
-
-        if scenario == "Current Policies ":
-            # To prepare for the s2-s1 for NZ2050
-            fraction_increase_after_peg_year_CPS = (
-                util.calculate_ngfs_fractional_increase(
-                    ngfss, SECTOR_INCLUDED, scenario, start_year=NGFS_PEG_YEAR
-                )
-            )
-
-        # Remove weird character
-        scenario = scenario.replace("Â", "")
-        scenario_formatted = f"2DII + {scenario} Scenario"
-
         last_year = LAST_YEAR
-        # 2022-last_year
-        sum_frac_increase_non_discounted = sum(
-            v for k, v in fraction_increase_after_peg_year.items() if k <= last_year
-        )
-
-        gigatonnes_coal_production = (
-            total_production_masterdata
-            + total_production_peg_year * sum_frac_increase_non_discounted
-        )
-        array_of_total_emissions_non_discounted = [total_emissions_fa] + [
-            total_emissions_peg_year_non_discounted * v_np
-            for k, v_np in fraction_increase_after_peg_year.items()
-            if k <= last_year
-        ]
-        total_emissions_discounted = (
-            total_emissions_fa
-            + get_emissions_after_peg_year_discounted(
-                last_year, fraction_increase_after_peg_year
+        # Giga tonnes of coal
+        production_with_ngfs_projection, gigatonnes_coal_production = (
+            util.calculate_ngfs_projection(
+                "production",
+                total_production_fa,
+                ngfs_df,
+                SECTOR_INCLUDED,
+                scenario,
+                NGFS_PEG_YEAR,
+                last_year,
+                alpha2_to_alpha3,
             )
         )
+        emissions_with_ngfs_projection = util.calculate_ngfs_projection(
+            "emissions",
+            emissions_fa,
+            ngfs_df,
+            SECTOR_INCLUDED,
+            scenario,
+            NGFS_PEG_YEAR,
+            last_year,
+            alpha2_to_alpha3,
+        )
+
+        if scenario == "Current Policies":
+            # To prepare for the s2-s1 for NZ2050
+            production_with_ngfs_projection_CPS = production_with_ngfs_projection.copy()
+
+        scenario_formatted = f"FA + {scenario} Scenario"
+
+        # NGFS_PEG_YEAR-last_year
+        array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
+        total_emissions_discounted = util.sum_discounted(emissions_with_ngfs_projection, rho)
+
+        if scenario == "Net Zero 2050":
+            DeltaP = util.subtract_array(
+                production_with_ngfs_projection_CPS, production_with_ngfs_projection
+            )
+        else:
+            DeltaP = production_with_ngfs_projection_CPS
+        # Convert Giga tonnes of coal to GJ
+        DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
+
         (
             cost_non_discounted_revenue,
             cost_discounted_revenue,
         ) = get_cost_including_ngfs_revenue(
             _df_nonpower,
             rho,
-            fraction_increase_after_peg_year_CPS,
+            DeltaP,
             scenario,
             last_year,
-            fraction_increase_after_peg_year,
-            cost_2022_to_pegyear_non_discounted_revenue,
-            cost_2022_to_pegyear_discounted_revenue,
         )
         (
             cost_non_discounted_investment,
@@ -637,11 +569,10 @@ def generate_cost1_output(
         ) = get_cost_including_ngfs_renewable(
             _df_nonpower,
             rho,
-            fraction_increase_after_peg_year_CPS,
+            DeltaP,
             weighted_emissions_factor_by_country_peg_year,
             scenario,
             last_year,
-            fraction_increase_after_peg_year,
             cost_new_method,
         )
 
@@ -677,7 +608,7 @@ def generate_cost1_output(
             )
             out[text] = cost1_info
             out_yearly[text] = yearly_info
-        if scenario == "Current Policies ":
+        if scenario == "Current Policies":
             current_policies[last_year] = {
                 "emissions_non_discounted": array_of_total_emissions_non_discounted,
                 "emissions_discounted": total_emissions_discounted,
@@ -739,32 +670,14 @@ def run_cost1(
     plot_yearly=False,
     return_yearly=False,
 ):
-    # print("# exp cost1")
-    # Non-Power cost
-
-    # Production
-    total_production = util.get_coal_nonpower_global_generation(nonpower_coal)
-
-    # Emissions
-    total_emissions_fa = util.get_coal_nonpower_global_emissions(
-        nonpower_coal, NGFS_PEG_YEAR
-    )
-
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
 
     out, yearly = generate_cost1_output(
         rho,
         do_round,
-        total_production,
-        total_emissions_fa,
         nonpower_coal,
     )
-    # if to_csv:
-    #     uid = util.get_unique_id(include_date=False)
-    #     out_nonpower.to_csv(f"plots/cost1_nonpower_{uid}.csv")
-    # And then converto markdown table using
-    # https://csvtomd.com.
 
     out_dict = out.T.to_dict()
     both_dict = {}
@@ -800,60 +713,13 @@ def run_cost1(
     return both_dict
 
 
-def prepare_per_company_emissions_and_profit(
-    scenario, nonpower_coal, summation_start_year
-):
-    emissions_filename = "plots/per_company_emissions.csv.gz"
-    profit_filename = "plots/per_company_profit.csv.gz"
-    if os.path.isfile(emissions_filename):
-        print("Processed per company data found. Reading...")
-        per_company_emissions = pd.read_csv(emissions_filename, compression="gzip")
-        per_company_profit = pd.read_csv(profit_filename, compression="gzip")
-        print("Done")
-        return per_company_emissions, per_company_profit
-
-    peg_year = 2026
-
-    nonpower_fraction_increase_after_2026 = util.calculate_ngfs_fractional_increase(
-        ngfss, SECTOR_INCLUDED, scenario, start_year=peg_year
-    )
-
-    nonpower_per_company_emissions = (
-        util.get_coal_nonpower_per_company_NON_discounted_emissions_summed_over_years(
-            peg_year,
-            nonpower_coal,
-            years_masterdata,
-            nonpower_fraction_increase_after_2026,
-            summation_start_year=summation_start_year,
-        )
-    )
-
-    per_company_emissions = nonpower_per_company_emissions
-
-    nonpower_per_company_profit = (
-        util.get_coal_nonpower_per_company_discounted_PROFIT_summed_over_years(
-            peg_year,
-            nonpower_coal,
-            years_masterdata,
-            nonpower_fraction_increase_after_2026,
-            processed_revenue.beta,
-            summation_start_year=summation_start_year,
-        )
-    )
-    per_company_profit = nonpower_per_company_profit
-
-    per_company_emissions.to_csv(emissions_filename)
-    per_company_profit.to_csv(profit_filename)
-    return per_company_emissions, per_company_profit
-
-
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     from collections import defaultdict
 
     global social_cost_of_carbon
     social_costs = np.linspace(0, 200, 3)
     ydict = defaultdict(list)
-    chosen_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_scenario = "2022-2100 FA + Net Zero 2050 Scenario"
     for social_cost in social_costs:
         util.social_cost_of_carbon = social_cost
         social_cost_of_carbon = social_cost
@@ -868,10 +734,10 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
                 value = value / world_gdp_2020 * 100
             ydict[scenario].append(value)
     mapper = {
-        f"2022-{LAST_YEAR} 2DII + Current Policies  Scenario": f"s2=0, T={LAST_YEAR}",
-        "2022-2100 2DII + Current Policies  Scenario": "s2=0, T=2100",
-        f"2022-{LAST_YEAR} 2DII + Net Zero 2050 Scenario": f"s2=Net Zero 2050, T={LAST_YEAR}",
-        "2022-2100 2DII + Net Zero 2050 Scenario": "s2=Net Zero 2050, T=2100",
+        f"2022-{LAST_YEAR} FA + Current Policies  Scenario": f"s2=0, T={LAST_YEAR}",
+        "2022-2100 FA + Current Policies  Scenario": "s2=0, T=2100",
+        f"2022-{LAST_YEAR} FA + Net Zero 2050 Scenario": f"s2=Net Zero 2050, T={LAST_YEAR}",
+        "2022-2100 FA + Net Zero 2050 Scenario": "s2=Net Zero 2050, T=2100",
     }
 
     # Find the intersect with the x axis
@@ -1098,7 +964,7 @@ def make_climate_financing_plot(
     global nonpower_coal
 
     if chosen_s2_scenario is None:
-        chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+        chosen_s2_scenario = "2022-2050 FA + Net Zero 2050 Scenario"
 
     (
         iso3166_df,
@@ -1118,7 +984,7 @@ def make_climate_financing_plot(
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
 
     cache_json_path = (
-        f"plots/climate_financing_yearly_discounted_{git_branch}{plotname_suffix}.json"
+        f"cache/climate_financing_yearly_discounted_{git_branch}{plotname_suffix}.json"
     )
     yearly_costs_dict = None
     if ignore_cache:
@@ -1145,7 +1011,7 @@ def make_climate_financing_plot(
     _developing_sum = 0.0
     _emerging_sum = 0.0
     _region_sum = defaultdict(float)
-    for year_start, year_end in [(NGFS_PEG_YEAR + 1, 2050), (2051, 2070), (2071, 2100)]:
+    for year_start, year_end in [(NGFS_PEG_YEAR + 1, 2030), (2031, 2050)]:
         _world = _get_year_range_cost(year_start, year_end)
         _world_sum += _world
         _developed = _get_year_range_cost(
@@ -1191,7 +1057,7 @@ def make_climate_financing_plot(
     # Add explanatory text
     plt.text(
         1,
-        25,
+        5,
         "By level of\ndevelopment",
         color="gray",
         verticalalignment="top",
@@ -1199,7 +1065,7 @@ def make_climate_financing_plot(
     )
     plt.text(
         5,
-        25,
+        5,
         "By region",
         color="gray",
         verticalalignment="top",
@@ -1275,7 +1141,7 @@ def make_climate_financing_SCATTER_plot():
     # Only in masterdata: {nan, 'TW', 'XK'}
 
     # country_shortnames = list(masterdata_coal_set - {np.nan, "TW", "XK"})
-    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario = "2022-2100 FA + Net Zero 2050 Scenario"
     cache_json_path = "plots/climate_financing.json"
 
     costs_dict = calculate_each_countries_cost_with_cache(
@@ -1416,7 +1282,7 @@ def calculate_yearly_costs_dict(chosen_s2_scenario):
 def make_yearly_climate_financing_plot():
     global nonpower_coal
 
-    chosen_s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario = "2022-2100 FA + Net Zero 2050 Scenario"
     chosen_s2_scenario += " NON-DISCOUNTED"
 
     (
@@ -1625,7 +1491,7 @@ def make_yearly_climate_financing_plot():
 
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
-    chosen_s2_scenario_discounted = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario_discounted = "2022-2100 FA + Net Zero 2050 Scenario"
     chosen_s2_scenario_non_discounted = (
         chosen_s2_scenario_discounted + " NON-DISCOUNTED"
     )
@@ -1715,7 +1581,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
 
 
 def do_cf_battery_yearly():
-    chosen_s2_scenario_discounted = "2022-2100 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario_discounted = "2022-2100 FA + Net Zero 2050 Scenario"
     chosen_s2_scenario_non_discounted = (
         chosen_s2_scenario_discounted + " NON-DISCOUNTED"
     )
@@ -1960,8 +1826,8 @@ def run_3_level_scc():
         LAST_YEAR = last_year
         caos = []
         caos_with_residual = []
-        condition = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
-        # condition = f"2022-{last_year} 2DII + Current Policies  Scenario"
+        condition = f"2022-{last_year} FA + Net Zero 2050 Scenario"
+        # condition = f"2022-{last_year} FA + Current Policies  Scenario"
         scs = [
             util.social_cost_of_carbon_lower_bound,
             util.social_cost_of_carbon_imf,
@@ -1991,7 +1857,7 @@ def get_yearly_by_country():
     for enable in [False, True]:
         ENABLE_COAL_EXPORT = enable
         out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
-        nz2050 = out["2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"]
+        nz2050 = out["2022-2100 FA + Net Zero 2050 Scenario NON-DISCOUNTED"]
         # print(a["investment_cost"])
         series_ics = []
         series_ocs = []
@@ -2131,17 +1997,18 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 1:
+    if 0:
         out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
-        print(out["Total emissions avoided including residual (GtCO2)"])
+        print(json.dumps(out, indent=2))
+        # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
-    if 1:
+    if 0:
         # Battery yearly
         # do_cf_battery_yearly()
         # make_battery_plot()
         make_battery_unit_ic_plot()
         exit()
-    if 1:
+    if 0:
         run_3_level_scc()
         exit()
     # make_carbon_arbitrage_opportunity_plot()

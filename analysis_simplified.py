@@ -75,7 +75,7 @@ fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
     ngfss, sector, scenario, start_year=NGFS_PEG_YEAR
 )
 fraction_increase_after_peg_year_CPS = util.calculate_ngfs_fractional_increase(
-    ngfss, sector, "Current Policies ", start_year=NGFS_PEG_YEAR
+    ngfss, sector, "Current Policies", start_year=NGFS_PEG_YEAR
 )
 # IRENA data (public)
 # It's a short JSON file that you can read to get an idea what it contains.
@@ -395,7 +395,7 @@ total_emissions_non_discounted_after_peg_year = sum(
 )
 fraction_increase_after_peg_year_CPS_different_peg_year = (
     util.calculate_ngfs_fractional_increase(
-        ngfss, sector, "Current Policies ", start_year=cps_peg_year
+        ngfss, sector, "Current Policies", start_year=cps_peg_year
     )
 )
 total_emissions_non_discounted_after_peg_year_CPS = sum(

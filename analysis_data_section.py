@@ -61,7 +61,7 @@ def convert2Gtonnes(sector, x):
 
 def plot_pure_ngfs_over_time(_ngfs, figname, sector):
     for scenario in util.scenarios:
-        if scenario not in ["Net Zero 2050", "Current Policies "]:
+        if scenario not in ["Net Zero 2050", "Current Policies"]:
             continue
         # Remove weird character
         cleaned_scenario = scenario.replace("Â", "")
@@ -90,7 +90,7 @@ def plot_pure_ngfs_over_time(_ngfs, figname, sector):
 def plot_pure_ngfs_over_time_GLOBAL(_ngfs, figname, sector):
     plt.figure()
     for scenario in util.scenarios:
-        if scenario not in ["Net Zero 2050", "Current Policies "]:
+        if scenario not in ["Net Zero 2050", "Current Policies"]:
             continue
         # Remove weird character
         cleaned_scenario = scenario.replace("Â", "")
@@ -134,7 +134,7 @@ def plot_combined_2dii_ngfs_over_time(
 
         # ngfs_peg_year is the year where the NGFS value is pegged to be the
         # same as masterdata global production value.
-        if scenario == "Current Policies ":
+        if scenario == "Current Policies":
             ngfs_peg_year = 2026
         else:
             ngfs_peg_year = 2023
@@ -297,7 +297,7 @@ if 0:
         plt.sca(axs[i])
         for label, content in out_combined[mode].items():
             plt.plot(content["x"], content["y"], label=label)
-        current_policies = out_combined[mode]["Current Policies "]
+        current_policies = out_combined[mode]["Current Policies"]
         plot_halt_to_coal_production(current_policies["x"], current_policies["y"])
         plt.xlabel("Time")
         if mode == "production":
