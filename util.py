@@ -440,15 +440,15 @@ def calculate_discount(rho, deltat):
     return (1 + rho) ** -deltat
 
 
-def sum_discounted(array, rho, start_year=2022):
+def sum_discounted(array, rho):
     return sum(
-        e * calculate_discount(rho, start_year + i - 2022) for i, e in enumerate(array)
+        e * calculate_discount(rho, i) for i, e in enumerate(array)
     )
 
 
-def discount_array(array, rho, start_year=2022):
+def discount_array(array, rho):
     return [
-        e * calculate_discount(rho, start_year + i - 2022) for i, e in enumerate(array)
+        e * calculate_discount(rho, i) for i, e in enumerate(array)
     ]
 
 
@@ -484,28 +484,6 @@ def get_capacity_factor(iea_df, year):
             # For year > 2040
             truncated_year = 2040
         return iea_df[iea_df.year == truncated_year].iloc[0].capacity_factor
-
-
-def get_coal_power_global_emissions_across_years(
-    power_coal, years, discounted=False, rho=None
-):
-    emissions_list = []
-    if discounted:
-        assert years[0] == 2022
-        assert rho is not None
-    for year in years:
-        mw_coal = power_coal[f"_{year}"]
-        discount = 1
-        if discounted:
-            discount = calculate_discount(rho, year - 2022)
-        # the emissions_factor unit is "tonnes of CO2 per MWh"
-        emissions = (
-            mw_coal * hours_in_1year * power_coal.emissions_factor * discount
-        ).sum()
-        # Convert to GtCO2
-        emissions /= 1e9
-        emissions_list.append(emissions)
-    return emissions_list
 
 
 def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None):

@@ -207,7 +207,7 @@ def calculate_country_specific_scc_data(
 ):
     if last_year is None:
         last_year = 2100
-    chosen_s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
     analysis_main.LAST_YEAR = last_year
     costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
         chosen_s2_scenario,
@@ -607,7 +607,7 @@ def calculate_global_benefit(last_year=None):
     if last_year is None:
         last_year = 2100
     out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
-    chosen_s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
     property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     global_benefit = out[property][chosen_s2_scenario]
     return global_benefit
@@ -2060,7 +2060,7 @@ def do_bruegel_5(action_groups, enable_coal_export):
         "w",
     ) as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(["country"] + list(range(2022, 2100 + 1)))
+        csvwriter.writerow(["country"] + list(range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)))
 
         total = 0
         for group, countries in action_groups.items():
