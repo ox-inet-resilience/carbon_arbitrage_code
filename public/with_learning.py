@@ -21,10 +21,6 @@ RENEWABLE_WEIGHTS = {
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 RENEWABLE_LIFESPAN = 30  # years
-# Whether to reverse-discount the gross benefit at 1% per
-# year.
-ENABLE_BENEFIT_NET_GROWTH = False
-BENEFIT_NET_GROWTH_RATE = 0.01
 
 
 def calculate_discount(rho, deltat):
@@ -257,17 +253,12 @@ class InvestmentCostWithLearning:
         residual_emissions = 0.0
         residual_production = 0.0
         for year in range(year_start, year_end + 1):
-            growth = (
-                calculate_discount(BENEFIT_NET_GROWTH_RATE, -(year - 2022))
-                if ENABLE_BENEFIT_NET_GROWTH
-                else 1
-            )
             (
                 equivalent_emissions,
                 equivalent_production,
             ) = self.calculate_residual_one_year(
                 year, weighted_emissions_factor_by_country
             )
-            residual_emissions += growth * equivalent_emissions
-            residual_production += growth * equivalent_production
+            residual_emissions += equivalent_emissions
+            residual_production += equivalent_production
         return residual_emissions, residual_production
