@@ -82,6 +82,10 @@ def maybe_round2(do_it, x):
     return round2(x) if do_it else x
 
 
+def maybe_round3(do_it, x):
+    return round(x, 3) if do_it else x
+
+
 def pandas_divide_or_zero(num, dem):
     return (num / dem).replace([np.inf, -np.inf], 0)
 
@@ -308,58 +312,58 @@ def calculate_cost1_info(
     data = {
         "Using production projections of data set": data_set,
         "Time Period of Carbon Arbitrage": time_period,
-        "Total coal production avoided (Giga tonnes)": maybe_round2(
-            do_round, total_production_avoided
-        ),
-        "Total coal production avoided including residual (Giga tonnes)": maybe_round2(
-            do_round, total_production_avoided + residual_production
-        ),
-        "Electricity generation avoided including residual (PWh)": maybe_round2(
+        "Total coal production avoided (Giga tonnes)": total_production_avoided,
+        "Total coal production avoided including residual (Giga tonnes)": total_production_avoided
+        + residual_production,
+        "Electricity generation avoided including residual (PWh)": (
             # Multiplication by 1e9 converts from Giga tonnes to tonnes
             # Division by seconds in 1 hr converts from GJ to GWh
             # Division by 1e6 converts from GWh to PWh
-            do_round,
             util.coal2GJ((total_production_avoided + residual_production) * 1e9)
-            / util.seconds_in_1hour / 1e6,
+            / util.seconds_in_1hour
+            / 1e6
         ),
-        "Total emissions avoided (GtCO2)": maybe_round2(do_round, saved_non_discounted),
-        "Total emissions avoided including residual (GtCO2)": maybe_round2(
-            do_round, saved_non_discounted + residual_emissions
-        ),
-        "Costs of avoiding coal emissions (in trillion dollars)": maybe_round2(
-            do_round, cost_discounted
-        ),
-        "Opportunity costs represented by missed coal revenues (in trillion dollars)": maybe_round2(
-            do_round, cost_discounted_revenue
-        ),
-        "Investment costs in renewable energy (in trillion dollars)": maybe_round2(
-            do_round, cost_discounted_investment
-        ),
-        "Carbon arbitrage opportunity (in trillion dollars)": maybe_round2(
-            do_round, net_benefit
-        ),
-        "Carbon arbitrage opportunity relative to world GDP (%)": maybe_round2(
-            do_round, net_benefit * 100 / (world_gdp_2020 * arbitrage_period)
-        ),
-        "Carbon arbitrage residual benefit (in trillion dollars)": maybe_round2(
-            do_round, residual_benefit
-        ),
-        "Carbon arbitrage including residual benefit (in trillion dollars)": maybe_round2(
-            do_round, net_benefit + residual_benefit
-        ),
-        "Carbon arbitrage including residual benefit relative to world GDP (%)": maybe_round2(
-            do_round,
-            (net_benefit + residual_benefit)
-            * 100
-            / (world_gdp_2020 * arbitrage_period),
-        ),
-        "Benefits of avoiding coal emissions (in trillion dollars)": maybe_round2(
-            do_round, benefit_non_discounted
-        ),
-        "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": maybe_round2(
-            do_round, benefit_non_discounted + residual_benefit
-        ),
+        "Total emissions avoided (GtCO2)": saved_non_discounted,
+        "Total emissions avoided including residual (GtCO2)": saved_non_discounted
+        + residual_emissions,
+        "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
+        "Opportunity costs represented by missed coal revenues (in trillion dollars)": cost_discounted_revenue,
+        "opportunity_cost_battery_short_trillion": sum_array_of_mixed_objs(
+            out_yearly_info["cost_battery_short"]
+        ) / 1e12,
+        "opportunity_cost_battery_long_trillion": sum_array_of_mixed_objs(
+            out_yearly_info["cost_battery_long"]
+        ) / 1e12,
+        "opportunity_cost_battery_pe_trillion": sum_array_of_mixed_objs(
+            out_yearly_info["cost_battery_pe"]
+        ) / 1e12,
+        "opportunity_cost_battery_grid_trillion": sum_array_of_mixed_objs(
+            out_yearly_info["cost_battery_grid"]
+        ) / 1e12,
+        "Investment costs in renewable energy (in trillion dollars)": cost_discounted_investment,
+        "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
+        "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
+        * 100
+        / (world_gdp_2020 * arbitrage_period),
+        "Carbon arbitrage residual benefit (in trillion dollars)": residual_benefit,
+        "Carbon arbitrage including residual benefit (in trillion dollars)": net_benefit
+        + residual_benefit,
+        "Carbon arbitrage including residual benefit relative to world GDP (%)": (
+            net_benefit + residual_benefit
+        )
+        * 100
+        / (world_gdp_2020 * arbitrage_period),
+        "Benefits of avoiding coal emissions (in trillion dollars)": benefit_non_discounted,
+        "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": benefit_non_discounted
+        + residual_benefit,
     }
+    for k, v in data.items():
+        if k in [
+            "Using production projections of data set",
+            "Time Period of Carbon Arbitrage",
+        ]:
+            continue
+        data[k] = maybe_round3(do_round, v)
     return data, out_yearly_info
 
 
@@ -586,7 +590,9 @@ def generate_cost1_output(
 
         for never_discount in [False, True]:
             never_discount_text = " NON-DISCOUNTED" if never_discount else ""
-            text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}{never_discount_text}"
+            text = (
+                f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}{never_discount_text}"
+            )
             cost1_info, yearly_info = calculate_cost1_info(
                 do_round,
                 scenario_formatted,
@@ -635,7 +641,11 @@ def do_plot_yearly_cost1(yearly_both):
     for condition, value in yearly_both.items():
         print(condition)
         plt.figure()
-        x = full_years_2100 if f"{NGFS_PEG_YEAR}-2100" in condition else full_years_midyear
+        x = (
+            full_years_2100
+            if f"{NGFS_PEG_YEAR}-2100" in condition
+            else full_years_midyear
+        )
         plt.plot(x, floatify_array_of_mixed_objs(value["cost"]), label="Costs")
         plt.plot(
             x,
@@ -686,7 +696,7 @@ def run_cost1(
         ]:
             both_dict[key] = out_dict[key]
         else:
-            both_dict[key] = maybe_round2(
+            both_dict[key] = maybe_round3(
                 do_round,
                 pd.Series(out_dict[key]),
             ).to_dict()
@@ -1364,7 +1374,9 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
         return yearly_world_cost
 
     def _get_year_range_cost(year_start, year_end, yearly_world_cost):
-        return sum(yearly_world_cost[year_start - NGFS_PEG_YEAR : year_end + 1 - NGFS_PEG_YEAR])
+        return sum(
+            yearly_world_cost[year_start - NGFS_PEG_YEAR : year_end + 1 - NGFS_PEG_YEAR]
+        )
 
     label_map = {
         "30Y": "30Y, D, E",
@@ -1454,7 +1466,9 @@ def do_cf_battery_yearly():
         return yearly_world_cost
 
     def _get_year_range_cost(year_start, year_end, yearly_world_cost):
-        return sum(yearly_world_cost[year_start - NGFS_PEG_YEAR : year_end + 1 - NGFS_PEG_YEAR])
+        return sum(
+            yearly_world_cost[year_start - NGFS_PEG_YEAR : year_end + 1 - NGFS_PEG_YEAR]
+        )
 
     labels = [
         "30Y, D, E",
@@ -1721,7 +1735,9 @@ def get_yearly_by_country():
         for i in range(2, 2100 - NGFS_PEG_YEAR + 1):
             # Trillions
             series_ocs.append(nz2050["opportunity_cost"][i].rename(NGFS_PEG_YEAR + i))
-            series_ics.append(pd.Series(nz2050["investment_cost"][i], name=(NGFS_PEG_YEAR + i)))
+            series_ics.append(
+                pd.Series(nz2050["investment_cost"][i], name=(NGFS_PEG_YEAR + i))
+            )
         git_branch = util.get_git_branch()
         a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
 
@@ -1745,7 +1761,9 @@ def get_yearly_by_country():
             from coal_export.common import modify_avoided_emissions_based_on_coal_export
 
             yearly_ae = modify_avoided_emissions_based_on_coal_export(yearly_ae)
-        df = pd.DataFrame(yearly_ae, index=list(range(NGFS_PEG_YEAR, 2100 + 1))).transpose()
+        df = pd.DataFrame(
+            yearly_ae, index=list(range(NGFS_PEG_YEAR, 2100 + 1))
+        ).transpose()
         df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
         df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{suffix}.csv")
 
@@ -1879,11 +1897,6 @@ if __name__ == "__main__":
     # make_carbon_arbitrage_opportunity_plot()
     # exit()
     # make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=True)
-    # It is faster not to calculate residual benefit for climate financing.
-    with_learning.ENABLE_RESIDUAL_BENEFIT = 0
-    make_climate_financing_plot()
-    # make_climate_financing_SCATTER_plot()
-    exit()
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()

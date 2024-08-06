@@ -11,6 +11,7 @@ sys.path.append(parent_dir)
 
 import analysis_main  # noqa
 import util  # noqa
+import with_learning
 
 
 def make_climate_financing_plot(
@@ -152,3 +153,16 @@ def make_climate_financing_plot(
             climate_financing_dict[xticks[i]] += d[1][i]
     with open(f"plots/for_comparison_pv_climate_financing_{git_branch}.json", "w") as f:
         json.dump(climate_financing_dict, f)
+
+
+if __name__ == "__main__":
+    # It is faster not to calculate residual benefit for climate financing.
+    with_learning.ENABLE_RESIDUAL_BENEFIT = 0
+    make_climate_financing_plot()
+    # make_climate_financing_SCATTER_plot()
+    exit()
+    make_yearly_climate_financing_plot()
+    exit()
+    make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
+    # Reenable residual benefit again
+    with_learning.ENABLE_RESIDUAL_BENEFIT = 1

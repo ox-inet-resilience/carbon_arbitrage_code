@@ -6,7 +6,7 @@ import util
 ENABLE_WRIGHTS_LAW = 1
 ENABLE_BATTERY_SHORT = True
 ENABLE_BATTERY_LONG = True
-ENABLE_BATTERY_GRID = False
+ENABLE_BATTERY_GRID = True
 ENABLE_RESIDUAL_BENEFIT = 1
 NGFS_RENEWABLE_WEIGHT = "static_50%"
 assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS", "dynamic_NGFS"]
@@ -331,8 +331,8 @@ class InvestmentCostWithLearning:
             _cgrid = 4.14
             i_grid_s2 = total_R * _cgrid
             grid_scenario = "pessimistic"
-            grid_scenario = "bau"
-            grid_scenario = "phaseout"
+            # grid_scenario = "bau"
+            # grid_scenario = "phaseout"
             if grid_scenario == "pessimistic":
                 ic_battery_grid = i_grid_s2
             elif grid_scenario == "bau":
