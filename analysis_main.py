@@ -328,16 +328,16 @@ def calculate_cost1_info(
         + residual_emissions,
         "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
         "Opportunity costs represented by missed coal revenues (in trillion dollars)": cost_discounted_revenue,
-        "opportunity_cost_battery_short_trillion": sum_array_of_mixed_objs(
+        "investment_cost_battery_short_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_short"]
         ) / 1e12,
-        "opportunity_cost_battery_long_trillion": sum_array_of_mixed_objs(
+        "investment_cost_battery_long_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_long"]
         ) / 1e12,
-        "opportunity_cost_battery_pe_trillion": sum_array_of_mixed_objs(
+        "investment_cost_battery_pe_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_pe"]
         ) / 1e12,
-        "opportunity_cost_battery_grid_trillion": sum_array_of_mixed_objs(
+        "investment_cost_battery_grid_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_grid"]
         ) / 1e12,
         "Investment costs in renewable energy (in trillion dollars)": cost_discounted_investment,
