@@ -295,10 +295,10 @@ def read_forward_analytics_data(sector, pre_existing_df=None):
     # All sectors are:
     # {'Coal', 'Oil&Gas', 'Aviation', 'Shipping', 'HDV', 'Steel', 'Power',
     # 'Automotive', 'Cement'}
-    nonpower_coal = df[df.sector == sector].copy()
+    df_sector = df[df.sector == sector].copy()
     # power_companies = df[df.sector == "Power"]
     # power_coal = power_companies[power_companies.technology == "CoalCap"].copy()
-    return df, nonpower_coal
+    return df, df_sector
 
 
 def read_ngfs():
@@ -317,6 +317,7 @@ def calculate_ngfs_projection(
     start_year,
     last_year,
     alpha2_to_alpha3,
+    filter_subsector=None
 ):
     assert sector == "Power"
     ngfs = ngfs_df[production_or_emissions]
@@ -324,8 +325,11 @@ def calculate_ngfs_projection(
     if sector == "Coal":
         variable = "Primary Energy|Coal"
     subsectors = ["Coal", "Oil", "Gas"]
-    years_interpolated = list(range(start_year, 2101))
-    countries = value_fa.index.get_level_values("asset_country").to_list()
+    if filter_subsector is not None:
+        subsectors = [filter_subsector]
+    years_interpolated = list(range(start_year, last_year))
+    # Use set to deduplicate countries list.
+    countries = list(set(value_fa.index.get_level_values("asset_country").to_list()))
     out = None
 
     ngfs_country_wo_iea_stats = ngfs[
@@ -369,19 +373,17 @@ def calculate_ngfs_projection(
                 timeseries = across_years.copy()
             else:
                 timeseries = add_array(timeseries, across_years)
+        if timeseries is None:
+            continue
         if production_or_emissions == "emissions":
             if out is None:
                 out = timeseries.copy()
             else:
-                if timeseries is None:
-                    continue
                 out = add_array(out, timeseries)
         else:
             if out is None:
                 out = {country: timeseries}
             else:
-                if timeseries is None:
-                    continue
                 out[country] = timeseries
     if production_or_emissions == "production":
         summed = 0

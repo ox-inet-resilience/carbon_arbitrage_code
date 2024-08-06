@@ -2,7 +2,6 @@ import copy
 import json
 import math
 import os
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -95,13 +94,13 @@ ngfs_df = util.read_ngfs()
 iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
-df, nonpower_coal = util.read_forward_analytics_data(SECTOR_INCLUDED)
+df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
 
 processed_revenue.prepare_average_unit_profit(df)
 
 
-# We re-generate nonpower_coal again now that df has "energy_type_specific_average_unit_profit".
-_, nonpower_coal = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
+# We re-generate df_sector again now that df has "energy_type_specific_average_unit_profit".
+_, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
 
 
 def sum_array_of_mixed_objs(x):
@@ -477,10 +476,10 @@ def generate_cost1_output(
 
     # Production
     # Giga tonnes of coal
-    total_production_fa = util.get_production_by_country(nonpower_coal, SECTOR_INCLUDED)
+    total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
 
     # Emissions
-    emissions_fa = util.get_emissions_by_country(nonpower_coal)
+    emissions_fa = util.get_emissions_by_country(df_sector)
 
     current_policies = {
         LAST_YEAR: None,
@@ -675,7 +674,7 @@ def run_cost1(
     out, yearly = generate_cost1_output(
         rho,
         do_round,
-        nonpower_coal,
+        df_sector,
     )
 
     out_dict = out.T.to_dict()
@@ -700,7 +699,7 @@ def run_cost1(
             ext += "_30Y"
         if with_learning.ENABLE_WRIGHTS_LAW:
             ext += "_wright"
-        fname = f"plots/cost1_both_{uid}{ext}_{social_cost_of_carbon}.csv"
+        fname = f"plots/cost1_{uid}{ext}_{social_cost_of_carbon}_{LAST_YEAR}.csv"
         pd.DataFrame(both_dict).T.to_csv(fname)
 
     if plot_yearly:
@@ -987,7 +986,7 @@ def make_climate_financing_SCATTER_plot():
     # gdp_marketcap_dict["XK"] = 7716925.36
 
     worldbank_set = set(gdp_per_capita_dict.keys())
-    masterdata_coal_set = set(nonpower_coal.asset_country)
+    masterdata_coal_set = set(df_sector.asset_country)
     divide_by_marketcap = True
 
     print("MODE divide by marketcap", divide_by_marketcap)
@@ -1138,7 +1137,7 @@ def calculate_yearly_costs_dict(chosen_s2_scenario):
 
 
 def make_yearly_climate_financing_plot():
-    global nonpower_coal
+    global df_sector
 
     chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
     chosen_s2_scenario += " NON-DISCOUNTED"
@@ -1855,7 +1854,7 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 0:
+    if 1:
         sccs = [
             util.social_cost_of_carbon_imf,
             util.scc_biden_administration,
