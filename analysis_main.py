@@ -54,7 +54,7 @@ LAST_YEAR = 2050
 # LAST_YEAR = 2030
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
-NGFS_PEG_YEAR = 2022
+NGFS_PEG_YEAR = 2024
 # SECTOR_INCLUDED = "Coal"
 SECTOR_INCLUDED = "Power"
 # Possible values: "default", "100year", "5%", "8%", "0%"
