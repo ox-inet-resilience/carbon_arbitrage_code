@@ -28,30 +28,21 @@ plt.rc("font", size=13)
 plt.rc("legend", fontsize=11, title_fontsize=11)
 # End font
 
-USE_NATURE_PAPER_SCC = False
-
 hours_in_1year = 24 * 365.25
 seconds_in_1hour = 3600  # seconds
 # The years in NGFS data
 ngfs_years = list(range(2005, 2105, 5))
 
 # Constants
-# We obtain 114.9 by averaging 61.4 and 168.4.
-# For the source of the 2 numbers, see:
-# https://mitsloan.hosted.panopto.com/Panopto/Pages/Viewer.aspx?id=f56f202e-adc4-48c6-8b1d-adc8013d54d9
 # and https://resilience.zulipchat.com/#narrow/stream/285747-TRISK/topic/to.20do/near/265246287
 # The unit is dollars per tCO2
-social_cost_of_carbon_lower_bound = 61.4  # min
-social_cost_of_carbon_upper_bound = 168.4  # max
-social_cost_of_carbon_mid = 114.9
 social_cost_of_carbon_imf = 80
-scc_nature_paper = 998.3153319040857
-# social_cost_of_carbon = social_cost_of_carbon_lower_bound
+scc_biden_administration = 190
+# Bilal, Adrien, and Diego R. Känzig. The Macroeconomic Impact of Climate Change: Global vs. Local Temperature. No. w32450. National Bureau of Economic Research, 2024.
+scc_bilal = 1056
 social_cost_of_carbon = social_cost_of_carbon_imf
-if USE_NATURE_PAPER_SCC:
-    social_cost_of_carbon = scc_nature_paper
-# social_cost_of_carbon = social_cost_of_carbon_mid
-# social_cost_of_carbon = social_cost_of_carbon_upper_bound
+# social_cost_of_carbon = social_cost_of_carbon_biden_administration
+# social_cost_of_carbon = scc_bilal
 world_gdp_2020 = 84.705  # trillion dolars
 EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
 # EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
@@ -342,6 +333,8 @@ def calculate_ngfs_projection(
     ]
 
     def country_mapper(alpha2):
+        if alpha2 == "XK":  # Kosovo
+            return "XKX"
         return alpha2_to_alpha3[alpha2]
 
     for country in countries:
@@ -513,68 +506,6 @@ def get_coal_power_global_emissions_across_years(
         emissions /= 1e9
         emissions_list.append(emissions)
     return emissions_list
-
-
-def get_coal_power_global_generation_across_years(power_coal, years):
-    generations = []
-    for year in years:
-        # In MW
-        mw_coal = power_coal[f"_{year}"].sum()
-        # In Giga tonnes of coal
-        generation = MW2Gigatonnes_of_coal(mw_coal)
-        generations.append(generation)
-    return generations
-
-
-def get_coal_power_per_company_discounted_PROFIT_summed_over_years(
-    ngfs_peg_year,
-    power_coal,
-    masterdata_years,
-    fraction_increase_after_peg_year,
-    beta,
-    x=1,
-    summation_start_year=None,
-):
-    profits_list = []
-    assert ngfs_peg_year == 2026
-    assert masterdata_years[0] == 2022
-    assert summation_start_year is not None
-    assert beta is not None
-    rho = calculate_rho(beta)
-    grouped = power_coal.groupby("company_id")
-    for year in masterdata_years:
-        if year < summation_start_year:
-            continue
-
-        discount = calculate_discount(rho, year - 2022)
-
-        def process(g):
-            # In MW
-            mw_coal = g[f"_{year}"]
-            gj = MW2GJ(mw_coal)
-            return (gj * g.energy_type_specific_average_unit_profit * discount).sum()
-
-        profits = grouped.apply(process)
-        profits_list.append(profits)
-    # From NGFS
-
-    def process(g):
-        # This function is the same as the previous process() except for
-        # mw_coal.
-        # In MW
-        mw_coal = g[f"_{ngfs_peg_year}"]
-        gj = MW2GJ(mw_coal)
-        return (gj * g.energy_type_specific_average_unit_profit).sum()
-
-    profits_peg_year = grouped.apply(process)
-
-    sum_frac_increase = 0.0
-    for year, v in fraction_increase_after_peg_year.items():
-        discount = calculate_discount(rho, year - 2022)
-        sum_frac_increase += discount * v
-
-    profits_list.append(profits_peg_year * sum_frac_increase)
-    return sum(profits_list)
 
 
 def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None):

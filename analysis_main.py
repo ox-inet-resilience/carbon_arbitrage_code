@@ -51,6 +51,7 @@ lcoe_mode = "solar+wind"
 # lcoe_mode="solar+wind+gas"
 ENABLE_COAL_EXPORT = 0
 LAST_YEAR = 2050
+# LAST_YEAR = 2030
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
 NGFS_PEG_YEAR = 2022
@@ -329,6 +330,14 @@ def calculate_cost1_info(
         "Total coal production avoided including residual (Giga tonnes)": maybe_round2(
             do_round, total_production_avoided + residual_production
         ),
+        "Electricity generation avoided including residual (PWh)": maybe_round2(
+            # Multiplication by 1e9 converts from Giga tonnes to tonnes
+            # Division by seconds in 1 hr converts from GJ to GWh
+            # Division by 1e6 converts from GWh to PWh
+            do_round,
+            util.coal2GJ((total_production_avoided + residual_production) * 1e9)
+            / util.seconds_in_1hour / 1e6,
+        ),
         "Total emissions avoided (GtCO2)": maybe_round2(do_round, saved_non_discounted),
         "Total emissions avoided including residual (GtCO2)": maybe_round2(
             do_round, saved_non_discounted + residual_emissions
@@ -359,6 +368,9 @@ def calculate_cost1_info(
             (net_benefit + residual_benefit)
             * 100
             / (world_gdp_2020 * arbitrage_period),
+        ),
+        "Benefits of avoiding coal emissions (in trillion dollars)": maybe_round2(
+            do_round, benefit_non_discounted
         ),
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": maybe_round2(
             do_round, benefit_non_discounted + residual_benefit
@@ -539,7 +551,9 @@ def generate_cost1_output(
 
         # NGFS_PEG_YEAR-last_year
         array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
-        total_emissions_discounted = util.sum_discounted(emissions_with_ngfs_projection, rho)
+        total_emissions_discounted = util.sum_discounted(
+            emissions_with_ngfs_projection, rho
+        )
 
         if scenario == "Net Zero 2050":
             DeltaP = util.subtract_array(
@@ -1997,9 +2011,17 @@ if __name__ == "__main__":
         exit()
 
     # calculate_capacity_investment_gamma()
-    if 0:
-        out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
-        print(json.dumps(out, indent=2))
+    if 1:
+        sccs = [
+            util.social_cost_of_carbon_imf,
+            util.scc_biden_administration,
+            util.scc_bilal,
+        ]
+        for scc in sccs:
+            util.social_cost_of_carbon = scc
+            social_cost_of_carbon = scc  # noqa: F811
+            out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
+        # print(json.dumps(out, indent=2))
         # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
     if 0:

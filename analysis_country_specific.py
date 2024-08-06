@@ -242,13 +242,10 @@ def calculate_country_specific_scc_data(
     benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        if util.USE_NATURE_PAPER_SCC:
-            cache_name = f"cache/unilateral_benefit_scc_nature_paper/unilateral_benefit_trillion_{last_year}.json"
-        else:
-            suffix = "_with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
-            cache_name = (
-                f"cache/unilateral_benefit_total_trillion_{last_year}{suffix}.json"
-            )
+        suffix = "_with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
+        cache_name = (
+            f"cache/unilateral_benefit_total_trillion_{last_year}{suffix}.json"
+        )
         unilateral_benefit = util.read_json(cache_name)
         if isa_climate_club:
             unilateral_emissions = 0.0
