@@ -292,18 +292,26 @@ def calculate_cost1_info(
         out_yearly_info["investment_cost"] = (
             array_of_cost_discounted_investment_trillions
         )
-        out_yearly_info["cost_battery_short"] = discount_the_array(divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
-        ))
-        out_yearly_info["cost_battery_long"] = discount_the_array(divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
-        ))
-        out_yearly_info["cost_battery_pe"] = discount_the_array(divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
-        ))
-        out_yearly_info["cost_battery_grid"] = discount_the_array(divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
-        ))
+        out_yearly_info["cost_battery_short"] = discount_the_array(
+            divide_array_of_mixed_objs(
+                final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
+            )
+        )
+        out_yearly_info["cost_battery_long"] = discount_the_array(
+            divide_array_of_mixed_objs(
+                final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
+            )
+        )
+        out_yearly_info["cost_battery_pe"] = discount_the_array(
+            divide_array_of_mixed_objs(
+                final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
+            )
+        )
+        out_yearly_info["cost_battery_grid"] = discount_the_array(
+            divide_array_of_mixed_objs(
+                final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
+            )
+        )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
@@ -339,20 +347,16 @@ def calculate_cost1_info(
         "Opportunity costs represented by missed coal revenues (in trillion dollars)": cost_discounted_revenue,
         "investment_cost_battery_short_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_short"]
-        )
-        / 1e12,
+        ),
         "investment_cost_battery_long_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_long"]
-        )
-        / 1e12,
+        ),
         "investment_cost_battery_pe_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_pe"]
-        )
-        / 1e12,
+        ),
         "investment_cost_battery_grid_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_grid"]
-        )
-        / 1e12,
+        ),
         "Investment costs in renewable energy (in trillion dollars)": cost_discounted_investment,
         "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
         "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
