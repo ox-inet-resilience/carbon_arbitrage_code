@@ -131,6 +131,7 @@ def divide_array_of_mixed_objs(arr, divider):
 
 
 def add_array_of_mixed_objs(x, y):
+    assert len(x) == len(y)
     out = []
     for i in range(len(x)):
         xi = x[i]
@@ -141,11 +142,10 @@ def add_array_of_mixed_objs(x, y):
             yi = yi.to_dict()
 
         if isinstance(xi, dict):
-            z = {}
             if isinstance(yi, float) and yi == 0.0:
-                z = xi
-                out.append(z)
+                out.append(xi.copy())
                 continue
+            z = {}
             # We need to include keys from both xi and yi, because recently in
             # the coal export, there are 100% importer countries that are not
             # part of masterdata.
@@ -512,9 +512,6 @@ def generate_cost1_output(
     for scenario in ["Current Policies", "Net Zero 2050"]:
         # NGFS_PEG_YEAR
         cost_new_method = with_learning.InvestmentCostWithLearning()
-        deltaP = 0.0
-        discount = 0.0
-        cost_new_method.calculate_investment_cost(deltaP, NGFS_PEG_YEAR, discount)
 
         last_year = LAST_YEAR
         # Giga tonnes of coal

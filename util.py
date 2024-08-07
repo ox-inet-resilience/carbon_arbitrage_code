@@ -321,7 +321,7 @@ def calculate_ngfs_projection(
     subsectors = ["Coal", "Oil", "Gas"]
     if filter_subsector is not None:
         subsectors = [filter_subsector]
-    years_interpolated = list(range(start_year, last_year))
+    years_interpolated = list(range(start_year, last_year + 1))
     # Use set to deduplicate countries list.
     countries = list(set(value_fa.index.get_level_values("asset_country").to_list()))
     out = None
