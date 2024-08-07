@@ -164,7 +164,6 @@ def calculate_cost1_info(
     time_period,
     total_production,
     array_of_total_emissions_non_discounted,
-    total_emissions_discounted,
     array_of_cost_non_discounted_revenue,
     array_of_cost_discounted_revenue,  # opportunity cost
     array_of_cost_non_discounted_investment,
@@ -195,28 +194,37 @@ def calculate_cost1_info(
     )
     if current_policies is None:
         assert data_set == "FA" or "Current Policies" in data_set, data_set
-        saved_non_discounted = sum(array_of_total_emissions_non_discounted)
+        saved_non_discounted = sum_array_of_mixed_objs(
+            array_of_total_emissions_non_discounted
+        )
         total_production_avoided = total_production
-        out_yearly_info["benefit_non_discounted"] = np.array(
+        out_yearly_info["benefit_non_discounted"] = list(
             array_of_total_emissions_non_discounted
         )
     else:
         assert not (data_set == "FA" or "Current Policies" in data_set)
-        saved_non_discounted = sum(current_policies["emissions_non_discounted"]) - sum(
-            array_of_total_emissions_non_discounted
-        )
+        saved_non_discounted = sum_array_of_mixed_objs(
+            current_policies["emissions_non_discounted"]
+        ) - sum_array_of_mixed_objs(array_of_total_emissions_non_discounted)
+
         total_production_avoided = (
             current_policies["total_production"] - total_production
         )
-        out_yearly_info["benefit_non_discounted"] = np.array(
-            current_policies["emissions_non_discounted"]
-        ) - np.array(array_of_total_emissions_non_discounted)
+        out_yearly_info["benefit_non_discounted"] = util.subtract_array(
+            current_policies["emissions_non_discounted"],
+            array_of_total_emissions_non_discounted,
+        )
     # We multiply by 1e9 to go from GtCO2 to tCO2
     # We divide by 1e12 to get trilllion USD
-    out_yearly_info["benefit_non_discounted"] *= 1e9 / 1e12 * social_cost_of_carbon
+    for i in range(len(out_yearly_info["benefit_non_discounted"])):
+        out_yearly_info["benefit_non_discounted"][i] *= (
+            1e9 / 1e12 * social_cost_of_carbon
+        )
 
     # Summed benefit
-    benefit_non_discounted = sum(out_yearly_info["benefit_non_discounted"])
+    benefit_non_discounted = sum_array_of_mixed_objs(
+        out_yearly_info["benefit_non_discounted"]
+    )
 
     # Convert to trillion USD
     cost_non_discounted_revenue /= 1e12
@@ -489,9 +497,7 @@ def generate_cost1_output(
     # Emissions
     emissions_fa = util.get_emissions_by_country(df_sector)
 
-    current_policies = {
-        LAST_YEAR: None,
-    }
+    current_policies = None
     production_2019 = (
         _df_nonpower.groupby("asset_country")._2019.sum()
         if ENABLE_COAL_EXPORT
@@ -502,7 +508,7 @@ def generate_cost1_output(
         calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower)
     )
 
-    production_ngfs_projection_CPS = None
+    production_with_ngfs_projection_CPS = None
     for scenario in ["Current Policies", "Net Zero 2050"]:
         # NGFS_PEG_YEAR
         cost_new_method = with_learning.InvestmentCostWithLearning()
@@ -524,7 +530,7 @@ def generate_cost1_output(
                 alpha2_to_alpha3,
             )
         )
-        emissions_with_ngfs_projection = util.calculate_ngfs_projection(
+        emissions_with_ngfs_projection, _ = util.calculate_ngfs_projection(
             "emissions",
             emissions_fa,
             ngfs_df,
@@ -543,9 +549,6 @@ def generate_cost1_output(
 
         # NGFS_PEG_YEAR-last_year
         array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
-        total_emissions_discounted = util.sum_discounted(
-            emissions_with_ngfs_projection, rho
-        )
 
         if scenario == "Net Zero 2050":
             DeltaP = util.subtract_array(
@@ -602,13 +605,12 @@ def generate_cost1_output(
                 scenario_formatted,
                 f"{NGFS_PEG_YEAR}-{last_year}",
                 gigatonnes_coal_production,
-                array_of_total_emissions_non_discounted,
-                total_emissions_discounted,
+                copy.deepcopy(array_of_total_emissions_non_discounted),
                 cost_non_discounted_revenue,
                 cost_discounted_revenue,
                 cost_non_discounted_investment,
                 cost_discounted_investment,
-                current_policies=current_policies[last_year],
+                current_policies=current_policies,
                 never_discount_the_cost=never_discount,
                 residual_emissions=residual_emissions,
                 residual_production=residual_production,
@@ -617,9 +619,10 @@ def generate_cost1_output(
             out[text] = cost1_info
             out_yearly[text] = yearly_info
         if scenario == "Current Policies":
-            current_policies[last_year] = {
-                "emissions_non_discounted": array_of_total_emissions_non_discounted,
-                "emissions_discounted": total_emissions_discounted,
+            current_policies = {
+                "emissions_non_discounted": copy.deepcopy(
+                    array_of_total_emissions_non_discounted
+                ),
                 "total_production": gigatonnes_coal_production,
             }
 
@@ -869,9 +872,8 @@ def calculate_each_countries_with_cache(
         LAST_YEAR = last_year
     use_cache = not ignore_cache
     if use_cache and os.path.isfile(cache_json_path):
-        print("Cached climate financing json found. Reading...")
+        print("Cached json found. Reading...")
         info_dict = util.read_json(cache_json_path)
-        print("Done")
     else:
         info_dict = {}
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
@@ -902,7 +904,7 @@ def calculate_each_countries_with_cache(
                         # pandas series
                         country_level_cost += e.loc[country_name]
                 each_key_dict[country_name] = country_level_cost
-            info_dict[key] = each_key_dict
+            info_dict[key] = each_key_dict.copy()
         if use_cache:
             with open(cache_json_path, "w") as f:
                 json.dump(info_dict, f)
@@ -1184,7 +1186,6 @@ def make_yearly_climate_financing_plot():
     if os.path.isfile(cache_json_path):
         print("Cached climate YEARLY financing json found. Reading...")
         yearly_costs_dict = util.read_json(cache_json_path)
-        print("Done")
     else:
         yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
         with open(cache_json_path, "w") as f:

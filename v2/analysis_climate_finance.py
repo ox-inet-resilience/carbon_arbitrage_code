@@ -14,7 +14,6 @@ import util  # noqa
 
 
 def make_climate_financing_plot(
-    plotname_suffix="",
     plot_name=None,
     svg=False,
     info_name="cost",
@@ -46,7 +45,7 @@ def make_climate_financing_plot(
         info = analysis_main.calculate_each_countries_with_cache(
             chosen_s2_scenario,
             f"cache/country_specific_info_{last_year}_{git_branch}.json",
-            ignore_cache=True,
+            ignore_cache=False,
             info_name=info_name,
             last_year=last_year,
         )
@@ -60,7 +59,7 @@ def make_climate_financing_plot(
     def get_info_with_start_year(
         start_year=None, last_year=None, included_countries=None
     ):
-        if start_year is None:
+        if start_year == analysis_main.NGFS_PEG_YEAR:
             return get_info(info_name, last_year, included_countries)
         return get_info(info_name, last_year, included_countries) - get_info(
             info_name, start_year - 1, included_countries
@@ -73,7 +72,7 @@ def make_climate_financing_plot(
     _developing_sum = 0.0
     _emerging_sum = 0.0
     _region_sum = defaultdict(float)
-    for year_start, year_end in [(None, 2030), (2031, 2050)]:
+    for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR, 2030), (2031, 2050)]:
         _world = get_info_with_start_year(year_start, year_end)
         _world_sum += _world
         _developed = get_info_with_start_year(
@@ -117,9 +116,11 @@ def make_climate_financing_plot(
     # Right after Emerging Market Countries
     plt.axvline((3 + 4) / 2, color="gray", linestyle="dashed")
     # Add explanatory text
+    print(info_name, plot_data)
+    text_height = max(plot_data[1][1])
     plt.text(
         1,
-        9,
+        text_height,
         "By level of\ndevelopment",
         color="gray",
         verticalalignment="top",
@@ -127,7 +128,7 @@ def make_climate_financing_plot(
     )
     plt.text(
         5,
-        9,
+        text_height,
         "By region",
         color="gray",
         verticalalignment="top",
@@ -136,17 +137,24 @@ def make_climate_financing_plot(
 
     plt.legend()
     plt.xticks(xticks, rotation=45, ha="right")
-    plt.ylabel("PV climate financing (trillion dollars)")
+    label = info_name
+    if info_name == "cost":
+        label = "PV climate financing"
+    elif info_name == "benefit_non_discounted":
+        label = "Benefit non-discounted\nw/o residual benefit"
+    label += " (trillion dollars)"
+    plt.ylabel(label)
     plt.tight_layout()
     util.savefig(
-        plot_name if plot_name else f"climate_financing_by_region{plotname_suffix}",
+        plot_name if plot_name else f"climate_financing_by_region_{info_name}",
         svg=svg,
     )
     plt.close()
 
 
 if __name__ == "__main__":
-    make_climate_financing_plot()
+    for info_name in ["cost", "benefit_non_discounted", "opportunity_cost", "investment_cost"]:
+        make_climate_financing_plot(info_name=info_name)
     # make_climate_financing_SCATTER_plot()
     exit()
     make_yearly_climate_financing_plot()

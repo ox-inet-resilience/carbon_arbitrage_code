@@ -136,12 +136,6 @@ def add_array(a, b):
 def subtract_array(a, b):
     assert len(a) == len(b)
 
-    def subtract(x, y):
-        if isinstance(x, float):
-            return x - y
-        assert len(x) == len(y)
-        return {c: v - y[c] for c, v in x.items()}
-
     return [a[i] - b[i] for i in range(len(a))]
 
 
@@ -375,28 +369,19 @@ def calculate_ngfs_projection(
                 timeseries = add_array(timeseries, across_years)
         if timeseries is None:
             continue
-        if production_or_emissions == "emissions":
-            if out is None:
-                out = timeseries.copy()
-            else:
-                out = add_array(out, timeseries)
+        if out is None:
+            out = {country: timeseries}
         else:
-            if out is None:
-                out = {country: timeseries}
-            else:
-                out[country] = timeseries
-    if production_or_emissions == "production":
-        summed = 0
-        for value in out.values():
-            summed += sum(value)
-        _out = []
-        for i in range(len(years_interpolated)):
-            _out.append(
-                pd.Series({country: value[i] for country, value in out.items()})
-            )
-        out = _out
-        return out, summed
-    return out
+            out[country] = timeseries
+    summed = 0
+    for value in out.values():
+        summed += sum(value)
+    final_out = []
+    for i in range(len(years_interpolated)):
+        final_out.append(
+            pd.Series({country: value[i] for country, value in out.items()})
+        )
+    return final_out, summed
 
 
 def calculate_rho(beta, rho_mode="default"):
