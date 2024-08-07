@@ -208,12 +208,12 @@ def calculate_country_specific_scc_data(
     if last_year is None:
         last_year = 2100
     chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
-    analysis_main.LAST_YEAR = last_year
-    costs_dict = analysis_main.calculate_each_countries_cost_with_cache(
+    costs_dict = analysis_main.calculate_each_countries_with_cache(
         chosen_s2_scenario,
         "plots/country_specific_cost.json",
         ignore_cache=True,
-        cost_name=cost_name,
+        info_name=cost_name,
+        last_year=last_year,
     )
     out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False)
     global_benefit = out[

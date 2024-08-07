@@ -330,16 +330,20 @@ def calculate_cost1_info(
         "Opportunity costs represented by missed coal revenues (in trillion dollars)": cost_discounted_revenue,
         "investment_cost_battery_short_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_short"]
-        ) / 1e12,
+        )
+        / 1e12,
         "investment_cost_battery_long_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_long"]
-        ) / 1e12,
+        )
+        / 1e12,
         "investment_cost_battery_pe_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_pe"]
-        ) / 1e12,
+        )
+        / 1e12,
         "investment_cost_battery_grid_trillion": sum_array_of_mixed_objs(
             out_yearly_info["cost_battery_grid"]
-        ) / 1e12,
+        )
+        / 1e12,
         "Investment costs in renewable energy (in trillion dollars)": cost_discounted_investment,
         "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
         "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
@@ -851,44 +855,58 @@ def prepare_regions_for_climate_financing(iso3166_df):
     return region_countries_map, regions
 
 
-def calculate_each_countries_cost_with_cache(
-    chosen_s2_scenario, cache_json_path, ignore_cache=False, cost_name="cost"
+def calculate_each_countries_with_cache(
+    chosen_s2_scenario,
+    cache_json_path,
+    ignore_cache=False,
+    info_name="cost",
+    last_year=None,
 ):
     # IMPORTANT: the chosen s2 scenario indicates whether the yearly cost for
     # avoiding is discounted or not.
+    if last_year is not None:
+        global LAST_YEAR
+        LAST_YEAR = last_year
     use_cache = not ignore_cache
     if use_cache and os.path.isfile(cache_json_path):
         print("Cached climate financing json found. Reading...")
-        costs_dict = util.read_json(cache_json_path)
+        info_dict = util.read_json(cache_json_path)
         print("Done")
     else:
-        costs_dict = {}
+        info_dict = {}
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
-        yearly_cost_for_avoiding = out[chosen_s2_scenario][cost_name]
-        country_names = set()
-        for e in yearly_cost_for_avoiding:
-            if isinstance(e, float):
-                continue
-            elif isinstance(e, dict):
-                country_names = country_names.union(e.keys())
-            else:
-                raise Exception("Should not happen")
-        for country_name in country_names:
-            country_level_cost = 0.0
-            for e in yearly_cost_for_avoiding:
+        for key, yearly in out[chosen_s2_scenario].items():
+            # Collect all country names
+            country_names = set()
+            for e in yearly:
                 if isinstance(e, float):
-                    assert math.isclose(e, 0.0)
+                    continue
                 elif isinstance(e, dict):
-                    # .get instead of [], for battery's case
-                    country_level_cost += e.get(country_name, 0.0)
+                    country_names = country_names.union(e.keys())
+                elif isinstance(e, pd.Series):
+                    country_names = country_names.union(e.index)
                 else:
-                    # Pandas series
-                    country_level_cost += e.loc[country_name]
-            costs_dict[country_name] = country_level_cost
+                    print(e)
+                    raise Exception("Should not happen")
+
+            each_key_dict = {}
+            for country_name in country_names:
+                country_level_cost = 0.0
+                for e in yearly:
+                    if isinstance(e, float):
+                        assert math.isclose(e, 0.0)
+                    elif isinstance(e, dict):
+                        # We use .get instead of [], for battery's case
+                        country_level_cost += e.get(country_name, 0.0)
+                    else:
+                        # pandas series
+                        country_level_cost += e.loc[country_name]
+                each_key_dict[country_name] = country_level_cost
+            info_dict[key] = each_key_dict
         if use_cache:
             with open(cache_json_path, "w") as f:
-                json.dump(costs_dict, f)
-    return costs_dict
+                json.dump(info_dict, f)
+    return info_dict[info_name]
 
 
 def do_climate_financing_sanity_check(

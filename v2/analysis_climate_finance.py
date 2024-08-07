@@ -11,21 +11,14 @@ sys.path.append(parent_dir)
 
 import analysis_main  # noqa
 import util  # noqa
-import with_learning
 
 
 def make_climate_financing_plot(
     plotname_suffix="",
     plot_name=None,
     svg=False,
-    ignore_cache=False,
-    chosen_s2_scenario=None,
+    info_name="cost",
 ):
-    global nonpower_coal
-
-    if chosen_s2_scenario is None:
-        chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-2050 FA + Net Zero 2050 Scenario"
-
     (
         iso3166_df,
         iso3166_df_alpha2,
@@ -41,28 +34,37 @@ def make_climate_financing_plot(
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
-
-    cache_json_path = (
-        f"cache/climate_financing_yearly_discounted_{git_branch}{plotname_suffix}.json"
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
+        iso3166_df
     )
-    yearly_costs_dict = None
-    if ignore_cache:
-        yearly_costs_dict = analysis_main.calculate_yearly_costs_dict(chosen_s2_scenario)
-    elif os.path.isfile(cache_json_path):
-        yearly_costs_dict = util.read_json(cache_json_path)
-    else:
-        yearly_costs_dict = analysis_main.calculate_yearly_costs_dict(chosen_s2_scenario)
-        with open(cache_json_path, "w") as f:
-            json.dump(yearly_costs_dict, f)
 
-    def _get_year_range_cost(year_start, year_end, included_countries=None):
-        out = 0.0
-        for c, e in yearly_costs_dict.items():
+    def get_info(info_name, last_year, included_countries=None):
+        chosen_s2_scenario = (
+            f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
+        )
+
+        info = analysis_main.calculate_each_countries_with_cache(
+            chosen_s2_scenario,
+            f"cache/country_specific_info_{last_year}_{git_branch}.json",
+            ignore_cache=True,
+            info_name=info_name,
+            last_year=last_year,
+        )
+        value = 0.0
+        for c, e in info.items():
             if included_countries is not None and c not in included_countries:
                 continue
-            out += sum(e[year_start - analysis_main.NGFS_PEG_YEAR : year_end + 1 - analysis_main.NGFS_PEG_YEAR])
-        return out
+            value += e
+        return value
+
+    def get_info_with_start_year(
+        start_year=None, last_year=None, included_countries=None
+    ):
+        if start_year is None:
+            return get_info(info_name, last_year, included_countries)
+        return get_info(info_name, last_year, included_countries) - get_info(
+            info_name, start_year - 1, included_countries
+        )
 
     plot_data = []
     # Used for sanity check.
@@ -71,18 +73,18 @@ def make_climate_financing_plot(
     _developing_sum = 0.0
     _emerging_sum = 0.0
     _region_sum = defaultdict(float)
-    for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR + 1, 2030), (2031, 2050)]:
-        _world = _get_year_range_cost(year_start, year_end)
+    for year_start, year_end in [(None, 2030), (2031, 2050)]:
+        _world = get_info_with_start_year(year_start, year_end)
         _world_sum += _world
-        _developed = _get_year_range_cost(
+        _developed = get_info_with_start_year(
             year_start, year_end, developed_country_shortnames
         )
         _developed_sum += _developed
-        _developing = _get_year_range_cost(
+        _developing = get_info_with_start_year(
             year_start, year_end, developING_country_shortnames
         )
         _developing_sum += _developing
-        _emerging = _get_year_range_cost(
+        _emerging = get_info_with_start_year(
             year_start, year_end, emerging_country_shortnames
         )
         _emerging_sum += _emerging
@@ -93,7 +95,7 @@ def make_climate_financing_plot(
             _emerging,
         ]
         for region in regions:
-            _region_cost = _get_year_range_cost(
+            _region_cost = get_info_with_start_year(
                 year_start, year_end, region_countries_map[region]
             )
             _region_sum[region] += _region_cost
@@ -142,27 +144,11 @@ def make_climate_financing_plot(
     )
     plt.close()
 
-    if ignore_cache:
-        return
-
-    # This is for comparing the by-region and by-world of NGFS fractional
-    # increase.
-    climate_financing_dict = defaultdict(float)
-    for i in range(len(xticks)):
-        for d in plot_data:
-            climate_financing_dict[xticks[i]] += d[1][i]
-    with open(f"plots/for_comparison_pv_climate_financing_{git_branch}.json", "w") as f:
-        json.dump(climate_financing_dict, f)
-
 
 if __name__ == "__main__":
-    # It is faster not to calculate residual benefit for climate financing.
-    with_learning.ENABLE_RESIDUAL_BENEFIT = 0
     make_climate_financing_plot()
     # make_climate_financing_SCATTER_plot()
     exit()
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
-    # Reenable residual benefit again
-    with_learning.ENABLE_RESIDUAL_BENEFIT = 1
