@@ -274,35 +274,36 @@ def calculate_cost1_info(
         out_yearly_info["investment_cost"] = (
             array_of_cost_non_discounted_investment_trillions
         )
-        out_yearly_info["cost_battery_short"] = (
-            final_cost_new_method.cost_non_discounted_battery_short_by_country
+        # Division by 1e12 converts to trillion
+        out_yearly_info["cost_battery_short"] = divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
         )
-        out_yearly_info["cost_battery_long"] = (
-            final_cost_new_method.cost_non_discounted_battery_long_by_country
+        out_yearly_info["cost_battery_long"] = divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
         )
-        out_yearly_info["cost_battery_pe"] = (
-            final_cost_new_method.cost_non_discounted_battery_pe_by_country
+        out_yearly_info["cost_battery_pe"] = divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
         )
-        out_yearly_info["cost_battery_grid"] = (
-            final_cost_new_method.cost_non_discounted_battery_grid_by_country
+        out_yearly_info["cost_battery_grid"] = divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
         )
     else:
         out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
         out_yearly_info["investment_cost"] = (
             array_of_cost_discounted_investment_trillions
         )
-        out_yearly_info["cost_battery_short"] = discount_the_array(
-            final_cost_new_method.cost_non_discounted_battery_short_by_country
-        )
-        out_yearly_info["cost_battery_long"] = discount_the_array(
-            final_cost_new_method.cost_non_discounted_battery_long_by_country
-        )
-        out_yearly_info["cost_battery_pe"] = discount_the_array(
-            final_cost_new_method.cost_non_discounted_battery_pe_by_country
-        )
-        out_yearly_info["cost_battery_grid"] = discount_the_array(
-            final_cost_new_method.cost_non_discounted_battery_grid_by_country
-        )
+        out_yearly_info["cost_battery_short"] = discount_the_array(divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
+        ))
+        out_yearly_info["cost_battery_long"] = discount_the_array(divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
+        ))
+        out_yearly_info["cost_battery_pe"] = discount_the_array(divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
+        ))
+        out_yearly_info["cost_battery_grid"] = discount_the_array(divide_array_of_mixed_objs(
+            final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
+        ))
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
