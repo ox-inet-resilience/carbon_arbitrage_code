@@ -7,8 +7,8 @@ from coal_export.common import nonpower_coal, get_export_fraction, get_import_fr
 # In tonnes of coal
 nonpower_coal["emissions_2020"] = nonpower_coal._2020 * nonpower_coal.emissions_factor
 emissions = nonpower_coal.groupby("asset_country").emissions_2020.sum()
-gdp_marketcap_dict = util.read_json("data/all_countries_gdp_marketcap_2020.json")
-gdp_per_capita_dict = util.read_json("data/all_countries_gdp_per_capita_2020.json")
+gdp_marketcap_dict = util.read_json(util.gdp_marketcap_path)
+gdp_per_capita_dict = util.read_json(util.gdp_per_capita_path)
 
 
 emissions_per_capita = {}

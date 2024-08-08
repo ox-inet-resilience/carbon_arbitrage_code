@@ -12,7 +12,7 @@ import util
 import processed_revenue
 from util import (
     social_cost_of_carbon,
-    world_gdp_2020,
+    world_gdp_2023,
 )
 import with_learning
 
@@ -361,7 +361,7 @@ def calculate_cost1_info(
         "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
         "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
         * 100
-        / (world_gdp_2020 * arbitrage_period),
+        / (world_gdp_2023 * arbitrage_period),
         "Carbon arbitrage residual benefit (in trillion dollars)": residual_benefit,
         "Carbon arbitrage including residual benefit (in trillion dollars)": net_benefit
         + residual_benefit,
@@ -369,7 +369,7 @@ def calculate_cost1_info(
             net_benefit + residual_benefit
         )
         * 100
-        / (world_gdp_2020 * arbitrage_period),
+        / (world_gdp_2023 * arbitrage_period),
         "Benefits of avoiding coal emissions (in trillion dollars)": benefit_non_discounted,
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": benefit_non_discounted
         + residual_benefit,
@@ -748,7 +748,7 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
             if scenario != chosen_scenario:
                 continue
             if relative_to_world_gdp:
-                value = value / world_gdp_2020 * 100
+                value = value / world_gdp_2023 * 100
             ydict[scenario].append(value)
     mapper = {
         f"{NGFS_PEG_YEAR}-{LAST_YEAR} FA + Current Policies  Scenario": f"s2=0, T={LAST_YEAR}",
@@ -813,8 +813,8 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     # plt.legend()
     plt.xlabel("Social cost of carbon (dollars/tCO2)")
     if relative_to_world_gdp:
-        print("Relative to 2020 world GDP")
-        plt.ylabel("Carbon Arbitrage relative to 2020 World GDP (%)")
+        print("Relative to 2023 world GDP")
+        plt.ylabel("Carbon Arbitrage relative to 2023 World GDP (%)")
     else:
         plt.ylabel("Carbon Arbitrage (trillion dollars)")
     ax.xaxis.label.set_size(12)
@@ -1001,21 +1001,21 @@ def annotate(xs, ys, labels, filter_labels=None, no_zero_x=False, fontsize=None)
 
 
 def make_climate_financing_SCATTER_plot():
-    gdp_per_capita_dict = util.read_json("data/all_countries_gdp_per_capita_2020.json")
-    # Taiwan in 2020
-    # https://knoema.com/atlas/Taiwan-Province-of-China/GDP-per-capita
-    # gdp_per_capita_dict["TW"] = 28306
-    # Kosovo in 2020
+    gdp_per_capita_dict = util.read_json(util.gdp_per_capita_path)
+    # Taiwan in 2024
+    # https://www.imf.org/external/datamapper/NGDPDPC@WEO/ADVEC/WEOWORLD/TWN/CHN
+    # gdp_per_capita_dict["TW"] = 34430
+    # Kosovo in 2023
     # https://data.worldbank.org/indicator/NY.GDP.PCAP.CD?locations=XK
-    # gdp_per_capita_dict["XK"] = 4346.6
+    # gdp_per_capita_dict["XK"] = 5943.1
 
-    gdp_marketcap_dict = util.read_json("data/all_countries_gdp_marketcap_2020.json")
-    # Taiwan in 2020
+    gdp_marketcap_dict = util.read_json(util.gdp_marketcap_path)
+    # Taiwan in 2023
     # https://www.statista.com/statistics/727589/gross-domestic-product-gdp-in-taiwan/
-    # gdp_marketcap_dict["TW"] = 668.16 * 1e9  # billion USD
-    # Kosovo in 2020
+    # gdp_marketcap_dict["TW"] = 756.59 * 1e9  # billion USD
+    # Kosovo in 2023
     # https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=XK
-    # gdp_marketcap_dict["XK"] = 7716925.36
+    # gdp_marketcap_dict["XK"] = 10.44 * 1e9  # to billion uSD
 
     worldbank_set = set(gdp_per_capita_dict.keys())
     masterdata_coal_set = set(df_sector.asset_country)
@@ -1040,7 +1040,7 @@ def make_climate_financing_SCATTER_plot():
     developing_shortnames = util.get_developing_countries()
     emerging_shortnames = util.get_emerging_countries()
     developed_gdp = pd.read_csv("data/GDP-Developed-World.csv", thousands=",")
-    colname_for_gdp = "2020 GDP (million dollars)"
+    colname_for_gdp = "2023 GDP (million dollars)"
     developed_country_shortnames = list(
         developed_gdp.sort_values(by=colname_for_gdp, ascending=False).country_shortcode
     )
@@ -1272,7 +1272,7 @@ def make_yearly_climate_financing_plot():
     with open(f"plots/for_comparison_yearly_{git_branch}.json", "w") as f:
         json.dump(for_comparison, f)
 
-    # Part 3. Relative to 2020 developed GDP.
+    # Part 3. Relative to 2023 developed GDP.
     # million dollars.
     total_developed_gdp = developed_gdp[colname_for_gdp].sum()
     # Convert to trillion dollars.
@@ -1307,7 +1307,7 @@ def make_yearly_climate_financing_plot():
         (0.12707470412 - 0.05845436389) * (1 - math.exp(-0.01 * (t - 2016))) * 100
         for t in whole_years
     ]
-    world_cost_relative = np.array(yearly_world_cost) * 100 / world_gdp_2020
+    world_cost_relative = np.array(yearly_world_cost) * 100 / world_gdp_2023
     plt.plot(
         whole_years,
         benefit_relative_to_gdp,
@@ -1335,7 +1335,7 @@ def make_yearly_climate_financing_plot():
     plt.close()
 
     # benefit and cost for NA and Europe
-    gdp_marketcap_dict = util.read_json("data/all_countries_gdp_marketcap_2020.json")
+    gdp_marketcap_dict = util.read_json(util.gdp_marketcap_path)
     na = region_countries_map["North America"]
     europe = region_countries_map["Europe"]
     gdp_na = 0.0
@@ -1360,9 +1360,9 @@ def make_yearly_climate_financing_plot():
     scc_europe_fraction = sum(
         country_specific_scc_dict.get(c, 0.0) for c in europe
     ) / sum(country_specific_scc_dict.values())
-    benefit_na = benefit_world_relative * scc_na_fraction * world_gdp_2020 / gdp_na
+    benefit_na = benefit_world_relative * scc_na_fraction * world_gdp_2023 / gdp_na
     benefit_europe = (
-        benefit_world_relative * scc_europe_fraction * world_gdp_2020 / gdp_europe
+        benefit_world_relative * scc_europe_fraction * world_gdp_2023 / gdp_europe
     )
     plt.figure()
     plt.plot(whole_years, yearly_cost_na * 0.1, label="NA public costs")
@@ -1664,35 +1664,6 @@ def do_cf_battery_yearly():
     util.savefig("cf_battery_pv")
 
 
-def calculate_capacity_investment_gamma():
-    from scipy import stats
-
-    print("Gamma calculation")
-    # We pick the years to be the overlap of the IRENA data
-    # (2011-2020 and 2010-2020).
-
-    irena = util.read_json("data/irena.json")
-    for tech in ["solar", "onshore_wind", "offshore_wind"]:
-        cumulative_capacity = irena[
-            f"{tech}_MW_world_cumulative_total_installed_capacity_2011_2020"
-        ]
-        log_cumulative_capacity = np.log(cumulative_capacity)
-        # Limit to 2011-2020
-        log_investment_cost = np.log(irena[f"installed_cost_{tech}_2010_2020_$/kW"][1:])
-
-        slope, intercept, r_value, *_ = stats.linregress(
-            log_cumulative_capacity, log_investment_cost
-        )
-        print(tech, "r_value", r_value, "slope", slope, "alpha", np.exp(intercept))
-
-        plt.figure()
-        plt.scatter(log_cumulative_capacity, log_investment_cost)
-        plt.plot(log_cumulative_capacity, intercept + slope * log_cumulative_capacity)
-        plt.xlabel("log(Cumulative installed capacity in MW)")
-        plt.ylabel("log(Investment costs in $/kW)")
-        util.savefig(f"gamma_{tech}")
-
-
 def run_3_level_scc():
     # Run for 3 levels of social cost of carbon.
     global social_cost_of_carbon, LAST_YEAR
@@ -1892,7 +1863,6 @@ if __name__ == "__main__":
         get_yearly_by_country()
         exit()
 
-    # calculate_capacity_investment_gamma()
     if 1:
         sccs = [
             util.social_cost_of_carbon_imf,

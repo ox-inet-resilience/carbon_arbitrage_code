@@ -62,8 +62,8 @@ The public data can be found in the data/ folder in this Git repo.
 But the private data is confidential.
 ```
 2DII-country-name-shortcuts.csv
-all_countries_gdp_marketcap_2020.json
-all_countries_gdp_per_capita_2020.json
+all_countries_gdp_marketcap_2023.json
+all_countries_gdp_per_capita_2023.json
 country_ISO-3166_with_region.csv
 developing.txt
 developing_shortnames.csv
