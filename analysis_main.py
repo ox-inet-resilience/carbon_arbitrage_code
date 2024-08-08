@@ -172,7 +172,7 @@ def calculate_cost1_info(
     never_discount_the_cost=False,
     residual_emissions=0.0,
     residual_production=0.0,
-    final_cost_new_method=None,
+    final_cost_with_learning=None,
 ):
     if INVESTMENT_COST_DIVIDER > 1:
         array_of_cost_discounted_investment = divide_array_of_mixed_objs(
@@ -276,16 +276,16 @@ def calculate_cost1_info(
         )
         # Division by 1e12 converts to trillion
         out_yearly_info["cost_battery_short"] = divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
+            final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
         )
         out_yearly_info["cost_battery_long"] = divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
+            final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
         )
         out_yearly_info["cost_battery_pe"] = divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
+            final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
         )
         out_yearly_info["cost_battery_grid"] = divide_array_of_mixed_objs(
-            final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
+            final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
         )
     else:
         out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
@@ -294,22 +294,22 @@ def calculate_cost1_info(
         )
         out_yearly_info["cost_battery_short"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_new_method.cost_non_discounted_battery_short_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
             )
         )
         out_yearly_info["cost_battery_long"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_new_method.cost_non_discounted_battery_long_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
             )
         )
         out_yearly_info["cost_battery_pe"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_new_method.cost_non_discounted_battery_pe_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
             )
         )
         out_yearly_info["cost_battery_grid"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_new_method.cost_non_discounted_battery_grid_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
             )
         )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
@@ -439,19 +439,19 @@ def get_cost_including_ngfs_renewable(
 ):
     # We copy _cost_new_method because it is going to be reused for
     # different scenario and year range.
-    temp_cost_new_method = copy.deepcopy(_cost_new_method)
+    temp_cost_with_learning = copy.deepcopy(_cost_new_method)
 
     for i, dp in enumerate(DeltaP):
         discount = util.calculate_discount(rho, i)
-        temp_cost_new_method.calculate_investment_cost(dp, NGFS_PEG_YEAR + i, discount)
+        temp_cost_with_learning.calculate_investment_cost(dp, NGFS_PEG_YEAR + i, discount)
 
-    out_non_discounted = list(temp_cost_new_method.cost_non_discounted)
-    out_discounted = list(temp_cost_new_method.cost_discounted)
+    out_non_discounted = list(temp_cost_with_learning.cost_non_discounted)
+    out_discounted = list(temp_cost_with_learning.cost_discounted)
     residual_benefits_years_offset = with_learning.RENEWABLE_LIFESPAN
     (
         residual_emissions,
         residual_production,
-    ) = temp_cost_new_method.calculate_residual(
+    ) = temp_cost_with_learning.calculate_residual(
         last_year + 1,
         last_year + residual_benefits_years_offset,
         weighted_emissions_factor_by_country_peg_year,
@@ -459,31 +459,31 @@ def get_cost_including_ngfs_renewable(
     if last_year == 2100:
         global_cost_non_discounted[scenario] = [
             sum(i.values()) if isinstance(i, dict) else i
-            for i in temp_cost_new_method.cost_non_discounted
+            for i in temp_cost_with_learning.cost_non_discounted
         ]
         global_cost_non_discounted_battery_short[scenario] = list(
-            temp_cost_new_method.cost_non_discounted_battery_short
+            temp_cost_with_learning.cost_non_discounted_battery_short
         )
         global_cost_non_discounted_battery_long[scenario] = list(
-            temp_cost_new_method.cost_non_discounted_battery_long
+            temp_cost_with_learning.cost_non_discounted_battery_long
         )
         global_cost_non_discounted_battery_pe[scenario] = list(
-            temp_cost_new_method.cost_non_discounted_battery_pe
+            temp_cost_with_learning.cost_non_discounted_battery_pe
         )
         global_cost_non_discounted_battery_grid[scenario] = list(
-            temp_cost_new_method.cost_non_discounted_battery_grid
+            temp_cost_with_learning.cost_non_discounted_battery_grid
         )
         if scenario == "Net Zero 2050":
             global global_battery_unit_ic, global_unit_ic, global_cumulative_G
-            global_battery_unit_ic = temp_cost_new_method.battery_unit_ic
-            global_unit_ic = temp_cost_new_method.cached_wrights_law_investment_costs
-            global_cumulative_G = temp_cost_new_method.cached_cumulative_G
+            global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
+            global_unit_ic = temp_cost_with_learning.cached_wrights_law_investment_costs
+            global_cumulative_G = temp_cost_with_learning.cached_cumulative_G
     return (
         out_non_discounted,
         out_discounted,
         residual_emissions,
         residual_production,
-        temp_cost_new_method,
+        temp_cost_with_learning,
     )
 
 
@@ -576,7 +576,7 @@ def generate_cost1_output(
             cost_discounted_investment,
             residual_emissions,
             residual_production,
-            final_cost_new_method,
+            final_cost_with_learning,
         ) = get_cost_including_ngfs_renewable(
             _df_nonpower,
             rho,
@@ -616,7 +616,7 @@ def generate_cost1_output(
                 never_discount_the_cost=never_discount,
                 residual_emissions=residual_emissions,
                 residual_production=residual_production,
-                final_cost_new_method=final_cost_new_method,
+                final_cost_with_learning=final_cost_with_learning,
             )
             out[text] = cost1_info
             out_yearly[text] = yearly_info
@@ -1891,5 +1891,3 @@ if __name__ == "__main__":
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
-    # Reenable residual benefit again
-    with_learning.ENABLE_RESIDUAL_BENEFIT = 1
