@@ -295,12 +295,14 @@ def calculate_cost1_info(
         )
         out_yearly_info["cost_battery_short"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_short_by_country,
+                1e12,
             )
         )
         out_yearly_info["cost_battery_long"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_long_by_country,
+                1e12,
             )
         )
         out_yearly_info["cost_battery_pe"] = discount_the_array(
@@ -310,12 +312,16 @@ def calculate_cost1_info(
         )
         out_yearly_info["cost_battery_grid"] = discount_the_array(
             divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
+                final_cost_with_learning.cost_non_discounted_battery_grid_by_country,
+                1e12,
             )
         )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
+    out_yearly_info["residual_benefit"] = {
+        k: v * social_cost_of_carbon / 1e12 for k, v in residual_emissions_dict.items()
+    }
 
     # Costs of avoiding coal emissions
     assert cost_discounted_investment >= 0
@@ -444,7 +450,9 @@ def get_cost_including_ngfs_renewable(
 
     for i, dp in enumerate(DeltaP):
         discount = util.calculate_discount(rho, i)
-        temp_cost_with_learning.calculate_investment_cost(dp, NGFS_PEG_YEAR + i, discount)
+        temp_cost_with_learning.calculate_investment_cost(
+            dp, NGFS_PEG_YEAR + i, discount
+        )
 
     out_non_discounted = list(temp_cost_with_learning.cost_non_discounted)
     out_discounted = list(temp_cost_with_learning.cost_discounted)
@@ -881,6 +889,12 @@ def calculate_each_countries_with_cache(
         info_dict = {}
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
         for key, yearly in out[chosen_s2_scenario].items():
+            if key == "residual_benefit":
+                # Residual benefit is already in the format of dict[str, float]
+                # of country, value.
+                value = yearly
+                info_dict[key] = value
+                continue
             # Collect all country names
             country_names = set()
             for e in yearly:

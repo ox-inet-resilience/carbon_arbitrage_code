@@ -18,13 +18,33 @@ def get_info(info_name, last_year, included_countries=None):
         f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
 
-    info = analysis_main.calculate_each_countries_with_cache(
-        chosen_s2_scenario,
-        f"cache/country_specific_info_{last_year}_{git_branch}.json",
-        ignore_cache=False,
-        info_name=info_name,
-        last_year=last_year,
-    )
+    if info_name == "benefit":
+        info = analysis_main.calculate_each_countries_with_cache(
+            chosen_s2_scenario,
+            f"cache/country_specific_info_{last_year}_{git_branch}.json",
+            ignore_cache=False,
+            info_name="benefit_non_discounted",
+            last_year=last_year,
+        )
+        info_residual_benefit = analysis_main.calculate_each_countries_with_cache(
+            chosen_s2_scenario,
+            f"cache/country_specific_info_{last_year}_{git_branch}.json",
+            ignore_cache=False,
+            info_name="residual_benefit",
+            last_year=last_year,
+        )
+        # Add residual benefit to benefit
+        for k, v in info_residual_benefit.items():
+            info[k] += v
+
+    else:
+        info = analysis_main.calculate_each_countries_with_cache(
+            chosen_s2_scenario,
+            f"cache/country_specific_info_{last_year}_{git_branch}.json",
+            ignore_cache=False,
+            info_name=info_name,
+            last_year=last_year,
+        )
     value = 0.0
     for c, e in info.items():
         if included_countries is not None and c not in included_countries:
@@ -137,8 +157,8 @@ def make_climate_financing_plot(
     label = info_name
     if info_name == "cost":
         label = "PV climate financing"
-    elif info_name == "benefit_non_discounted":
-        label = "Benefit non-discounted\nw/o residual benefit"
+    elif info_name == "benefit":
+        label = "Benefit non-discounted"
     label += " (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
@@ -264,7 +284,7 @@ def make_cf_investment_cost_plot(last_year):
 if __name__ == "__main__":
     for info_name in [
         "cost",
-        "benefit_non_discounted",
+        "benefit",
         "opportunity_cost",
         "investment_cost",
     ]:
