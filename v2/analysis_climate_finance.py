@@ -37,30 +37,34 @@ def set_matplotlib_tick_spacing(tick_spacing):
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
 
+def get_global_benefit_country_reduction(chosen_s2_scenario, last_year):
+    info = analysis_main.calculate_each_countries_with_cache(
+        chosen_s2_scenario,
+        f"cache/country_specific_info_{last_year}_{git_branch}.json",
+        ignore_cache=False,
+        info_name="benefit_non_discounted",
+        last_year=last_year,
+    )
+    info_residual_benefit = analysis_main.calculate_each_countries_with_cache(
+        chosen_s2_scenario,
+        f"cache/country_specific_info_{last_year}_{git_branch}.json",
+        ignore_cache=False,
+        info_name="residual_benefit",
+        last_year=last_year,
+    )
+    # Add residual benefit to benefit
+    for k, v in info_residual_benefit.items():
+        info[k] += v
+    return info
+
+
 def get_info(info_name, last_year, included_countries=None):
     chosen_s2_scenario = (
         f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
 
-    if info_name == "benefit":
-        info = analysis_main.calculate_each_countries_with_cache(
-            chosen_s2_scenario,
-            f"cache/country_specific_info_{last_year}_{git_branch}.json",
-            ignore_cache=False,
-            info_name="benefit_non_discounted",
-            last_year=last_year,
-        )
-        info_residual_benefit = analysis_main.calculate_each_countries_with_cache(
-            chosen_s2_scenario,
-            f"cache/country_specific_info_{last_year}_{git_branch}.json",
-            ignore_cache=False,
-            info_name="residual_benefit",
-            last_year=last_year,
-        )
-        # Add residual benefit to benefit
-        for k, v in info_residual_benefit.items():
-            info[k] += v
-
+    if info_name == "global_benefit_country_reduction":
+        info = get_global_benefit_country_reduction(chosen_s2_scenario, last_year)
     else:
         info = analysis_main.calculate_each_countries_with_cache(
             chosen_s2_scenario,
@@ -101,9 +105,7 @@ def make_climate_financing_plot(
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
-        iso3166_df
-    )
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
 
     def get_info_with_start_year(
         start_year=None, last_year=None, included_countries=None
@@ -187,8 +189,8 @@ def make_climate_financing_plot(
     label = info_name
     if info_name == "cost":
         label = "PV climate financing"
-    elif info_name == "benefit":
-        label = "Benefit non-discounted"
+    elif info_name == "global_benefit_country_reduction":
+        label = "Global benefit\nregion reduction"
     label += " (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
@@ -296,7 +298,23 @@ def make_cf_investment_cost_plot(last_year):
 
 
 def make_climate_financing_top15_plot(last_year):
-    top15_power = "CN IN US VN ID TR JP RU DE BD ZA KR PL GB SA".split()
+    # This is sorted descending from emissions of 2024 only
+    top15_power_2024 = "CN IN US VN ID TR JP RU DE BD ZA KR PL GB SA".split()
+    chosen_s2_scenario = (
+        f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
+    )
+    global_benefit_country_reduction = get_global_benefit_country_reduction(
+        chosen_s2_scenario, last_year
+    )
+    # Sort by descending global benefit country reduction,
+    # which is equivalent to by avoided emissions.
+    top15_power = sorted(
+        top15_power_2024,
+        key=lambda c: global_benefit_country_reduction[c],
+        reverse=True,
+    )
+
+    alpha2_to_full_name = util.prepare_alpha2_to_full_name_concise()
     plot_data = []
     for info_name in ["renewables"] + cost_batteries:
         costs = [
@@ -304,7 +322,7 @@ def make_climate_financing_top15_plot(last_year):
             for country_name in top15_power
         ]
         plot_data.append((investment_label_map[info_name], costs))
-    xticks = top15_power
+    xticks = [alpha2_to_full_name[c] for c in top15_power]
     plt.figure(figsize=(6, 6))
     util.plot_stacked_bar(xticks, plot_data)
     plt.legend()
@@ -547,10 +565,10 @@ def make_yearly_climate_financing_plot():
 
 
 if __name__ == "__main__":
-    if 0:
+    if 1:
         for info_name in [
             "cost",
-            "benefit",
+            "global_benefit_country_reduction",
             "opportunity_cost",
             "investment_cost",
         ]:

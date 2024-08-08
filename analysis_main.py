@@ -1576,6 +1576,3 @@ if __name__ == "__main__":
     # make_carbon_arbitrage_opportunity_plot()
     # exit()
     # make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=True)
-    make_yearly_climate_financing_plot()
-    exit()
-    make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
