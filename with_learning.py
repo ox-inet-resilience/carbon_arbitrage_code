@@ -481,7 +481,7 @@ class InvestmentCostWithLearning:
             }
 
     def calculate_residual_one_year(self, year, weighted_emissions_factor_by_country):
-        equivalent_emissions = 0.0
+        equivalent_emissions = {}
         equivalent_production = 0.0
         for (
             country_name,
@@ -490,7 +490,9 @@ class InvestmentCostWithLearning:
             # in GJ
             total_R = self.calculate_total_R(country_name, year)
             tonnes_of_coal_equivalent = util.GJ2coal(total_R)
-            equivalent_emissions += tonnes_of_coal_equivalent * emissions_factor
+            equivalent_emissions[country_name] = (
+                tonnes_of_coal_equivalent * emissions_factor
+            )
             equivalent_production += tonnes_of_coal_equivalent
         return equivalent_emissions, equivalent_production
 
@@ -499,7 +501,7 @@ class InvestmentCostWithLearning:
     ):
         if not ENABLE_RESIDUAL_BENEFIT:
             return 0.0, 0.0
-        residual_emissions = 0.0
+        residual_emissions = defaultdict(float)
         residual_production = 0.0
         for year in range(year_start, year_end + 1):
             (
@@ -508,6 +510,7 @@ class InvestmentCostWithLearning:
             ) = self.calculate_residual_one_year(
                 year, weighted_emissions_factor_by_country
             )
-            residual_emissions += equivalent_emissions
+            for k, v in equivalent_emissions.items():
+                residual_emissions[k] += v
             residual_production += equivalent_production
         return residual_emissions, residual_production

@@ -170,7 +170,7 @@ def calculate_cost1_info(
     array_of_cost_discounted_investment,
     current_policies=None,
     never_discount_the_cost=False,
-    residual_emissions=0.0,
+    residual_emissions_dict=0.0,
     residual_production=0.0,
     final_cost_with_learning=None,
 ):
@@ -192,6 +192,7 @@ def calculate_cost1_info(
     cost_discounted_investment = sum_array_of_mixed_objs(
         array_of_cost_discounted_investment
     )
+    residual_emissions = sum(residual_emissions_dict.values())
     if current_policies is None:
         assert data_set == "FA" or "Current Policies" in data_set, data_set
         saved_non_discounted = sum_array_of_mixed_objs(
@@ -614,7 +615,7 @@ def generate_cost1_output(
                 cost_discounted_investment,
                 current_policies=current_policies,
                 never_discount_the_cost=never_discount,
-                residual_emissions=residual_emissions,
+                residual_emissions_dict=residual_emissions,
                 residual_production=residual_production,
                 final_cost_with_learning=final_cost_with_learning,
             )
