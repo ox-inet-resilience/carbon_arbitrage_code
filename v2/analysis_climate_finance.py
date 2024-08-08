@@ -211,9 +211,7 @@ def make_cf_investment_cost_plot(last_year):
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = prepare_regions_for_climate_financing(
-        iso3166_df
-    )
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
 
     plot_data = []
     # Used for sanity check.
@@ -375,10 +373,10 @@ def make_yearly_climate_financing_plot():
         print("Cached climate YEARLY financing json found. Reading...")
         yearly_costs_dict = util.read_json(cache_json_path)
     else:
-        yearly_costs_dict = calculate_yearly_info_dict(chosen_s2_scenario)
+        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(chosen_s2_scenario)
         with open(cache_json_path, "w") as f:
             json.dump(yearly_costs_dict, f)
-    whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
+    whole_years = range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)
 
     def _get_yearly_cost(shortnames):
         out = np.zeros(len(whole_years))
@@ -549,18 +547,19 @@ def make_yearly_climate_financing_plot():
 
 
 if __name__ == "__main__":
-    for info_name in [
-        "cost",
-        "benefit",
-        "opportunity_cost",
-        "investment_cost",
-    ]:
-        make_climate_financing_plot(info_name=info_name)
-    for last_year in [2030, 2050]:
-        make_cf_investment_cost_plot(last_year)
-        make_climate_financing_top15_plot(last_year)
+    if 0:
+        for info_name in [
+            "cost",
+            "benefit",
+            "opportunity_cost",
+            "investment_cost",
+        ]:
+            make_climate_financing_plot(info_name=info_name)
+        for last_year in [2030, 2050]:
+            make_cf_investment_cost_plot(last_year)
+            make_climate_financing_top15_plot(last_year)
+        exit()
     # make_climate_financing_SCATTER_plot()
-    exit()
     make_yearly_climate_financing_plot()
     exit()
     make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()

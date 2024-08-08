@@ -1086,10 +1086,10 @@ def make_climate_financing_SCATTER_plot():
     util.savefig("climate_financing_scatter")
 
 
-def calculate_yearly_info_dict(chosen_s2_scenario):
+def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
     yearly_costs_dict = {}
     out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
-    yearly_cost_for_avoiding = out[chosen_s2_scenario]["cost"]
+    yearly_cost_for_avoiding = out[chosen_s2_scenario][info_name]
     country_names = list(yearly_cost_for_avoiding[-1].keys())
     for country_name in country_names:
         country_level_cost = []
