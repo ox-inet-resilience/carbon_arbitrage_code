@@ -220,7 +220,7 @@ def do_website_sensitivity_analysis_climate_financing():
         # Important: must be non-discounted
         s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
 
-        yearly_costs_dict = analysis_main.calculate_yearly_costs_dict(s2_scenario)
+        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(s2_scenario)
         # Reduce the floating precision to save space
         yearly_costs_dict = {
             k: [float(f"{i:.8f}") for i in v] for k, v in yearly_costs_dict.items()

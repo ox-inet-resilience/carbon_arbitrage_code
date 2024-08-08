@@ -375,7 +375,7 @@ def make_yearly_climate_financing_plot():
         print("Cached climate YEARLY financing json found. Reading...")
         yearly_costs_dict = util.read_json(cache_json_path)
     else:
-        yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
+        yearly_costs_dict = calculate_yearly_info_dict(chosen_s2_scenario)
         with open(cache_json_path, "w") as f:
             json.dump(yearly_costs_dict, f)
     whole_years = range(NGFS_PEG_YEAR, 2100 + 1)

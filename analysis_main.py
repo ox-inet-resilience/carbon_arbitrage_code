@@ -1086,7 +1086,7 @@ def make_climate_financing_SCATTER_plot():
     util.savefig("climate_financing_scatter")
 
 
-def calculate_yearly_costs_dict(chosen_s2_scenario):
+def calculate_yearly_info_dict(chosen_s2_scenario):
     yearly_costs_dict = {}
     out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
     yearly_cost_for_avoiding = out[chosen_s2_scenario]["cost"]
@@ -1114,7 +1114,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
 
     def calculate_yearly_world_cost(s2_scenario):
-        yearly_costs_dict = calculate_yearly_costs_dict(s2_scenario)
+        yearly_costs_dict = calculate_yearly_info_dict(s2_scenario)
         # Calculating the cost for the whole world
         yearly_world_cost = np.zeros(len(whole_years))
         for v in yearly_costs_dict.values():
@@ -1206,7 +1206,7 @@ def do_cf_battery_yearly():
     whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
 
     def calculate_yearly_world_cost(s2_scenario):
-        yearly_costs_dict = calculate_yearly_costs_dict(s2_scenario)
+        yearly_costs_dict = calculate_yearly_info_dict(s2_scenario)
         # Calculating the cost for the whole world
         yearly_world_cost = np.zeros(len(whole_years))
         for v in yearly_costs_dict.values():
