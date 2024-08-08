@@ -6,7 +6,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.ticker as ticker
 
 import util
 import processed_revenue
@@ -17,26 +16,6 @@ from util import (
 import with_learning
 
 # TODO these globals could be removed.
-global_cost_non_discounted = {
-    "Current Policies": None,
-    "Net Zero 2050": None,
-}
-global_cost_non_discounted_battery_short = {
-    "Current Policies": None,
-    "Net Zero 2050": None,
-}
-global_cost_non_discounted_battery_long = {
-    "Current Policies": None,
-    "Net Zero 2050": None,
-}
-global_cost_non_discounted_battery_pe = {
-    "Current Policies": None,
-    "Net Zero 2050": None,
-}
-global_cost_non_discounted_battery_grid = {
-    "Current Policies": None,
-    "Net Zero 2050": None,
-}
 global_unit_ic = None
 global_battery_unit_ic = None
 global_cumulative_G = None
@@ -88,10 +67,6 @@ def maybe_round3(do_it, x):
 
 def pandas_divide_or_zero(num, dem):
     return (num / dem).replace([np.inf, -np.inf], 0)
-
-
-def set_matplotlib_tick_spacing(tick_spacing):
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
 
 ngfs_df = util.read_ngfs()
@@ -466,22 +441,6 @@ def get_cost_including_ngfs_renewable(
         weighted_emissions_factor_by_country_peg_year,
     )
     if last_year == 2100:
-        global_cost_non_discounted[scenario] = [
-            sum(i.values()) if isinstance(i, dict) else i
-            for i in temp_cost_with_learning.cost_non_discounted
-        ]
-        global_cost_non_discounted_battery_short[scenario] = list(
-            temp_cost_with_learning.cost_non_discounted_battery_short
-        )
-        global_cost_non_discounted_battery_long[scenario] = list(
-            temp_cost_with_learning.cost_non_discounted_battery_long
-        )
-        global_cost_non_discounted_battery_pe[scenario] = list(
-            temp_cost_with_learning.cost_non_discounted_battery_pe
-        )
-        global_cost_non_discounted_battery_grid[scenario] = list(
-            temp_cost_with_learning.cost_non_discounted_battery_grid
-        )
         if scenario == "Net Zero 2050":
             global global_battery_unit_ic, global_unit_ic, global_cumulative_G
             global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
@@ -832,43 +791,6 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     plt.savefig(f"plots/carbon_arbitrage_opportunity{suffix}.png")
 
 
-def prepare_regions_for_climate_financing(iso3166_df):
-    asia_countries = list(iso3166_df[iso3166_df.region == "Asia"]["alpha-2"])
-    africa_countries = list(iso3166_df[iso3166_df.region == "Africa"]["alpha-2"])
-    north_america_countries = list(
-        iso3166_df[iso3166_df["sub-region"] == "Northern America"]["alpha-2"]
-    )
-    lac_countries = list(
-        iso3166_df[iso3166_df["sub-region"] == "Latin America and the Caribbean"][
-            "alpha-2"
-        ]
-    )
-    europe_countries = list(iso3166_df[iso3166_df.region == "Europe"]["alpha-2"])
-    au_and_nz = list(
-        iso3166_df[iso3166_df["sub-region"] == "Australia and New Zealand"]["alpha-2"]
-    )
-
-    region_countries_map = {
-        "Asia": asia_countries,
-        "Africa": africa_countries,
-        "North America": north_america_countries,
-        "Latin America & the Carribean": lac_countries,
-        "Europe": europe_countries,
-        "Australia & New Zealand": au_and_nz,
-    }
-    # Just to make sure that the order is deterministic.
-    # Unlikely, but just to be sure.
-    regions = [
-        "Asia",
-        "Africa",
-        "North America",
-        "Latin America & the Carribean",
-        "Europe",
-        "Australia & New Zealand",
-    ]
-    return region_countries_map, regions
-
-
 def calculate_each_countries_with_cache(
     chosen_s2_scenario,
     cache_json_path,
@@ -1181,216 +1103,6 @@ def calculate_yearly_costs_dict(chosen_s2_scenario):
                 country_level_cost.append(e.loc[country_name])
         yearly_costs_dict[country_name] = country_level_cost
     return yearly_costs_dict
-
-
-def make_yearly_climate_financing_plot():
-    global df_sector
-
-    chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
-    chosen_s2_scenario += " NON-DISCOUNTED"
-
-    (
-        iso3166_df,
-        iso3166_df_alpha2,
-        developed_gdp,
-        colname_for_gdp,
-        developed_country_shortnames,
-    ) = util.prepare_from_climate_financing_data()
-
-    git_branch = util.get_git_branch()
-    # The cache is used only for each of the developed countries.
-    cache_json_path = f"plots/climate_financing_yearly_{git_branch}.json"
-    if os.path.isfile(cache_json_path):
-        print("Cached climate YEARLY financing json found. Reading...")
-        yearly_costs_dict = util.read_json(cache_json_path)
-    else:
-        yearly_costs_dict = calculate_yearly_costs_dict(chosen_s2_scenario)
-        with open(cache_json_path, "w") as f:
-            json.dump(yearly_costs_dict, f)
-    whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
-
-    def _get_yearly_cost(shortnames):
-        out = np.zeros(len(whole_years))
-        for n in shortnames:
-            if n in yearly_costs_dict:
-                out += np.array(yearly_costs_dict[n])
-        return out
-
-    yearly_developed_cost = _get_yearly_cost(developed_country_shortnames)
-
-    # Calculating the cost for the whole world
-    yearly_world_cost = np.zeros(len(whole_years))
-    for v in yearly_costs_dict.values():
-        yearly_world_cost += np.array(v)
-
-    # Calculating the climate change cost for developing countries
-    developING_country_shortnames = util.get_developing_countries()
-    yearly_developing_cost = _get_yearly_cost(developING_country_shortnames)
-
-    # Calculating for emerging countries
-    emerging_country_shortnames = util.get_emerging_countries()
-    yearly_emerging_cost = _get_yearly_cost(emerging_country_shortnames)
-
-    # Sanity check
-    # The world's cost must be equal to sum of its parts.
-    sum_individuals = (
-        sum(yearly_developed_cost)
-        + sum(yearly_developing_cost)
-        + sum(yearly_emerging_cost)
-    )
-    assert math.isclose(sum(yearly_world_cost), sum_individuals)
-
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    plt.sca(axs[0])
-    plt.plot(whole_years, yearly_world_cost, label="World")
-    plt.plot(whole_years, yearly_developed_cost, label="Developed countries")
-    plt.plot(whole_years, yearly_developing_cost, label="Developing countries")
-    plt.plot(whole_years, yearly_emerging_cost, label="Emerging-market countries")
-
-    plt.xlabel("Time")
-    plt.ylabel("Annual climate financing\n(trillion dollars)")
-    set_matplotlib_tick_spacing(10)
-    plt.xticks(rotation=45, ha="right")
-    plt.legend()
-
-    for_comparison = {
-        "by_development": {
-            "World": list(yearly_world_cost),
-            "Developed countries": list(yearly_developed_cost),
-            "Developing countries": list(yearly_developing_cost),
-            "Emerging-market countries": list(yearly_emerging_cost),
-        },
-        "by_region": {},
-    }
-
-    # Part 2. By regions
-    plt.sca(axs[1])
-    plt.plot(whole_years, yearly_world_cost, label="World")
-    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
-    for region in regions:
-        included_country_names = region_countries_map[region]
-        yearly_cost = _get_yearly_cost(included_country_names)
-        plt.plot(whole_years, yearly_cost, label=region)
-        for_comparison["by_region"][region] = list(yearly_cost)
-
-    plt.xlabel("Time")
-    plt.ylabel("Annual climate financing\n(trillion dollars)")
-    set_matplotlib_tick_spacing(10)
-    plt.xticks(rotation=45, ha="right")
-    plt.legend()
-    plt.tight_layout()
-    util.savefig("climate_financing_yearly")
-    plt.close()
-
-    # This is used for by-region vs by-world of NGFS fractional increase
-    # method.
-    with open(f"plots/for_comparison_yearly_{git_branch}.json", "w") as f:
-        json.dump(for_comparison, f)
-
-    # Part 3. Relative to 2023 developed GDP.
-    # million dollars.
-    total_developed_gdp = developed_gdp[colname_for_gdp].sum()
-    # Convert to trillion dollars.
-    total_developed_gdp /= 1e6
-    plt.figure()
-
-    def do_plot(y, label, linestyle=None):
-        plt.plot(
-            whole_years,
-            np.array(y) * 100 / total_developed_gdp,
-            label=label,
-            linestyle=linestyle,
-        )
-
-    do_plot(yearly_world_cost, "World", linestyle="dashed")
-    do_plot(
-        np.array(yearly_developing_cost) + np.array(yearly_emerging_cost),
-        "Developing & emerging\nworld",
-        linestyle="dashed",
-    )
-    do_plot(yearly_emerging_cost, "Emerging world")
-    do_plot(yearly_developed_cost, "Developed world")
-    do_plot(yearly_developing_cost, "Developing world")
-
-    plt.xlabel("Time")
-    plt.ylabel("Annual climate financing / developed world GDP (%)")
-    plt.legend(title="Annual climate financing:")
-    util.savefig("climate_financing_yearly_relative")
-
-    plt.figure()
-    benefit_relative_to_gdp = [
-        (0.12707470412 - 0.05845436389) * (1 - math.exp(-0.01 * (t - 2016))) * 100
-        for t in whole_years
-    ]
-    world_cost_relative = np.array(yearly_world_cost) * 100 / world_gdp_2023
-    plt.plot(
-        whole_years,
-        benefit_relative_to_gdp,
-        label="Global benefits (avoided climate damages)",
-    )
-    plt.plot(
-        whole_years,
-        world_cost_relative * 0.1,
-        label="Global public costs (10% of climate finance need)",
-    )
-    # Reset color cycler
-    plt.gca().set_prop_cycle(None)
-    # Skip blue
-    next(plt.gca()._get_lines.prop_cycler)
-    plt.plot(
-        whole_years,
-        world_cost_relative,
-        label="Global costs (100% of climate finance need)",
-        linestyle="dashed",
-    )
-    plt.legend()
-    plt.xlabel("Time")
-    plt.ylabel("% of GDP")
-    util.savefig("climate_financing_yearly_world")
-    plt.close()
-
-    # benefit and cost for NA and Europe
-    gdp_marketcap_dict = util.read_json(util.gdp_marketcap_path)
-    na = region_countries_map["North America"]
-    europe = region_countries_map["Europe"]
-    gdp_na = 0.0
-    for c in na:
-        _gdp = gdp_marketcap_dict.get(c, 0.0)
-        if not np.isnan(_gdp):
-            gdp_na += _gdp
-    gdp_na /= 1e12
-    yearly_cost_na = _get_yearly_cost(na) / gdp_na * 100
-    gdp_europe = 0.0
-    for c in europe:
-        _gdp = gdp_marketcap_dict.get(c, 0.0)
-        if not np.isnan(_gdp):
-            gdp_europe += _gdp
-    gdp_europe /= 1e12
-    yearly_cost_europe = _get_yearly_cost(europe) / gdp_europe * 100
-    benefit_world_relative = np.array(benefit_relative_to_gdp)
-    country_specific_scc_dict = util.read_json("plots/country_specific_scc.json")
-    scc_na_fraction = sum(country_specific_scc_dict.get(c, 0.0) for c in na) / sum(
-        country_specific_scc_dict.values()
-    )
-    scc_europe_fraction = sum(
-        country_specific_scc_dict.get(c, 0.0) for c in europe
-    ) / sum(country_specific_scc_dict.values())
-    benefit_na = benefit_world_relative * scc_na_fraction * world_gdp_2023 / gdp_na
-    benefit_europe = (
-        benefit_world_relative * scc_europe_fraction * world_gdp_2023 / gdp_europe
-    )
-    plt.figure()
-    plt.plot(whole_years, yearly_cost_na * 0.1, label="NA public costs")
-    plt.plot(whole_years, yearly_cost_na, label="NA costs")
-    plt.plot(whole_years, benefit_na, label="NA benefits")
-    plt.plot(whole_years, yearly_cost_europe * 0.1, label="Europe public costs")
-    plt.plot(whole_years, yearly_cost_europe, label="Europe costs")
-    plt.plot(whole_years, benefit_europe, label="Europe benefits")
-    plt.legend()
-    plt.xlabel("Time")
-    plt.ylabel("% of GDP")
-    util.savefig("climate_financing_yearly_na_europe")
-    plt.close()
 
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
@@ -1773,45 +1485,6 @@ def get_yearly_by_country():
         ).transpose()
         df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
         df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{suffix}.csv")
-
-
-def make_battery_plot():
-    # Battery plot
-    run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
-    years = range(NGFS_PEG_YEAR, 2101)
-    scenario = "Net Zero 2050"
-    ic = global_cost_non_discounted[scenario]
-    ic_trillion = np.array(ic) / 1e12
-    ic_short = global_cost_non_discounted_battery_short[scenario]
-    ic_short_trillion = np.array(ic_short) / 1e12
-    ic_long = global_cost_non_discounted_battery_long[scenario]
-    ic_long_trillion = np.array(ic_long) / 1e12
-    ic_pe = global_cost_non_discounted_battery_pe[scenario]
-    ic_pe_trillion = np.array(ic_pe) / 1e12
-    ic_grid = global_cost_non_discounted_battery_grid[scenario]
-    ic_grid_trillion = np.array(ic_grid) / 1e12
-    ic_baseline_trillion = (
-        ic_trillion
-        - ic_short_trillion
-        - ic_long_trillion
-        - ic_pe_trillion
-        - ic_grid_trillion
-    )
-    plt.plot(years, ic_baseline_trillion, label="Main")
-    plt.plot(years, ic_short_trillion, label="Short")
-    plt.plot(years, ic_pe_trillion, label="PE")
-    plt.plot(years, ic_grid_trillion, label="Grid")
-    plt.plot(years, ic_long_trillion + ic_pe_trillion, label="Long+PE")
-    plt.plot(
-        years,
-        ic_baseline_trillion + ic_long_trillion + ic_pe_trillion,
-        label="Main+Long+PE",
-    )
-    plt.plot(years, ic_trillion, label="All")
-    plt.legend()
-    plt.xlabel("Time")
-    plt.ylabel("Investment cost (trillion dollars)")
-    plt.savefig("plots/battery_investment_cost.png")
 
 
 def make_battery_unit_ic_plot():
