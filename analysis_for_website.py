@@ -217,10 +217,12 @@ def do_website_sensitivity_analysis_climate_financing():
 
         param_key = "_".join(str(v) for v in param.values())
 
-        # Important: must be non-discounted
-        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
+        s2_scenario = "2022-2100 2DII + Net Zero 2050 Scenario"
 
-        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(s2_scenario)
+        # Important: must be non-discounted
+        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(
+            s2_scenario, discounted=False
+        )
         # Reduce the floating precision to save space
         yearly_costs_dict = {
             k: [float(f"{i:.8f}") for i in v] for k, v in yearly_costs_dict.items()
@@ -230,7 +232,9 @@ def do_website_sensitivity_analysis_climate_financing():
     util.run_parallel_ncpus(8, fn, params_flat, ())
 
     git_branch = util.get_git_branch()
-    with open(f"cache/website_sensitivity_climate_financing_{git_branch}.json", "w") as f:
+    with open(
+        f"cache/website_sensitivity_climate_financing_{git_branch}.json", "w"
+    ) as f:
         json.dump(dict(output), f, separators=(",", ":"))
 
     # Reenable residual benefit again
@@ -283,12 +287,12 @@ def do_website_sensitivity_analysis_opportunity_costs():
         def do_round(x):
             return round(x, 6)
 
-        s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario NON-DISCOUNTED"
+        s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
 
         out = analysis_main.run_cost1(
             x=1, to_csv=False, do_round=False, return_yearly=True
         )
-        yearly_opportunity_costs = out[s2_scenario]["opportunity_cost"]
+        yearly_opportunity_costs = out[s2_scenario]["opportunity_cost_non_discounted"]
         country_names = list(yearly_opportunity_costs[-1].keys())
         yearly_oc_dict = {}
         for country_name in country_names:

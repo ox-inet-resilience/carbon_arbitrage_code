@@ -74,10 +74,7 @@ iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
-
 processed_revenue.prepare_average_unit_profit(df)
-
-
 # We re-generate df_sector again now that df has "energy_type_specific_average_unit_profit".
 _, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
 
@@ -144,7 +141,6 @@ def calculate_cost1_info(
     array_of_cost_non_discounted_investment,
     array_of_cost_discounted_investment,
     current_policies=None,
-    never_discount_the_cost=False,
     residual_emissions_dict=0.0,
     residual_production=0.0,
     final_cost_with_learning=None,
@@ -239,58 +235,50 @@ def calculate_cost1_info(
                 out.append({k: v * discount for k, v in e.items()})
         return out
 
-    if never_discount_the_cost:
-        # This is a quick hack so that we can have the result without the
-        # discount.
-        cost_discounted_revenue = cost_non_discounted_revenue
-        cost_discounted_investment = cost_non_discounted_investment
-        out_yearly_info["opportunity_cost"] = (
-            array_of_cost_non_discounted_revenue_trillions
+    out_yearly_info["opportunity_cost_non_discounted"] = (
+        array_of_cost_non_discounted_revenue_trillions
+    )
+    out_yearly_info["investment_cost_non_discounted"] = (
+        array_of_cost_non_discounted_investment_trillions
+    )
+    # Division by 1e12 converts to trillion
+    out_yearly_info["cost_battery_short_non_discounted"] = divide_array_of_mixed_objs(
+        final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
+    )
+    out_yearly_info["cost_battery_long_non_discounted"] = divide_array_of_mixed_objs(
+        final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
+    )
+    out_yearly_info["cost_battery_pe_non_discounted"] = divide_array_of_mixed_objs(
+        final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
+    )
+    out_yearly_info["cost_battery_grid_non_discounted"] = divide_array_of_mixed_objs(
+        final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
+    )
+    out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
+    out_yearly_info["investment_cost"] = array_of_cost_discounted_investment_trillions
+    out_yearly_info["cost_battery_short"] = discount_the_array(
+        divide_array_of_mixed_objs(
+            final_cost_with_learning.cost_non_discounted_battery_short_by_country,
+            1e12,
         )
-        out_yearly_info["investment_cost"] = (
-            array_of_cost_non_discounted_investment_trillions
+    )
+    out_yearly_info["cost_battery_long"] = discount_the_array(
+        divide_array_of_mixed_objs(
+            final_cost_with_learning.cost_non_discounted_battery_long_by_country,
+            1e12,
         )
-        # Division by 1e12 converts to trillion
-        out_yearly_info["cost_battery_short"] = divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
-        )
-        out_yearly_info["cost_battery_long"] = divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
-        )
-        out_yearly_info["cost_battery_pe"] = divide_array_of_mixed_objs(
+    )
+    out_yearly_info["cost_battery_pe"] = discount_the_array(
+        divide_array_of_mixed_objs(
             final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
         )
-        out_yearly_info["cost_battery_grid"] = divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
+    )
+    out_yearly_info["cost_battery_grid"] = discount_the_array(
+        divide_array_of_mixed_objs(
+            final_cost_with_learning.cost_non_discounted_battery_grid_by_country,
+            1e12,
         )
-    else:
-        out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
-        out_yearly_info["investment_cost"] = (
-            array_of_cost_discounted_investment_trillions
-        )
-        out_yearly_info["cost_battery_short"] = discount_the_array(
-            divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_short_by_country,
-                1e12,
-            )
-        )
-        out_yearly_info["cost_battery_long"] = discount_the_array(
-            divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_long_by_country,
-                1e12,
-            )
-        )
-        out_yearly_info["cost_battery_pe"] = discount_the_array(
-            divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
-            )
-        )
-        out_yearly_info["cost_battery_grid"] = discount_the_array(
-            divide_array_of_mixed_objs(
-                final_cost_with_learning.cost_non_discounted_battery_grid_by_country,
-                1e12,
-            )
-        )
+    )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
@@ -565,29 +553,24 @@ def generate_cost1_output(
                 cost_discounted_investment, production_2019
             )
 
-        for never_discount in [False, True]:
-            never_discount_text = " NON-DISCOUNTED" if never_discount else ""
-            text = (
-                f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}{never_discount_text}"
-            )
-            cost1_info, yearly_info = calculate_cost1_info(
-                do_round,
-                scenario_formatted,
-                f"{NGFS_PEG_YEAR}-{last_year}",
-                gigatonnes_coal_production,
-                copy.deepcopy(array_of_total_emissions_non_discounted),
-                cost_non_discounted_revenue,
-                cost_discounted_revenue,
-                cost_non_discounted_investment,
-                cost_discounted_investment,
-                current_policies=current_policies,
-                never_discount_the_cost=never_discount,
-                residual_emissions_dict=residual_emissions,
-                residual_production=residual_production,
-                final_cost_with_learning=final_cost_with_learning,
-            )
-            out[text] = cost1_info
-            out_yearly[text] = yearly_info
+        text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}"
+        cost1_info, yearly_info = calculate_cost1_info(
+            do_round,
+            scenario_formatted,
+            f"{NGFS_PEG_YEAR}-{last_year}",
+            gigatonnes_coal_production,
+            copy.deepcopy(array_of_total_emissions_non_discounted),
+            cost_non_discounted_revenue,
+            cost_discounted_revenue,
+            cost_non_discounted_investment,
+            cost_discounted_investment,
+            current_policies=current_policies,
+            residual_emissions_dict=residual_emissions,
+            residual_production=residual_production,
+            final_cost_with_learning=final_cost_with_learning,
+        )
+        out[text] = cost1_info
+        out_yearly[text] = yearly_info
         if scenario == "Current Policies":
             current_policies = {
                 "emissions_non_discounted": copy.deepcopy(
@@ -850,77 +833,6 @@ def calculate_each_countries_with_cache(
     return info_dict[info_name]
 
 
-def do_climate_financing_sanity_check(
-    git_branch,
-    plotname_suffix,
-    chosen_s2_scenario,
-    ignore_cache,
-    developed_country_shortnames,
-    developING_country_shortnames,
-    emerging_country_shortnames,
-    colname_for_gdp,
-    developed_gdp,
-    _world_sum,
-    _developed_sum,
-    _developing_sum,
-    _emerging_sum,
-    _region_sum,
-    regions,
-    region_countries_map,
-):
-    # This function is not used for now.
-    # But may be used from time to time.
-    cache_json_path = f"plots/climate_financing_{git_branch}{plotname_suffix}.json"
-    costs_dict = calculate_each_countries_cost_with_cache(
-        chosen_s2_scenario, cache_json_path, ignore_cache=ignore_cache
-    )
-
-    def _get_total_cost(shortnames):
-        return sum(costs_dict.get(n, 0.0) for n in shortnames)
-
-    developed_total_cost = _get_total_cost(developed_country_shortnames)
-
-    # Calculating the climate change cost for developing countries
-    developing_cost_for_avoiding = _get_total_cost(developING_country_shortnames)
-
-    # Calculating for emerging countries
-    emerging_cost_for_avoiding = _get_total_cost(emerging_country_shortnames)
-
-    def get_gdp(country_shortname):
-        return developed_gdp.loc[country_shortname][colname_for_gdp]
-
-    # Calculating foreign costs
-    developed_gdp = developed_gdp.set_index("country_shortcode")
-    total_developed_gdp = developed_gdp[colname_for_gdp].sum()
-    foreign_costs_dict = {}
-    for country_shortname in developed_country_shortnames:
-        gdp_fraction = get_gdp(country_shortname) / total_developed_gdp
-        foreign_costs_dict[country_shortname] = (
-            gdp_fraction * developing_cost_for_avoiding
-        )
-
-    # Now we group by regions
-    def get_avoiding_cost_by_region(included_country_names):
-        return _get_total_cost(included_country_names)
-
-    # Calculating the cost for the whole world
-    world_cost_for_avoiding = sum(costs_dict.values())
-
-    # Sanity checks
-    assert math.isclose(_world_sum, world_cost_for_avoiding), (
-        _world_sum,
-        world_cost_for_avoiding,
-    )
-    assert math.isclose(_developed_sum, developed_total_cost)
-    assert math.isclose(_developing_sum, developing_cost_for_avoiding)
-    assert math.isclose(_emerging_sum, emerging_cost_for_avoiding)
-    for region in regions:
-        assert math.isclose(
-            _region_sum[region],
-            get_avoiding_cost_by_region(region_countries_map[region]),
-        )
-
-
 def annotate(xs, ys, labels, filter_labels=None, no_zero_x=False, fontsize=None):
     for x, y, label in zip(xs, ys, labels):
         if (filter_labels is not None) and (label not in filter_labels):
@@ -1106,10 +1018,7 @@ def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
 
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
-    chosen_s2_scenario_discounted = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
-    chosen_s2_scenario_non_discounted = (
-        chosen_s2_scenario_discounted + " NON-DISCOUNTED"
-    )
+    chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
 
     whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
 
@@ -1152,7 +1061,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
             assert key == "30Y_noE"
             with_learning.ENABLE_WRIGHTS_LAW = 0
         linestyle = "-" if key == "30Y" else "dotted"
-        yearly = calculate_yearly_world_cost(chosen_s2_scenario_non_discounted)
+        yearly = calculate_yearly_world_cost(chosen_s2_scenario, discounted=False)
         plt.plot(
             whole_years,
             yearly,
@@ -1161,7 +1070,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
             linewidth=2.5,
         )
 
-        yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario_discounted)
+        yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
         for year_start, year_end in [
             (NGFS_PEG_YEAR + 1, 2050),
             (2051, 2070),
@@ -1198,10 +1107,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
 
 
 def do_cf_battery_yearly():
-    chosen_s2_scenario_discounted = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
-    chosen_s2_scenario_non_discounted = (
-        chosen_s2_scenario_discounted + " NON-DISCOUNTED"
-    )
+    chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
 
     whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
 
@@ -1276,7 +1182,7 @@ def do_cf_battery_yearly():
             assert key == "30Y_noE"
             with_learning.ENABLE_WRIGHTS_LAW = 0
 
-        yearly = calculate_yearly_world_cost(chosen_s2_scenario_non_discounted)
+        yearly = calculate_yearly_world_cost(chosen_s2_scenario, discounted=False)
         linestyle = "-" if label == "30Y, D, E" else "dotted"
         plt.plot(
             whole_years,
@@ -1286,7 +1192,7 @@ def do_cf_battery_yearly():
             linewidth=2.5,
         )
 
-        yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario_discounted)
+        yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
         for year_start, year_end in [
             (NGFS_PEG_YEAR + 1, 2050),
             (2051, 2070),
@@ -1321,16 +1227,14 @@ def do_cf_battery_yearly():
             with_learning.ENABLE_BATTERY_SHORT = "S" in label
             with_learning.ENABLE_BATTERY_LONG = "L" in label
 
-            yearly = calculate_yearly_world_cost(chosen_s2_scenario_non_discounted)
+            yearly = calculate_yearly_world_cost(chosen_s2_scenario, discounted=False)
             if "O" in label:
                 # Division by 1e3 converts to trillion dollars
                 yearly += opportunity_cost_series / 1e3
                 yearly += retraining_series / 1e3
             yearly_all[label] = list(yearly)
 
-            yearly_discounted = calculate_yearly_world_cost(
-                chosen_s2_scenario_discounted
-            )
+            yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
             for year_start, year_end in [
                 (NGFS_PEG_YEAR + 1, 2050),
                 (2051, 2070),
@@ -1447,15 +1351,19 @@ def get_yearly_by_country():
     for enable in [False, True]:
         ENABLE_COAL_EXPORT = enable
         out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
-        nz2050 = out[f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario NON-DISCOUNTED"]
-        # print(a["investment_cost"])
+        nz2050 = out[f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"]
         series_ics = []
         series_ocs = []
         for i in range(2, 2100 - NGFS_PEG_YEAR + 1):
             # Trillions
-            series_ocs.append(nz2050["opportunity_cost"][i].rename(NGFS_PEG_YEAR + i))
+            series_ocs.append(
+                nz2050["opportunity_cost_non_discounted"][i].rename(NGFS_PEG_YEAR + i)
+            )
             series_ics.append(
-                pd.Series(nz2050["investment_cost"][i], name=(NGFS_PEG_YEAR + i))
+                pd.Series(
+                    nz2050["investment_cost_non_discounted"][i],
+                    name=(NGFS_PEG_YEAR + i),
+                )
             )
         git_branch = util.get_git_branch()
         a2_to_full_name = util.prepare_alpha2_to_full_name_concise()

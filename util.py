@@ -354,7 +354,7 @@ def calculate_ngfs_projection(
                 ngfs_country_subsector[str(year)] for year in years_interpolated
             ]
             if across_years[0] == 0:
-                print("TODO FIX THIS", country, subsector)
+                # NGFS has countries that start from 0 value
                 ngfs_country_subsector = ngfs_country_wo_iea_stats[
                     ngfs_country_wo_iea_stats.Variable == variable
                 ].iloc[0]
