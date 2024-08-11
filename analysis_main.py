@@ -70,13 +70,14 @@ def pandas_divide_or_zero(num, dem):
 
 
 ngfs_df = util.read_ngfs()
-iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+iso3166_df = util.read_iso3166()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
 processed_revenue.prepare_average_unit_profit(df)
 # We re-generate df_sector again now that df has "energy_type_specific_average_unit_profit".
 _, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
+country_sccs = pd.Series(util.read_country_specific_scc_filtered())
 
 
 def sum_array_of_mixed_objs(x):
@@ -206,6 +207,23 @@ def calculate_cost1_info(
         out_yearly_info["avoided_emissions_including_residual_emissions"].sum(),
         expected,
     )
+    # Division by 1e3 converts to trillion dollars, because the ae is in GtCO2
+    out_yearly_info["country_benefit_country_reduction"] = (
+        (
+            out_yearly_info["avoided_emissions_including_residual_emissions"]
+            * country_sccs
+            / country_sccs.sum()
+            * social_cost_of_carbon
+            / 1e3
+        )
+        .dropna()
+        .to_dict()
+    )
+    out_yearly_info["global_benefit_country_reduction"] = (
+        out_yearly_info["avoided_emissions_including_residual_emissions"]
+        * social_cost_of_carbon
+        / 1e3
+    ).to_dict()
     out_yearly_info["avoided_emissions_including_residual_emissions"] = out_yearly_info[
         "avoided_emissions_including_residual_emissions"
     ].to_dict()
@@ -796,6 +814,7 @@ def calculate_each_countries_with_cache(
     ignore_cache=False,
     info_name="cost",
     last_year=None,
+    scc=None,
 ):
     # IMPORTANT: the chosen s2 scenario indicates whether the yearly cost for
     # avoiding is discounted or not.
@@ -808,10 +827,19 @@ def calculate_each_countries_with_cache(
         info_dict = util.read_json(cache_json_path)
     else:
         info_dict = {}
+        if scc is not None:
+            global social_cost_of_carbon
+            social_cost_of_carbon = scc
+            util.social_cost_of_carbon = scc
         out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
         for key, yearly in out[chosen_s2_scenario].items():
-            if key == "residual_benefit":
-                # Residual benefit is already in the format of dict[str, float]
+            if key in [
+                "residual_benefit",
+                "avoided_emissions_including_residual_emissions",
+                "country_benefit_country_reduction",
+                "global_benefit_country_reduction",
+            ]:
+                # Is already in the format of dict[str, float]
                 # of country, value.
                 value = yearly
                 info_dict[key] = value
@@ -989,7 +1017,7 @@ def make_climate_financing_SCATTER_plot():
     plt.legend(loc="upper right")
 
     # By region
-    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+    iso3166_df = util.read_iso3166()
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
     # Sanity check
     by_region = []

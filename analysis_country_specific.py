@@ -121,24 +121,6 @@ def prepare_level_development():
     return levels, levels_map, iso3166_df
 
 
-def read_country_specific_scc_filtered():
-    country_specific_scc = util.read_json("plots/country_specific_scc.json")
-    # Remove these countries
-    # Because they are in Oceania:
-    # New Caledonia
-    # Fiji
-    # Solomon Islands
-    # Vanuatu
-    # They are not part of the 6 regions (Asia, Africa, NA,
-    # LAC, Europe, AUS&NZ), nor are they part of the
-    # developing, emerging, developed world.
-    for country in ["NC", "FJ", "SB", "VU"]:
-        del country_specific_scc[country]
-    # NaN is also removed
-    del country_specific_scc["NaN"]
-    return country_specific_scc
-
-
 def _do_sanity_check_for_calculate_cs_scc_data(
     unilateral_actor,
     isa_climate_club,
@@ -224,7 +206,7 @@ def calculate_country_specific_scc_data(
     ]
 
     # In dollars/tCO2
-    country_specific_scc = read_country_specific_scc_filtered()
+    country_specific_scc = util.read_country_specific_scc_filtered()
     total_scc = sum(country_specific_scc.values())
 
     levels, levels_map, iso3166_df = prepare_level_development()
@@ -678,7 +660,7 @@ def do_country_specific_scc_part5():
 
         # This code chunk is used to calculate global_benefit_by_region
         global_benefit = calculate_global_benefit()
-        scc_dict = read_country_specific_scc_filtered()
+        scc_dict = util.read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         iso3166_df = util.read_iso3166()
         region_countries_map, _ = analysis_main.prepare_regions_for_climate_financing(
@@ -884,7 +866,7 @@ def do_country_specific_scc_part6():
     # Global deal but benefit only to top9
     global_benefit = 114.04380627502013
     sum_global_benefit_by_country = sum(global_benefit_by_country.values())
-    scc_dict = read_country_specific_scc_filtered()
+    scc_dict = util.read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     expected = global_benefit * sum(scc_dict[c] for c in top9) / unscaled_global_scc
     # This is global action, but benefit only to top9
@@ -1074,7 +1056,7 @@ def do_country_specific_scc_part7(
 
     # This code chunk is used to calculate global_benefit_by_country
     global_benefit = calculate_global_benefit(last_year=last_year)
-    scc_dict = read_country_specific_scc_filtered()
+    scc_dict = util.read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     # End of global_benefit_by_country preparation
 
@@ -1173,7 +1155,7 @@ def common_prepare_cost_benefit_by_country(
 
         # This code chunk is used to calculate global_benefit_by_country
         global_benefit = calculate_global_benefit(last_year=last_year)
-        scc_dict = read_country_specific_scc_filtered()
+        scc_dict = util.read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         global_benefit_by_country = {}
         # End of global_benefit_by_country preparation
@@ -1387,7 +1369,7 @@ def do_country_specific_scc_part9():
     benefit_EMDE = sum(bs["EMDE"])
     # Global benefit
     global_benefit = calculate_global_benefit()
-    scc_dict = read_country_specific_scc_filtered()
+    scc_dict = util.read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     countries = names["EMDE"]
     scc_scale = sum(scc_dict.get(c, 0.0) for c in countries) / unscaled_global_scc
@@ -1692,7 +1674,7 @@ def do_bruegel_2():
     )
 
     # SCC of EMDE
-    scc_dict = read_country_specific_scc_filtered()
+    scc_dict = util.read_country_specific_scc_filtered()
     unscaled_global_scc = sum(scc_dict.values())
     scc_80_dict = None
     for name, filter_countries in [

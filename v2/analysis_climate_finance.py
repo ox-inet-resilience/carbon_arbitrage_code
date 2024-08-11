@@ -38,20 +38,22 @@ def set_matplotlib_tick_spacing(tick_spacing):
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
 
-def get_global_benefit_country_reduction(chosen_s2_scenario, last_year):
+def get_global_benefit_country_reduction(chosen_s2_scenario, last_year, scc=None):
     info = analysis_main.calculate_each_countries_with_cache(
         chosen_s2_scenario,
-        f"cache/country_specific_info_{last_year}_{git_branch}.json",
+        f"cache/country_specific_info_{last_year}_scc_{scc}_{git_branch}.json",
         ignore_cache=False,
         info_name="benefit_non_discounted",
         last_year=last_year,
+        scc=scc,
     )
     info_residual_benefit = analysis_main.calculate_each_countries_with_cache(
         chosen_s2_scenario,
-        f"cache/country_specific_info_{last_year}_{git_branch}.json",
+        f"cache/country_specific_info_{last_year}_scc_{scc}_{git_branch}.json",
         ignore_cache=False,
         info_name="residual_benefit",
         last_year=last_year,
+        scc=scc,
     )
     # Add residual benefit to benefit
     for k, v in info_residual_benefit.items():
@@ -59,20 +61,23 @@ def get_global_benefit_country_reduction(chosen_s2_scenario, last_year):
     return info
 
 
-def get_info(info_name, last_year, included_countries=None):
+def get_info(info_name, last_year, included_countries=None, scc=None):
     chosen_s2_scenario = (
         f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
 
     if info_name == "global_benefit_country_reduction":
-        info = get_global_benefit_country_reduction(chosen_s2_scenario, last_year)
+        info = get_global_benefit_country_reduction(
+            chosen_s2_scenario, last_year, scc=scc
+        )
     else:
         info = analysis_main.calculate_each_countries_with_cache(
             chosen_s2_scenario,
-            f"cache/country_specific_info_{last_year}_{git_branch}.json",
+            f"cache/country_specific_info_{last_year}_scc_{scc}_{git_branch}.json",
             ignore_cache=False,
             info_name=info_name,
             last_year=last_year,
+            scc=scc,
         )
     value = 0.0
     for c, e in info.items():
@@ -198,7 +203,7 @@ def make_climate_financing_plot(
     df.to_csv(f"plots/table_{plot_name}_{util.get_unique_id()}.csv", index=False)
 
 
-def make_cf_investment_cost_plot(last_year):
+def make_cost_benefit_plot(last_year):
     (
         iso3166_df,
         _,
@@ -211,6 +216,12 @@ def make_cf_investment_cost_plot(last_year):
     emerging_country_shortnames = util.get_emerging_countries()
 
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    level_development_countries_map = {
+        "World": None,
+        "Developed Countries": developed_country_shortnames,
+        "Developing Countries": developING_country_shortnames,
+        "Emerging Market Countries": emerging_country_shortnames,
+    }
 
     plot_data = []
     xticks = [
@@ -221,22 +232,10 @@ def make_cf_investment_cost_plot(last_year):
     ] + regions
     for_df = {"region": xticks}
     for info_name in ["renewables"] + cost_batteries:
-        _world = get_info_investment(info_name, last_year)
-        _developed = get_info_investment(
-            info_name, last_year, developed_country_shortnames
-        )
-        _developing = get_info_investment(
-            info_name, last_year, developING_country_shortnames
-        )
-        _emerging = get_info_investment(
-            info_name, last_year, emerging_country_shortnames
-        )
-        region_costs = [
-            _world,
-            _developed,
-            _developing,
-            _emerging,
-        ]
+        region_costs = []
+        for level, countries in level_development_countries_map.items():
+            _level_cost = get_info_investment(info_name, last_year, countries)
+            region_costs.append(_level_cost)
         for region in regions:
             _region_cost = get_info_investment(
                 info_name, last_year, region_countries_map[region]
@@ -244,9 +243,34 @@ def make_cf_investment_cost_plot(last_year):
             region_costs.append(_region_cost)
         plot_data.append((investment_label_map[info_name], region_costs))
         for_df[investment_label_map[info_name]] = region_costs
-
     plt.figure(figsize=(6, 6))
-    util.plot_stacked_bar(xticks, plot_data)
+    xs = np.arange(len(xticks))
+    width = 0.1
+    util.plot_stacked_bar(xs, plot_data, width=width)
+
+    for i, benefit_type in enumerate(
+        ["country_benefit_country_reduction", "global_benefit_country_reduction"]
+    ):
+        plot_data_benefit = []
+        for scc in [
+            util.social_cost_of_carbon_imf,
+            util.scc_biden_administration,
+            util.scc_bilal,
+        ]:
+            region_benefit = []
+            for level, countries in level_development_countries_map.items():
+                _level_cost = get_info(benefit_type, last_year, countries, scc=scc)
+                region_benefit.append(_level_cost)
+            for region in regions:
+                _region_cost = get_info(
+                    benefit_type, last_year, region_countries_map[region], scc=scc
+                )
+                region_benefit.append(_region_cost)
+            plot_data_benefit.append((benefit_type, region_benefit))
+            for_df[f"{benefit_type}_{scc}"] = region_benefit
+
+        util.plot_stacked_bar(xs + width * (i + 1), plot_data_benefit, width=width)
+    plt.xticks(xs, labels=xticks, rotation=45, ha="right")
 
     # Add separator between 3 types of grouping
     # Right after World
@@ -278,11 +302,10 @@ def make_cf_investment_cost_plot(last_year):
     )
 
     plt.legend()
-    plt.xticks(xticks, rotation=45, ha="right")
     label = "Investment costs (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
-    fname = f"cf_investment_costs_by_region_{last_year}"
+    fname = f"cost_benefit_by_region_{last_year}"
     util.savefig(fname)
     plt.close()
 
@@ -567,7 +590,7 @@ def make_yearly_climate_financing_plot():
 
 
 if __name__ == "__main__":
-    if 1:
+    if 0:
         for info_name in [
             "cost",
             "global_benefit_country_reduction",
@@ -575,9 +598,10 @@ if __name__ == "__main__":
             "investment_cost",
         ]:
             make_climate_financing_plot(info_name=info_name)
+    if 1:
         for last_year in [2030, 2050]:
-            make_cf_investment_cost_plot(last_year)
-            make_climate_financing_top15_plot(last_year)
+            make_cost_benefit_plot(last_year)
+            # make_climate_financing_top15_plot(last_year)
         exit()
     # make_climate_financing_SCATTER_plot()
     make_yearly_climate_financing_plot()
