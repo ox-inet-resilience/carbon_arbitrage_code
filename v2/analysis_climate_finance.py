@@ -8,6 +8,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import pandas as pd
 
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
@@ -117,25 +118,24 @@ def make_climate_financing_plot(
         )
 
     plot_data = []
-    # Used for sanity check.
-    _developed_sum = 0.0
-    _developing_sum = 0.0
-    _emerging_sum = 0.0
-    _region_sum = defaultdict(float)
+    xticks = [
+        "World",
+        "Developed Countries",
+        "Developing Countries",
+        "Emerging Market Countries",
+    ] + regions
+    for_df = {"region": xticks}
     for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR, 2030), (2031, 2050)]:
         _world = get_info_with_start_year(year_start, year_end)
         _developed = get_info_with_start_year(
             year_start, year_end, developed_country_shortnames
         )
-        _developed_sum += _developed
         _developing = get_info_with_start_year(
             year_start, year_end, developING_country_shortnames
         )
-        _developing_sum += _developing
         _emerging = get_info_with_start_year(
             year_start, year_end, emerging_country_shortnames
         )
-        _emerging_sum += _emerging
         region_costs = [
             _world,
             _developed,
@@ -146,16 +146,11 @@ def make_climate_financing_plot(
             _region_cost = get_info_with_start_year(
                 year_start, year_end, region_countries_map[region]
             )
-            _region_sum[region] += _region_cost
             region_costs.append(_region_cost)
-        plot_data.append((f"{year_start}-{year_end}", region_costs))
+        year_range = f"{year_start}-{year_end}"
+        plot_data.append((year_range, region_costs))
+        for_df[year_range] = region_costs
 
-    xticks = [
-        "World",
-        "Developed Countries",
-        "Developing Countries",
-        "Emerging Market Countries",
-    ] + regions
     plt.figure(figsize=(6, 6))
     util.plot_stacked_bar(xticks, plot_data)
 
@@ -194,11 +189,13 @@ def make_climate_financing_plot(
     label += " (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
-    util.savefig(
-        plot_name if plot_name else f"climate_financing_by_region_{info_name}",
-        svg=svg,
-    )
+    plot_name = plot_name if plot_name else f"climate_financing_by_region_{info_name}"
+    util.savefig(plot_name, svg=svg)
     plt.close()
+
+    # Export to CSV
+    df = pd.DataFrame(for_df)
+    df.to_csv(f"plots/table_{plot_name}_{util.get_unique_id()}.csv", index=False)
 
 
 def make_cf_investment_cost_plot(last_year):
@@ -216,26 +213,24 @@ def make_cf_investment_cost_plot(last_year):
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
 
     plot_data = []
-    # Used for sanity check.
-    _developed_sum = 0.0
-    _developing_sum = 0.0
-    _emerging_sum = 0.0
-    _region_sum = defaultdict(float)
-
+    xticks = [
+        "World",
+        "Developed Countries",
+        "Developing Countries",
+        "Emerging Market Countries",
+    ] + regions
+    for_df = {"region": xticks}
     for info_name in ["renewables"] + cost_batteries:
         _world = get_info_investment(info_name, last_year)
         _developed = get_info_investment(
             info_name, last_year, developed_country_shortnames
         )
-        _developed_sum += _developed
         _developing = get_info_investment(
             info_name, last_year, developING_country_shortnames
         )
-        _developing_sum += _developing
         _emerging = get_info_investment(
             info_name, last_year, emerging_country_shortnames
         )
-        _emerging_sum += _emerging
         region_costs = [
             _world,
             _developed,
@@ -246,16 +241,10 @@ def make_cf_investment_cost_plot(last_year):
             _region_cost = get_info_investment(
                 info_name, last_year, region_countries_map[region]
             )
-            _region_sum[region] += _region_cost
             region_costs.append(_region_cost)
         plot_data.append((investment_label_map[info_name], region_costs))
+        for_df[investment_label_map[info_name]] = region_costs
 
-    xticks = [
-        "World",
-        "Developed Countries",
-        "Developing Countries",
-        "Emerging Market Countries",
-    ] + regions
     plt.figure(figsize=(6, 6))
     util.plot_stacked_bar(xticks, plot_data)
 
@@ -293,8 +282,13 @@ def make_cf_investment_cost_plot(last_year):
     label = "Investment costs (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
-    util.savefig(f"cf_investment_costs_by_region_{last_year}")
+    fname = f"cf_investment_costs_by_region_{last_year}"
+    util.savefig(fname)
     plt.close()
+
+    # Export to CSV
+    df = pd.DataFrame(for_df)
+    df.to_csv(f"plots/table_{fname}_{util.get_unique_id()}.csv", index=False)
 
 
 def make_climate_financing_top15_plot(last_year):
@@ -316,13 +310,15 @@ def make_climate_financing_top15_plot(last_year):
 
     alpha2_to_full_name = util.prepare_alpha2_to_full_name_concise()
     plot_data = []
+    xticks = [alpha2_to_full_name[c] for c in top15_power]
+    for_df = {"country": xticks}
     for info_name in ["renewables"] + cost_batteries:
         costs = [
             get_info_investment(info_name, last_year, [country_name])
             for country_name in top15_power
         ]
         plot_data.append((investment_label_map[info_name], costs))
-    xticks = [alpha2_to_full_name[c] for c in top15_power]
+        for_df[investment_label_map[info_name]] = costs
     plt.figure(figsize=(6, 6))
     util.plot_stacked_bar(xticks, plot_data)
     plt.legend()
@@ -330,8 +326,13 @@ def make_climate_financing_top15_plot(last_year):
     label = "Investment costs (trillion dollars)"
     plt.ylabel(label)
     plt.tight_layout()
-    util.savefig(f"cf_investment_costs_top15_{last_year}")
+    fname = f"cf_investment_costs_top15_{last_year}"
+    util.savefig(fname)
     plt.close()
+
+    # Export to CSV
+    df = pd.DataFrame(for_df)
+    df.to_csv(f"plots/table_{fname}_{util.get_unique_id()}.csv", index=False)
 
 
 def prepare_regions_for_climate_financing(iso3166_df):
@@ -375,7 +376,6 @@ def make_yearly_climate_financing_plot():
     global df_sector
 
     chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{analysis_main.LAST_YEAR} FA + Net Zero 2050 Scenario"
-    chosen_s2_scenario += " NON-DISCOUNTED"
 
     (
         iso3166_df,
@@ -391,7 +391,9 @@ def make_yearly_climate_financing_plot():
         print("Cached climate YEARLY financing json found. Reading...")
         yearly_costs_dict = util.read_json(cache_json_path)
     else:
-        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(chosen_s2_scenario)
+        yearly_costs_dict = analysis_main.calculate_yearly_info_dict(
+            chosen_s2_scenario, discounted=False
+        )
         with open(cache_json_path, "w") as f:
             json.dump(yearly_costs_dict, f)
     whole_years = range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)
