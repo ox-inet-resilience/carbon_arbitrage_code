@@ -163,21 +163,24 @@ def calculate_cost1_info(
     cost_discounted_investment = sum_array_of_mixed_objs(
         array_of_cost_discounted_investment
     )
-    residual_emissions = sum(residual_emissions_dict.values())
+    # In GtCO2
+    residual_emissions = sum(residual_emissions_dict.values()) / 1e9
     if current_policies is None:
         assert data_set == "FA" or "Current Policies" in data_set, data_set
-        saved_non_discounted = sum_array_of_mixed_objs(
+        avoided_emissions_by_country: pd.Series = sum(
             array_of_total_emissions_non_discounted
         )
+        saved_non_discounted: float = avoided_emissions_by_country.sum()
         total_production_avoided = total_production
         out_yearly_info["benefit_non_discounted"] = list(
             array_of_total_emissions_non_discounted
         )
     else:
         assert not (data_set == "FA" or "Current Policies" in data_set)
-        saved_non_discounted = sum_array_of_mixed_objs(
+        avoided_emissions_by_country: pd.Series = sum(
             current_policies["emissions_non_discounted"]
-        ) - sum_array_of_mixed_objs(array_of_total_emissions_non_discounted)
+        ) - sum(array_of_total_emissions_non_discounted)
+        saved_non_discounted: float = avoided_emissions_by_country.sum()
 
         total_production_avoided = (
             current_policies["total_production"] - total_production
@@ -192,6 +195,20 @@ def calculate_cost1_info(
         out_yearly_info["benefit_non_discounted"][i] *= (
             1e9 / 1e12 * social_cost_of_carbon
         )
+
+    # Division of residual emissions dict by 1e9 converts to GtCO2
+    out_yearly_info["avoided_emissions_including_residual_emissions"] = (
+        avoided_emissions_by_country + pd.Series(residual_emissions_dict) / 1e9
+    )
+    # Sanity check
+    expected = saved_non_discounted + residual_emissions
+    assert math.isclose(
+        out_yearly_info["avoided_emissions_including_residual_emissions"].sum(),
+        expected,
+    )
+    out_yearly_info["avoided_emissions_including_residual_emissions"] = out_yearly_info[
+        "avoided_emissions_including_residual_emissions"
+    ].to_dict()
 
     # Summed benefit
     benefit_non_discounted = sum_array_of_mixed_objs(
@@ -215,12 +232,11 @@ def calculate_cost1_info(
     array_of_cost_discounted_investment_trillions = divide_array_of_mixed_objs(
         array_of_cost_discounted_investment, 1e12
     )
-    residual_benefit = residual_emissions * social_cost_of_carbon / 1e12
+    # In trillion dollars
+    residual_benefit = residual_emissions * social_cost_of_carbon / 1e3
 
     # Convert to Gigatonnes of coal
     residual_production /= 1e9
-    # Convert to Gigatonnes of CO2
-    residual_emissions /= 1e9
 
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
