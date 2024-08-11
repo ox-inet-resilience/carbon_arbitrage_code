@@ -135,7 +135,7 @@ def do_website_sensitivity_analysis():
                                 analysis_main.social_cost_of_carbon = sc  # noqa: F811
                                 setup_battery(battery_mode)
                                 out = analysis_main.run_table1(
-                                    x=1, to_csv=False, do_round=True, plot_yearly=False
+                                    to_csv=False, do_round=True, plot_yearly=False
                                 )
 
                                 _scenario = (
@@ -290,7 +290,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
         s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
 
         out = analysis_main.run_table1(
-            x=1, to_csv=False, do_round=False, return_yearly=True
+            to_csv=False, do_round=False, return_yearly=True
         )
         yearly_opportunity_costs = out[s2_scenario]["opportunity_cost_non_discounted"]
         country_names = list(yearly_opportunity_costs[-1].keys())

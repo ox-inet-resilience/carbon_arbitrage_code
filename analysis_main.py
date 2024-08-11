@@ -666,7 +666,6 @@ def do_plot_yearly_table1(yearly_both):
 
 
 def run_table1(
-    x,
     to_csv=False,
     do_round=False,
     plot_yearly=False,
@@ -725,7 +724,7 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     for social_cost in social_costs:
         util.social_cost_of_carbon = social_cost
         social_cost_of_carbon = social_cost
-        out = run_table1(x=1, to_csv=False, do_round=False)
+        out = run_table1(to_csv=False, do_round=False)
         carbon_arbitrage_opportunity = out[
             "Carbon arbitrage including residual benefit (in trillion dollars)"
         ]
@@ -831,7 +830,7 @@ def calculate_each_countries_with_cache(
             global social_cost_of_carbon
             social_cost_of_carbon = scc
             util.social_cost_of_carbon = scc
-        out = run_table1(x=1, to_csv=False, do_round=False, return_yearly=True)
+        out = run_table1(to_csv=False, do_round=False, return_yearly=True)
         for key, yearly in out[chosen_s2_scenario].items():
             if key in [
                 "residual_benefit",
@@ -1044,7 +1043,7 @@ def make_climate_financing_SCATTER_plot():
 
 def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
     yearly_costs_dict = {}
-    out = run_table1(x=1, to_csv=False, do_round=False, return_yearly=True)
+    out = run_table1(to_csv=False, do_round=False, return_yearly=True)
     yearly_cost_for_avoiding = out[chosen_s2_scenario][info_name]
     country_names = list(yearly_cost_for_avoiding[-1].keys())
     for country_name in country_names:
@@ -1374,7 +1373,7 @@ def run_3_level_scc():
         for sc in scs:
             util.social_cost_of_carbon = sc
             social_cost_of_carbon = sc  # noqa: F811
-            out = run_table1(x=1, to_csv=False, do_round=True, plot_yearly=False)
+            out = run_table1(to_csv=False, do_round=True, plot_yearly=False)
             cao = out[cao_name][condition]
             caos.append(f"{cao:.2f}")
             cao_with_residual = out[cao_name_with_residual][condition]
@@ -1394,7 +1393,7 @@ def get_yearly_by_country():
     global ENABLE_COAL_EXPORT
     for enable in [False, True]:
         ENABLE_COAL_EXPORT = enable
-        out = run_table1(x=1, to_csv=False, do_round=True, return_yearly=True)
+        out = run_table1(to_csv=False, do_round=True, return_yearly=True)
         nz2050 = out[f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"]
         series_ics = []
         series_ocs = []
@@ -1440,7 +1439,7 @@ def get_yearly_by_country():
 
 
 def make_battery_unit_ic_plot():
-    run_table1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    run_table1(to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2101)
 
     def convert_unit(arr):
@@ -1512,7 +1511,7 @@ if __name__ == "__main__":
         for scc in sccs:
             util.social_cost_of_carbon = scc
             social_cost_of_carbon = scc  # noqa: F811
-            out = run_table1(x=1, to_csv=True, do_round=True, plot_yearly=False)
+            out = run_table1(to_csv=True, do_round=True, plot_yearly=False)
         # print(json.dumps(out, indent=2))
         # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
