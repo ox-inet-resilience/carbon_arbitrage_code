@@ -2,6 +2,7 @@ import copy
 import json
 import math
 import os
+from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -330,6 +331,11 @@ def calculate_table1_info(
     last_year = int(time_period.split("-")[1])
     arbitrage_period = 1 + (last_year - (NGFS_PEG_YEAR + 1))
 
+    ic_battery_short = sum_array_of_mixed_objs(out_yearly_info["cost_battery_short"])
+    ic_battery_long = sum_array_of_mixed_objs(out_yearly_info["cost_battery_long"])
+    ic_battery_pe = sum_array_of_mixed_objs(out_yearly_info["cost_battery_pe"])
+    ic_battery_grid = sum_array_of_mixed_objs(out_yearly_info["cost_battery_grid"])
+    ic_battery = ic_battery_short + ic_battery_long + ic_battery_pe + ic_battery_grid
     data = {
         "Using production projections of data set": data_set,
         "Time Period of Carbon Arbitrage": time_period,
@@ -348,20 +354,13 @@ def calculate_table1_info(
         "Total emissions avoided including residual (GtCO2)": saved_non_discounted
         + residual_emissions,
         "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
-        "Opportunity costs represented by missed coal revenues (in trillion dollars)": cost_discounted_revenue,
-        "investment_cost_battery_short_trillion": sum_array_of_mixed_objs(
-            out_yearly_info["cost_battery_short"]
-        ),
-        "investment_cost_battery_long_trillion": sum_array_of_mixed_objs(
-            out_yearly_info["cost_battery_long"]
-        ),
-        "investment_cost_battery_pe_trillion": sum_array_of_mixed_objs(
-            out_yearly_info["cost_battery_pe"]
-        ),
-        "investment_cost_battery_grid_trillion": sum_array_of_mixed_objs(
-            out_yearly_info["cost_battery_grid"]
-        ),
-        "Investment costs in renewable energy (in trillion dollars)": cost_discounted_investment,
+        "Opportunity costs (in trillion dollars)": cost_discounted_revenue,
+        "investment_cost_battery_short_trillion": ic_battery_short,
+        "investment_cost_battery_long_trillion": ic_battery_long,
+        "investment_cost_battery_pe_trillion": ic_battery_pe,
+        "investment_cost_battery_grid_trillion": ic_battery_grid,
+        "Investment costs in renewable energy": cost_discounted_investment - ic_battery,
+        "Investment costs (in trillion dollars)": cost_discounted_investment,
         "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
         "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
         * 100
@@ -712,6 +711,91 @@ def run_table1(
         return yearly
 
     return both_dict
+
+
+def run_table2():
+    global social_cost_of_carbon, LAST_YEAR
+    result = defaultdict(dict)
+    sccs = [
+        util.social_cost_of_carbon_imf,
+        util.scc_biden_administration,
+        util.scc_bilal,
+    ]
+    last_years = [2030, 2050]
+    for scc in sccs:
+        for last_year in last_years:
+            util.social_cost_of_carbon = scc
+            social_cost_of_carbon = scc  # noqa: F811
+            LAST_YEAR = last_year
+            result[scc][last_year] = run_table1()
+    result_80 = result[util.social_cost_of_carbon_imf]
+    mapper = {
+        "Time Period": "Time Period of Carbon Arbitrage",
+        "Avoided fossil fuel electricity generation (PWh)": "Electricity generation avoided including residual (PWh)",
+        "Avoided emissions (GtCO2e)": "Total emissions avoided including residual (GtCO2)",
+        "Costs of power sector decarbonization (in trillion dollars)": "Costs of avoiding coal emissions (in trillion dollars)",
+        "Opportunity costs (in trillion dollars)": "Opportunity costs (in trillion dollars)",
+        "Investment costs (in trillion dollars)": "Investment costs (in trillion dollars)",
+        "Investment costs in renewable energy": "Investment costs in renewable energy",
+        "Investment costs short-term storage": "investment_cost_battery_short_trillion",
+        "Investment costs long-term storage": "investment_cost_battery_long_trillion",
+        "Investment costs renewables to power electrolyzers": "investment_cost_battery_pe_trillion",
+        "Investment costs grid extension": "investment_cost_battery_grid_trillion",
+    }
+    def _s(y):
+        return f'2024-{y} FA + Net Zero 2050 Scenario'
+    table = {k: [result_80[y][v][_s(y)] for y in last_years] for k, v in mapper.items()}
+    table["Costs per avoided tCO2e ($/tCO2e)"] = [
+        result_80[y]["Costs of avoiding coal emissions (in trillion dollars)"][_s(y)]
+        * 1e12
+        / (result_80[y]["Total emissions avoided including residual (GtCO2)"][_s(y)] * 1e9)
+        for y in last_years
+    ]
+    for scc in sccs:
+        table[
+            f"scc {scc} Benefits of power sector decarbonization (in trillion dollars)"
+        ] = [
+            result[scc][y][
+                "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+            ][_s(y)]
+            for y in last_years
+        ]
+        table[f"scc {scc} Benefit per avoided tCO2e ($/tCO2e)"] = [
+            result[scc][y][
+                "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+            ][_s(y)]
+            * 1e12
+            / (
+                result[scc][y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
+                * 1e9
+            )
+            for y in last_years
+        ]
+        table[f"scc {scc} Net benefit (in trillion dollars)"] = [
+            result[scc][y][
+                "Carbon arbitrage including residual benefit (in trillion dollars)"
+            ][_s(y)]
+            for y in last_years
+        ]
+        table[f"scc {scc} Net benefit relative to world GDP (%)"] = [
+            result[scc][y][
+                "Carbon arbitrage including residual benefit relative to world GDP (%)"
+            ][_s(y)]
+            for y in last_years
+        ]
+        table[f"scc {scc} Net benefit per avoided tCO2e ($/tCO2e)"] = [
+            result[scc][y][
+                "Carbon arbitrage including residual benefit (in trillion dollars)"
+            ][_s(y)]
+            * 1e12
+            / (
+                result[scc][y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
+                * 1e9
+            )
+            for y in last_years
+        ]
+    uid = util.get_unique_id(include_date=False)
+    pd.DataFrame(table).T.to_csv(f"plots/table2_{uid}.csv")
 
 
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
@@ -1500,6 +1584,10 @@ def make_battery_unit_ic_plot():
 if __name__ == "__main__":
     if 0:
         get_yearly_by_country()
+        exit()
+
+    if 1:
+        run_table2()
         exit()
 
     if 1:

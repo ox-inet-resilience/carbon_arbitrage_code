@@ -46,9 +46,9 @@ def initialize_website_sensitivity_analysis_params():
         # emissions_avoided
         "emissions": "Total emissions avoided including residual (GtCO2)",
         # opportunity_cost
-        "oc": "Opportunity costs represented by missed coal revenues (in trillion dollars)",
+        "oc": "Opportunity costs (in trillion dollars)",
         # investment_cost
-        "ic": "Investment costs in renewable energy (in trillion dollars)",
+        "ic": "Investment costs (in trillion dollars)",
     }
 
     social_costs = list(range(20, 300 + 1, 20))
