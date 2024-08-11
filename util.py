@@ -475,7 +475,7 @@ def get_capacity_factor(iea_df, year):
         return iea_df[iea_df.year == truncated_year].iloc[0].capacity_factor
 
 
-def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None):
+def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None, overlapping_insteadof_stacking=False):
     if bar_fn is None:
         bar_fn = plt.bar
     # plot the first one
@@ -488,7 +488,10 @@ def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None):
     new_bottom = np.array(y)
     # plot the rest
     for label, _y in data[1:]:
-        _bar = bar_fn(x, _y, width, bottom=new_bottom, label=label)
+        bottom = new_bottom
+        if overlapping_insteadof_stacking:
+            bottom = None
+        _bar = bar_fn(x, _y, width, bottom=bottom, label=label)
         bars.append(_bar)
         new_bottom += _y
     return bars
@@ -528,6 +531,22 @@ def read_iso3166():
         # Needs this because otherwise NA for Namibia is interpreted as NaN
         na_filter=False,
     )
+
+
+def read_country_specific_scc_filtered():
+    country_specific_scc = read_json("plots/country_specific_scc.json")
+    # Remove these countries
+    # Because they are in Oceania:
+    # New Caledonia
+    # Fiji
+    # Solomon Islands
+    # Vanuatu
+    # They are not part of the 6 regions (Asia, Africa, NA,
+    # LAC, Europe, AUS&NZ), nor are they part of the
+    # developing, emerging, developed world.
+    for country in ["NC", "FJ", "SB", "VU"]:
+        del country_specific_scc[country]
+    return country_specific_scc
 
 
 def prepare_from_climate_financing_data():
