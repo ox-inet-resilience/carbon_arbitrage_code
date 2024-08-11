@@ -131,7 +131,7 @@ def add_array_of_mixed_objs(x, y):
     return out
 
 
-def calculate_cost1_info(
+def calculate_table1_info(
     do_round,
     data_set,
     time_period,
@@ -477,7 +477,7 @@ def get_cost_including_ngfs_renewable(
     )
 
 
-def generate_cost1_output(
+def generate_table1_output(
     rho,
     do_round,
     _df_nonpower,
@@ -588,7 +588,7 @@ def generate_cost1_output(
             )
 
         text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}"
-        cost1_info, yearly_info = calculate_cost1_info(
+        table1_info, yearly_info = calculate_table1_info(
             do_round,
             scenario_formatted,
             f"{NGFS_PEG_YEAR}-{last_year}",
@@ -603,7 +603,7 @@ def generate_cost1_output(
             residual_production=residual_production,
             final_cost_with_learning=final_cost_with_learning,
         )
-        out[text] = cost1_info
+        out[text] = table1_info
         out_yearly[text] = yearly_info
         if scenario == "Current Policies":
             current_policies = {
@@ -629,7 +629,7 @@ def floatify_array_of_mixed_objs(x):
     return out
 
 
-def do_plot_yearly_cost1(yearly_both):
+def do_plot_yearly_table1(yearly_both):
     full_years_2100 = range(NGFS_PEG_YEAR, 2100 + 1)
     full_years_midyear = range(NGFS_PEG_YEAR, LAST_YEAR + 1)
     for condition, value in yearly_both.items():
@@ -665,7 +665,7 @@ def do_plot_yearly_cost1(yearly_both):
         plt.close()
 
 
-def run_cost1(
+def run_table1(
     x,
     to_csv=False,
     do_round=False,
@@ -675,7 +675,7 @@ def run_cost1(
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
 
-    out, yearly = generate_cost1_output(
+    out, yearly = generate_table1_output(
         rho,
         do_round,
         df_sector,
@@ -703,11 +703,11 @@ def run_cost1(
             ext += "_30Y"
         if with_learning.ENABLE_WRIGHTS_LAW:
             ext += "_wright"
-        fname = f"plots/cost1_{uid}{ext}_{social_cost_of_carbon}_{LAST_YEAR}.csv"
+        fname = f"plots/table1_{uid}{ext}_{social_cost_of_carbon}_{LAST_YEAR}.csv"
         pd.DataFrame(both_dict).T.to_csv(fname)
 
     if plot_yearly:
-        do_plot_yearly_cost1(yearly)
+        do_plot_yearly_table1(yearly)
 
     if return_yearly:
         return yearly
@@ -725,7 +725,7 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     for social_cost in social_costs:
         util.social_cost_of_carbon = social_cost
         social_cost_of_carbon = social_cost
-        out = run_cost1(x=1, to_csv=False, do_round=False)
+        out = run_table1(x=1, to_csv=False, do_round=False)
         carbon_arbitrage_opportunity = out[
             "Carbon arbitrage including residual benefit (in trillion dollars)"
         ]
@@ -831,7 +831,7 @@ def calculate_each_countries_with_cache(
             global social_cost_of_carbon
             social_cost_of_carbon = scc
             util.social_cost_of_carbon = scc
-        out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
+        out = run_table1(x=1, to_csv=False, do_round=False, return_yearly=True)
         for key, yearly in out[chosen_s2_scenario].items():
             if key in [
                 "residual_benefit",
@@ -1044,7 +1044,7 @@ def make_climate_financing_SCATTER_plot():
 
 def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
     yearly_costs_dict = {}
-    out = run_cost1(x=1, to_csv=False, do_round=False, return_yearly=True)
+    out = run_table1(x=1, to_csv=False, do_round=False, return_yearly=True)
     yearly_cost_for_avoiding = out[chosen_s2_scenario][info_name]
     country_names = list(yearly_cost_for_avoiding[-1].keys())
     for country_name in country_names:
@@ -1374,7 +1374,7 @@ def run_3_level_scc():
         for sc in scs:
             util.social_cost_of_carbon = sc
             social_cost_of_carbon = sc  # noqa: F811
-            out = run_cost1(x=1, to_csv=False, do_round=True, plot_yearly=False)
+            out = run_table1(x=1, to_csv=False, do_round=True, plot_yearly=False)
             cao = out[cao_name][condition]
             caos.append(f"{cao:.2f}")
             cao_with_residual = out[cao_name_with_residual][condition]
@@ -1394,7 +1394,7 @@ def get_yearly_by_country():
     global ENABLE_COAL_EXPORT
     for enable in [False, True]:
         ENABLE_COAL_EXPORT = enable
-        out = run_cost1(x=1, to_csv=False, do_round=True, return_yearly=True)
+        out = run_table1(x=1, to_csv=False, do_round=True, return_yearly=True)
         nz2050 = out[f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"]
         series_ics = []
         series_ocs = []
@@ -1440,7 +1440,7 @@ def get_yearly_by_country():
 
 
 def make_battery_unit_ic_plot():
-    run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    run_table1(x=1, to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2101)
 
     def convert_unit(arr):
@@ -1512,7 +1512,7 @@ if __name__ == "__main__":
         for scc in sccs:
             util.social_cost_of_carbon = scc
             social_cost_of_carbon = scc  # noqa: F811
-            out = run_cost1(x=1, to_csv=True, do_round=True, plot_yearly=False)
+            out = run_table1(x=1, to_csv=True, do_round=True, plot_yearly=False)
         # print(json.dumps(out, indent=2))
         # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()

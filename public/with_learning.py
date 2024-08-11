@@ -106,7 +106,7 @@ class InvestmentCostWithLearning:
             self.alphas[tech] = alpha
         self.stocks_kW = {tech: {} for tech in self.techs}
 
-        # To be used in the full cost1 table calculation
+        # To be used in the full table1 calculation
         self.cost_non_discounted = []
         self.cost_discounted = []
 

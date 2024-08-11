@@ -197,7 +197,7 @@ def calculate_country_specific_scc_data(
         info_name=cost_name,
         last_year=last_year,
     )
-    out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False)
+    out = analysis_main.run_table1(x=1, to_csv=False, do_round=False)
     global_benefit = out[
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     ][chosen_s2_scenario]
@@ -588,7 +588,7 @@ def do_country_specific_scc_part4():
 def calculate_global_benefit(last_year=None):
     if last_year is None:
         last_year = 2100
-    out = analysis_main.run_cost1(x=1, to_csv=False, do_round=False, plot_yearly=False)
+    out = analysis_main.run_table1(x=1, to_csv=False, do_round=False, plot_yearly=False)
     chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
     property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     global_benefit = out[property][chosen_s2_scenario]

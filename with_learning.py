@@ -102,7 +102,7 @@ class InvestmentCostWithLearning:
         self.stocks_kW_battery_long = defaultdict(dict)
         self.stocks_kW_battery_pe = {tech: defaultdict(dict) for tech in self.techs}
 
-        # To be used in the full cost1 table calculation
+        # To be used in the full table1 calculation
         self.cost_non_discounted = []
         self.cost_discounted = []
         self.cost_non_discounted_battery_short = []
