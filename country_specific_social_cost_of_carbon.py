@@ -3,6 +3,8 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 
+import util
+
 # The data source is public, taken from
 # https://www.nature.com/articles/s41558-018-0282-y
 df = pd.read_csv(
@@ -75,9 +77,9 @@ for model in ["bhm_lr", "bhm_sr"]:
     plt.savefig(f"plots/country_specific_plot_scc_{model}.png")
 
 
+iso3166_df = util.read_iso3166()
+alpha3_to_2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
 if 1:
-    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
-    alpha3_to_2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
     alpha2_to_full_name = iso3166_df.set_index("alpha-2")["name"].to_dict()
     baseline["ISO2"] = baseline.ISO3.apply(lambda x: alpha3_to_2[x])
     total_scc = sum(fifty_percent_baseline)
@@ -87,10 +89,7 @@ if 1:
 
 
 # Save the data
-if False:
-    iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
-    iso3166_df = iso3166_df.set_index("alpha-3")
-    alpha3_to_2 = iso3166_df["alpha-2"].to_dict()
+if 1:
     baseline["ISO2"] = baseline.ISO3.apply(lambda x: alpha3_to_2[x])
     mapper = baseline.set_index("ISO2")["50%"].to_dict()
     with open("plots/country_specific_scc.json", "w") as f:
