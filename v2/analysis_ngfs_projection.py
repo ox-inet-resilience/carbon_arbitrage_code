@@ -135,7 +135,7 @@ SECTOR_INCLUDED = "Power"
 NGFS_PEG_YEAR = 2024
 ngfs_df = util.read_ngfs()
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
-iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+iso3166_df = util.read_iso3166()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 # GtCO2
 emissions_fa = util.get_emissions_by_country(df_sector)
