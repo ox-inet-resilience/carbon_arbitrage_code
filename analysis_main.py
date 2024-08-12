@@ -143,8 +143,8 @@ def calculate_table1_info(
     array_of_cost_non_discounted_investment,
     array_of_cost_discounted_investment,
     current_policies=None,
-    residual_emissions_dict=0.0,
-    residual_production=0.0,
+    residual_emissions_series=0.0,
+    residual_production_series=0.0,
     final_cost_with_learning=None,
 ):
     if INVESTMENT_COST_DIVIDER > 1:
@@ -166,7 +166,7 @@ def calculate_table1_info(
         array_of_cost_discounted_investment
     )
     # In GtCO2
-    residual_emissions = sum(residual_emissions_dict.values()) / 1e9
+    residual_emissions = residual_emissions_series.sum() / 1e9
     if current_policies is None:
         assert data_set == "FA" or "Current Policies" in data_set, data_set
         avoided_emissions_by_country: pd.Series = sum(
@@ -200,7 +200,7 @@ def calculate_table1_info(
 
     # Division of residual emissions dict by 1e9 converts to GtCO2
     out_yearly_info["avoided_emissions_including_residual_emissions"] = (
-        avoided_emissions_by_country + pd.Series(residual_emissions_dict) / 1e9
+        avoided_emissions_by_country + residual_emissions_series / 1e9
     )
     # Sanity check
     expected = saved_non_discounted + residual_emissions
@@ -255,7 +255,7 @@ def calculate_table1_info(
     residual_benefit = residual_emissions * social_cost_of_carbon / 1e3
 
     # Convert to Gigatonnes of coal
-    residual_production /= 1e9
+    residual_production = residual_production_series.sum() / 1e9
 
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
@@ -318,7 +318,8 @@ def calculate_table1_info(
         out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
     )
     out_yearly_info["residual_benefit"] = {
-        k: v * social_cost_of_carbon / 1e12 for k, v in residual_emissions_dict.items()
+        k: v * social_cost_of_carbon / 1e12
+        for k, v in residual_emissions_series.items()
     }
 
     # Costs of avoiding coal emissions
@@ -480,6 +481,7 @@ def generate_table1_output(
     rho,
     do_round,
     _df_nonpower,
+    included_countries=None,
 ):
     out = {}
     out_yearly = {}
@@ -586,6 +588,48 @@ def generate_table1_output(
                 cost_discounted_investment, production_2019
             )
 
+        if included_countries is not None:
+
+            def _filter(e):
+                if isinstance(e, dict):
+                    e = pd.Series(e)
+                return e[e.index.isin(included_countries)]
+
+            def _filter_arr(arr):
+                return [_filter(e) for e in arr]
+
+            gigatonnes_coal_production = _filter(
+                sum(production_with_ngfs_projection)
+            ).sum()
+
+            array_of_total_emissions_non_discounted = _filter_arr(
+                array_of_total_emissions_non_discounted
+            )
+            cost_non_discounted_revenue = _filter_arr(cost_non_discounted_revenue)
+            cost_discounted_revenue = _filter_arr(cost_discounted_revenue)
+            cost_non_discounted_investment = _filter_arr(cost_non_discounted_investment)
+            cost_discounted_investment = _filter_arr(cost_discounted_investment)
+            residual_emissions = _filter(residual_emissions)
+            residual_production = _filter(residual_production)
+            final_cost_with_learning.cost_non_discounted_battery_short_by_country = _filter_arr(
+                final_cost_with_learning.cost_non_discounted_battery_short_by_country
+            )
+            final_cost_with_learning.cost_non_discounted_battery_long_by_country = (
+                _filter_arr(
+                    final_cost_with_learning.cost_non_discounted_battery_long_by_country
+                )
+            )
+            final_cost_with_learning.cost_non_discounted_battery_pe_by_country = (
+                _filter_arr(
+                    final_cost_with_learning.cost_non_discounted_battery_pe_by_country
+                )
+            )
+            final_cost_with_learning.cost_non_discounted_battery_grid_by_country = (
+                _filter_arr(
+                    final_cost_with_learning.cost_non_discounted_battery_grid_by_country
+                )
+            )
+
         text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}"
         table1_info, yearly_info = calculate_table1_info(
             do_round,
@@ -598,8 +642,8 @@ def generate_table1_output(
             cost_non_discounted_investment,
             cost_discounted_investment,
             current_policies=current_policies,
-            residual_emissions_dict=residual_emissions,
-            residual_production=residual_production,
+            residual_emissions_series=residual_emissions,
+            residual_production_series=residual_production,
             final_cost_with_learning=final_cost_with_learning,
         )
         out[text] = table1_info
@@ -669,6 +713,7 @@ def run_table1(
     do_round=False,
     plot_yearly=False,
     return_yearly=False,
+    included_countries=None,
 ):
     # rho is the same everywhere
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
@@ -677,6 +722,7 @@ def run_table1(
         rho,
         do_round,
         df_sector,
+        included_countries=included_countries,
     )
 
     out_dict = out.T.to_dict()
@@ -713,7 +759,7 @@ def run_table1(
     return both_dict
 
 
-def run_table2():
+def run_table2(name="", included_countries=None):
     global social_cost_of_carbon, LAST_YEAR
     result = defaultdict(dict)
     sccs = [
@@ -727,7 +773,7 @@ def run_table2():
             util.social_cost_of_carbon = scc
             social_cost_of_carbon = scc  # noqa: F811
             LAST_YEAR = last_year
-            result[scc][last_year] = run_table1()
+            result[scc][last_year] = run_table1(included_countries=included_countries)
     result_80 = result[util.social_cost_of_carbon_imf]
     mapper = {
         "Time Period": "Time Period of Carbon Arbitrage",
@@ -742,13 +788,18 @@ def run_table2():
         "Investment costs renewables to power electrolyzers": "investment_cost_battery_pe_trillion",
         "Investment costs grid extension": "investment_cost_battery_grid_trillion",
     }
+
     def _s(y):
-        return f'2024-{y} FA + Net Zero 2050 Scenario'
+        return f"2024-{y} FA + Net Zero 2050 Scenario"
+
     table = {k: [result_80[y][v][_s(y)] for y in last_years] for k, v in mapper.items()}
     table["Costs per avoided tCO2e ($/tCO2e)"] = [
         result_80[y]["Costs of avoiding coal emissions (in trillion dollars)"][_s(y)]
         * 1e12
-        / (result_80[y]["Total emissions avoided including residual (GtCO2)"][_s(y)] * 1e9)
+        / (
+            result_80[y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
+            * 1e9
+        )
         for y in last_years
     ]
     for scc in sccs:
@@ -766,7 +817,9 @@ def run_table2():
             ][_s(y)]
             * 1e12
             / (
-                result[scc][y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
+                result[scc][y]["Total emissions avoided including residual (GtCO2)"][
+                    _s(y)
+                ]
                 * 1e9
             )
             for y in last_years
@@ -789,13 +842,15 @@ def run_table2():
             ][_s(y)]
             * 1e12
             / (
-                result[scc][y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
+                result[scc][y]["Total emissions avoided including residual (GtCO2)"][
+                    _s(y)
+                ]
                 * 1e9
             )
             for y in last_years
         ]
     uid = util.get_unique_id(include_date=False)
-    pd.DataFrame(table).T.to_csv(f"plots/table2_{uid}.csv")
+    pd.DataFrame(table).round(3).T.to_csv(f"plots/table2_{name}_{uid}.csv")
 
 
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):

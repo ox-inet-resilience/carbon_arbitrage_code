@@ -3,7 +3,6 @@ import math
 import os
 import pathlib
 import sys
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -32,6 +31,8 @@ investment_label_map = {
     "cost_battery_pe": "Battery (PE)",
     "cost_battery_grid": "Battery (grid)",
 }
+# This is sorted descending from emissions of 2024 only
+top15_power_2024 = "CN IN US VN ID TR JP RU DE BD ZA KR PL GB SA".split()
 
 
 def set_matplotlib_tick_spacing(tick_spacing):
@@ -93,6 +94,27 @@ def get_info_investment(info_name, last_year, included_countries=None):
             get_info(b, last_year, included_countries) for b in cost_batteries
         )
     return get_info(info_name, last_year, included_countries)
+
+
+def run_table2_region():
+    (
+        iso3166_df,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+
+    developING_country_shortnames = util.get_developing_countries()
+    emerging_country_shortnames = util.get_emerging_countries()
+
+    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    analysis_main.run_table2("developed", developed_country_shortnames)
+    analysis_main.run_table2("developing", developING_country_shortnames)
+    analysis_main.run_table2("emerging", emerging_country_shortnames)
+    for name, countries in region_countries_map.items():
+        analysis_main.run_table2(name, countries)
+    analysis_main.run_table2("top15power", top15_power_2024)
 
 
 def make_climate_financing_plot(
@@ -315,8 +337,6 @@ def make_cost_benefit_plot(last_year):
 
 
 def make_climate_financing_top15_plot(last_year):
-    # This is sorted descending from emissions of 2024 only
-    top15_power_2024 = "CN IN US VN ID TR JP RU DE BD ZA KR PL GB SA".split()
     chosen_s2_scenario = (
         f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
@@ -590,6 +610,8 @@ def make_yearly_climate_financing_plot():
 
 
 if __name__ == "__main__":
+    run_table2_region()
+    exit()
     if 0:
         for info_name in [
             "cost",

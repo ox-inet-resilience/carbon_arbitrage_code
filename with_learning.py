@@ -1,6 +1,8 @@
 import math
 from collections import defaultdict
 
+import pandas as pd
+
 import util
 
 ENABLE_WRIGHTS_LAW = 1
@@ -482,7 +484,7 @@ class InvestmentCostWithLearning:
 
     def calculate_residual_one_year(self, year, weighted_emissions_factor_by_country):
         equivalent_emissions = {}
-        equivalent_production = 0.0
+        equivalent_production = {}
         for (
             country_name,
             emissions_factor,
@@ -493,7 +495,7 @@ class InvestmentCostWithLearning:
             equivalent_emissions[country_name] = (
                 tonnes_of_coal_equivalent * emissions_factor
             )
-            equivalent_production += tonnes_of_coal_equivalent
+            equivalent_production[country_name] = tonnes_of_coal_equivalent
         return equivalent_emissions, equivalent_production
 
     def calculate_residual(
@@ -502,7 +504,7 @@ class InvestmentCostWithLearning:
         if not ENABLE_RESIDUAL_BENEFIT:
             return 0.0, 0.0
         residual_emissions = defaultdict(float)
-        residual_production = 0.0
+        residual_production = defaultdict(float)
         for year in range(year_start, year_end + 1):
             (
                 equivalent_emissions,
@@ -512,5 +514,6 @@ class InvestmentCostWithLearning:
             )
             for k, v in equivalent_emissions.items():
                 residual_emissions[k] += v
-            residual_production += equivalent_production
-        return residual_emissions, residual_production
+            for k, v in equivalent_production.items():
+                residual_production[k] += v
+        return pd.Series(residual_emissions), pd.Series(residual_production)
