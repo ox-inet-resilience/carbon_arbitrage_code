@@ -97,6 +97,51 @@ def get_info_investment(info_name, last_year, included_countries=None):
 
 
 def run_table2_region():
+    # For sanity check
+    df_cost_benefit = make_cost_benefit_plot(2050).set_index("region")
+
+    def do_sanity_check(out, region_name):
+        print("Sanity check on", region_name)
+        expected_cost = (
+            df_cost_benefit.loc[
+                region_name,
+                [
+                    "Renewables",
+                    "Battery (short)",
+                    "Battery (long)",
+                    "Battery (PE)",
+                    "Battery (grid)",
+                ],
+            ]
+            .sum()
+            .round(2)
+        )
+        actual_cost = round(
+            out.loc["Costs of power sector decarbonization (in trillion dollars)", 1], 2
+        )
+        scc = 80
+        expected_benefit = df_cost_benefit.loc[
+            region_name, f"global_benefit_country_reduction_{scc}"
+        ].round(2)
+        actual_benefit = round(
+            out.loc[
+                f"scc {scc} Global benefit country decarbonization including residual benefit (in trillion dollars)",
+                1,
+            ],
+            2,
+        )
+        rel_tol = 0.01
+        assert math.isclose(expected_cost, actual_cost, rel_tol=rel_tol), (
+            expected_cost,
+            actual_cost,
+        )
+        assert math.isclose(expected_benefit, actual_benefit, rel_tol=rel_tol), (
+            expected_benefit,
+            actual_benefit,
+        )
+
+    # End for sanity check
+
     (
         iso3166_df,
         _,
@@ -109,11 +154,19 @@ def run_table2_region():
     emerging_country_shortnames = util.get_emerging_countries()
 
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
-    analysis_main.run_table2("developed", developed_country_shortnames)
-    analysis_main.run_table2("developing", developING_country_shortnames)
-    analysis_main.run_table2("emerging", emerging_country_shortnames)
+
+    out = analysis_main.run_table2("developed", developed_country_shortnames)
+    do_sanity_check(out, "Developed Countries")
+
+    out = analysis_main.run_table2("developing", developING_country_shortnames)
+    do_sanity_check(out, "Developing Countries")
+
+    out = analysis_main.run_table2("emerging", emerging_country_shortnames)
+    do_sanity_check(out, "Emerging Market Countries")
+
     for name, countries in region_countries_map.items():
-        analysis_main.run_table2(name, countries)
+        out = analysis_main.run_table2(name, countries)
+        do_sanity_check(out, name)
     analysis_main.run_table2("top15power", top15_power_2024)
 
 
@@ -225,7 +278,7 @@ def make_climate_financing_plot(
     df.to_csv(f"plots/table_{plot_name}_{util.get_unique_id()}.csv", index=False)
 
 
-def make_cost_benefit_plot(last_year):
+def make_cost_benefit_plot(last_year, to_csv=False):
     (
         iso3166_df,
         _,
@@ -333,7 +386,9 @@ def make_cost_benefit_plot(last_year):
 
     # Export to CSV
     df = pd.DataFrame(for_df)
-    df.to_csv(f"plots/table_{fname}_{util.get_unique_id()}.csv", index=False)
+    if to_csv:
+        df.to_csv(f"plots/table_{fname}_{util.get_unique_id()}.csv", index=False)
+    return df
 
 
 def make_climate_financing_top15_plot(last_year):
@@ -622,7 +677,7 @@ if __name__ == "__main__":
             make_climate_financing_plot(info_name=info_name)
     if 1:
         for last_year in [2030, 2050]:
-            make_cost_benefit_plot(last_year)
+            make_cost_benefit_plot(last_year, to_csv=True)
             # make_climate_financing_top15_plot(last_year)
         exit()
     # make_climate_financing_SCATTER_plot()

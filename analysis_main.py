@@ -775,6 +775,7 @@ def run_table2(name="", included_countries=None):
             LAST_YEAR = last_year
             result[scc][last_year] = run_table1(included_countries=included_countries)
     result_80 = result[util.social_cost_of_carbon_imf]
+    gc_benefit_old_name = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     mapper = {
         "Time Period": "Time Period of Carbon Arbitrage",
         "Avoided fossil fuel electricity generation (PWh)": "Electricity generation avoided including residual (PWh)",
@@ -804,17 +805,10 @@ def run_table2(name="", included_countries=None):
     ]
     for scc in sccs:
         table[
-            f"scc {scc} Benefits of power sector decarbonization (in trillion dollars)"
-        ] = [
-            result[scc][y][
-                "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
-            ][_s(y)]
-            for y in last_years
-        ]
-        table[f"scc {scc} Benefit per avoided tCO2e ($/tCO2e)"] = [
-            result[scc][y][
-                "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
-            ][_s(y)]
+            f"scc {scc} Global benefit country decarbonization including residual benefit (in trillion dollars)"
+        ] = [result[scc][y][gc_benefit_old_name][_s(y)] for y in last_years]
+        table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"] = [
+            result[scc][y][gc_benefit_old_name][_s(y)]
             * 1e12
             / (
                 result[scc][y]["Total emissions avoided including residual (GtCO2)"][
@@ -849,8 +843,11 @@ def run_table2(name="", included_countries=None):
             )
             for y in last_years
         ]
+
     uid = util.get_unique_id(include_date=False)
-    pd.DataFrame(table).round(3).T.to_csv(f"plots/table2_{name}_{uid}.csv")
+    df = pd.DataFrame(table).round(3).T
+    df.to_csv(f"plots/table2_{name}_{uid}.csv")
+    return df
 
 
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
@@ -961,9 +958,9 @@ def calculate_each_countries_with_cache(
         LAST_YEAR = last_year
     use_cache = not ignore_cache
     if use_cache and os.path.isfile(cache_json_path):
-        print("Cached json found. Reading...")
         info_dict = util.read_json(cache_json_path)
     else:
+        print("Cached json not found. Calculating from scratch...")
         info_dict = {}
         if scc is not None:
             global social_cost_of_carbon
