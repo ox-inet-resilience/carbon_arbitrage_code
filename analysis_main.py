@@ -377,6 +377,9 @@ def calculate_table1_info(
         "Benefits of avoiding coal emissions (in trillion dollars)": benefit_non_discounted,
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": benefit_non_discounted
         + residual_benefit,
+        "country_benefit_country_reduction": sum(
+            out_yearly_info["country_benefit_country_reduction"].values()
+        ),
     }
     for k, v in data.items():
         if k in [
@@ -776,6 +779,7 @@ def run_table2(name="", included_countries=None):
             result[scc][last_year] = run_table1(included_countries=included_countries)
     result_80 = result[util.social_cost_of_carbon_imf]
     gc_benefit_old_name = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+    # Rename the key
     mapper = {
         "Time Period": "Time Period of Carbon Arbitrage",
         "Avoided fossil fuel electricity generation (PWh)": "Electricity generation avoided including residual (PWh)",
@@ -807,6 +811,13 @@ def run_table2(name="", included_countries=None):
         table[
             f"scc {scc} Global benefit country decarbonization including residual benefit (in trillion dollars)"
         ] = [result[scc][y][gc_benefit_old_name][_s(y)] for y in last_years]
+        table[
+            f"scc {scc} CC benefit including residual benefit (in trillion dollars)"
+        ] = [
+            result[scc][y]["country_benefit_country_reduction"][_s(y)]
+            for y in last_years
+        ]
+
         table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"] = [
             result[scc][y][gc_benefit_old_name][_s(y)]
             * 1e12
@@ -843,6 +854,11 @@ def run_table2(name="", included_countries=None):
             )
             for y in last_years
         ]
+    table["scc_share (%)"] = (
+        100
+        * sum(country_sccs.get(c, 0) for c in included_countries)
+        / country_sccs.sum()
+    )
 
     uid = util.get_unique_id(include_date=False)
     df = pd.DataFrame(table).round(3).T
