@@ -169,6 +169,9 @@ def run_table2_region():
         do_sanity_check(out, name)
     analysis_main.run_table2("top15power", top15_power_2024)
 
+    for country in top15_power_2024:
+        analysis_main.run_table2(f"country_{country}", [country])
+
 
 def make_climate_financing_plot(
     plot_name=None,
