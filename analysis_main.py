@@ -798,6 +798,52 @@ def run_table2(name="", included_countries=None):
         return f"2024-{y} FA + Net Zero 2050 Scenario"
 
     table = {k: [result_80[y][v][_s(y)] for y in last_years] for k, v in mapper.items()}
+
+    # For emissions by subsector
+    emissions_fa = util.get_emissions_by_country(df_sector)
+    # Filter by country
+    if included_countries is not None:
+        emissions_fa = emissions_fa[
+            emissions_fa.index.get_level_values("asset_country").isin(
+                included_countries
+            )
+        ]
+    by_subsectors_years = defaultdict(list)
+    subsectors = ["Coal", "Oil", "Gas"]
+    for last_year in last_years:
+        by_subsectors_nz2050 = util.calculate_ngfs_projection_by_subsector(
+            "emissions",
+            emissions_fa,
+            ngfs_df,
+            SECTOR_INCLUDED,
+            "Net Zero 2050",
+            NGFS_PEG_YEAR,
+            last_year,
+            alpha2_to_alpha3,
+        )
+        by_subsectors_cp = util.calculate_ngfs_projection_by_subsector(
+            "emissions",
+            emissions_fa,
+            ngfs_df,
+            SECTOR_INCLUDED,
+            "Current Policies",
+            NGFS_PEG_YEAR,
+            last_year,
+            alpha2_to_alpha3,
+        )
+
+        for subsector in subsectors:
+            by_subsectors_years[subsector].append(
+                # Delta E
+                sum(by_subsectors_cp[subsector]).sum()
+                - sum(by_subsectors_nz2050[subsector]).sum()
+            )
+    for subsector in subsectors:
+        table[f"Avoided emissions {subsector} (GtCO2e)"] = by_subsectors_years[
+            subsector
+        ]
+    # End of for emissions by subsector
+
     table["Costs per avoided tCO2e ($/tCO2e)"] = [
         result_80[y]["Costs of avoiding coal emissions (in trillion dollars)"][_s(y)]
         * 1e12
@@ -1083,6 +1129,7 @@ def make_climate_financing_SCATTER_plot():
 
     developing_shortnames = util.get_developing_countries()
     emerging_shortnames = util.get_emerging_countries()
+    raise Exception("developed_gdp uses outdated GDP here")
     developed_gdp = pd.read_csv("data/GDP-Developed-World.csv", thousands=",")
     colname_for_gdp = "2023 GDP (million dollars)"
     developed_country_shortnames = list(

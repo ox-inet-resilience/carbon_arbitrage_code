@@ -3,7 +3,7 @@ import json
 import subprocess
 import multiprocessing as mp
 import os
-from functools import lru_cache 
+from functools import lru_cache
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -313,7 +313,7 @@ def calculate_ngfs_projection(
     start_year,
     last_year,
     alpha2_to_alpha3,
-    filter_subsector=None
+    filter_subsector=None,
 ):
     assert sector == "Power"
     ngfs = ngfs_df[production_or_emissions]
@@ -375,6 +375,8 @@ def calculate_ngfs_projection(
             out = {country: timeseries}
         else:
             out[country] = timeseries
+    if out is None:
+        return pd.Series([]), 0
     summed = 0
     for value in out.values():
         summed += sum(value)
@@ -384,6 +386,35 @@ def calculate_ngfs_projection(
             pd.Series({country: value[i] for country, value in out.items()})
         )
     return final_out, summed
+
+
+def calculate_ngfs_projection_by_subsector(
+    production_or_emissions,
+    value_fa,
+    ngfs_df,
+    sector,
+    scenario,
+    start_year,
+    last_year,
+    alpha2_to_alpha3,
+    filter_subsector=None,
+):
+    out = {}
+    for subsector in ["Coal", "Oil", "Gas"]:
+        by_subsector, _ = calculate_ngfs_projection(
+            production_or_emissions,
+            value_fa,
+            ngfs_df,
+            sector,
+            scenario,
+            start_year,
+            last_year,
+            alpha2_to_alpha3,
+            filter_subsector=subsector,
+        )
+        out[subsector] = by_subsector
+
+    return out
 
 
 def calculate_rho(beta, rho_mode="default"):
@@ -430,15 +461,11 @@ def calculate_discount(rho, deltat):
 
 
 def sum_discounted(array, rho):
-    return sum(
-        e * calculate_discount(rho, i) for i, e in enumerate(array)
-    )
+    return sum(e * calculate_discount(rho, i) for i, e in enumerate(array))
 
 
 def discount_array(array, rho):
-    return [
-        e * calculate_discount(rho, i) for i, e in enumerate(array)
-    ]
+    return [e * calculate_discount(rho, i) for i, e in enumerate(array)]
 
 
 def get_emissions_by_country(nonpower_coal, discounted=False):
@@ -475,7 +502,9 @@ def get_capacity_factor(iea_df, year):
         return iea_df[iea_df.year == truncated_year].iloc[0].capacity_factor
 
 
-def plot_stacked_bar(x, data, width=0.8, color=None, bar_fn=None, overlapping_insteadof_stacking=False):
+def plot_stacked_bar(
+    x, data, width=0.8, color=None, bar_fn=None, overlapping_insteadof_stacking=False
+):
     if bar_fn is None:
         bar_fn = plt.bar
     # plot the first one

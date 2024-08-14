@@ -485,6 +485,7 @@ def make_yearly_climate_financing_plot():
         colname_for_gdp,
         developed_country_shortnames,
     ) = util.prepare_from_climate_financing_data()
+    raise Exception("developed_gdp is outdated here 2020")
 
     # The cache is used only for each of the developed countries.
     cache_json_path = f"plots/climate_financing_yearly_{git_branch}.json"
