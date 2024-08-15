@@ -125,7 +125,7 @@ def run_table2_region():
         ].round(2)
         actual_benefit = round(
             out.loc[
-                f"scc {scc} Global benefit country decarbonization including residual benefit (in trillion dollars)",
+                f"scc {scc} Global benefit country decarbonization (in trillion dollars)",
                 1,
             ],
             2,
@@ -154,6 +154,8 @@ def run_table2_region():
     emerging_country_shortnames = util.get_emerging_countries()
 
     region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+
+    analysis_main.run_table2("world")
 
     out = analysis_main.run_table2("developed", developed_country_shortnames)
     do_sanity_check(out, "Developed Countries")

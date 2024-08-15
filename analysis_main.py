@@ -330,7 +330,7 @@ def calculate_table1_info(
     net_benefit = benefit_non_discounted - cost_discounted
 
     last_year = int(time_period.split("-")[1])
-    arbitrage_period = 1 + (last_year - (NGFS_PEG_YEAR + 1))
+    arbitrage_period = last_year - NGFS_PEG_YEAR
 
     ic_battery_short = sum_array_of_mixed_objs(out_yearly_info["cost_battery_short"])
     ic_battery_long = sum_array_of_mixed_objs(out_yearly_info["cost_battery_long"])
@@ -764,20 +764,19 @@ def run_table1(
 
 def run_table2(name="", included_countries=None):
     global social_cost_of_carbon, LAST_YEAR
-    result = defaultdict(dict)
+    result = {}
     sccs = [
         util.social_cost_of_carbon_imf,
         util.scc_biden_administration,
         util.scc_bilal,
     ]
+    scc_default = util.social_cost_of_carbon_imf
     last_years = [2030, 2050]
-    for scc in sccs:
-        for last_year in last_years:
-            util.social_cost_of_carbon = scc
-            social_cost_of_carbon = scc  # noqa: F811
-            LAST_YEAR = last_year
-            result[scc][last_year] = run_table1(included_countries=included_countries)
-    result_80 = result[util.social_cost_of_carbon_imf]
+    for last_year in last_years:
+        util.social_cost_of_carbon = scc_default
+        social_cost_of_carbon = scc_default
+        LAST_YEAR = last_year
+        result[last_year] = run_table1(included_countries=included_countries)
     gc_benefit_old_name = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     # Rename the key
     mapper = {
@@ -797,115 +796,122 @@ def run_table2(name="", included_countries=None):
     def _s(y):
         return f"2024-{y} FA + Net Zero 2050 Scenario"
 
-    table = {k: [result_80[y][v][_s(y)] for y in last_years] for k, v in mapper.items()}
+    table = defaultdict(list)
+    for k, v in mapper.items():
+        for y in last_years:
+            table[k].append(result[y][v][_s(y)])
 
     # For emissions by subsector
-    emissions_fa = util.get_emissions_by_country(df_sector)
-    # Filter by country
-    if included_countries is not None:
-        emissions_fa = emissions_fa[
-            emissions_fa.index.get_level_values("asset_country").isin(
-                included_countries
-            )
-        ]
-    by_subsectors_years = defaultdict(list)
-    subsectors = ["Coal", "Oil", "Gas"]
-    for last_year in last_years:
-        by_subsectors_nz2050 = util.calculate_ngfs_projection_by_subsector(
-            "emissions",
-            emissions_fa,
-            ngfs_df,
-            SECTOR_INCLUDED,
-            "Net Zero 2050",
-            NGFS_PEG_YEAR,
-            last_year,
-            alpha2_to_alpha3,
-        )
-        by_subsectors_cp = util.calculate_ngfs_projection_by_subsector(
-            "emissions",
-            emissions_fa,
-            ngfs_df,
-            SECTOR_INCLUDED,
-            "Current Policies",
-            NGFS_PEG_YEAR,
-            last_year,
-            alpha2_to_alpha3,
-        )
+    # emissions_fa = util.get_emissions_by_country(df_sector)
+    # # Filter by country
+    # if included_countries is not None:
+    #     emissions_fa = emissions_fa[
+    #         emissions_fa.index.get_level_values("asset_country").isin(
+    #             included_countries
+    #         )
+    #     ]
+    # by_subsectors_years = defaultdict(list)
+    # subsectors = ["Coal", "Oil", "Gas"]
+    # for last_year in last_years:
+    #     by_subsectors_nz2050 = util.calculate_ngfs_projection_by_subsector(
+    #         "emissions",
+    #         emissions_fa,
+    #         ngfs_df,
+    #         SECTOR_INCLUDED,
+    #         "Net Zero 2050",
+    #         NGFS_PEG_YEAR,
+    #         last_year,
+    #         alpha2_to_alpha3,
+    #     )
+    #     by_subsectors_cp = util.calculate_ngfs_projection_by_subsector(
+    #         "emissions",
+    #         emissions_fa,
+    #         ngfs_df,
+    #         SECTOR_INCLUDED,
+    #         "Current Policies",
+    #         NGFS_PEG_YEAR,
+    #         last_year,
+    #         alpha2_to_alpha3,
+    #     )
 
-        for subsector in subsectors:
-            by_subsectors_years[subsector].append(
-                # Delta E
-                sum(by_subsectors_cp[subsector]).sum()
-                - sum(by_subsectors_nz2050[subsector]).sum()
-            )
-    for subsector in subsectors:
-        table[f"Avoided emissions {subsector} (GtCO2e)"] = by_subsectors_years[
-            subsector
-        ]
+    #     for subsector in subsectors:
+    #         by_subsectors_years[subsector].append(
+    #             # Delta E
+    #             sum(by_subsectors_cp[subsector]).sum()
+    #             - sum(by_subsectors_nz2050[subsector]).sum()
+    #         )
+    # for subsector in subsectors:
+    #     table[f"Avoided emissions {subsector} (GtCO2e)"] = by_subsectors_years[
+    #         subsector
+    #     ]
     # End of for emissions by subsector
 
-    table["Costs per avoided tCO2e ($/tCO2e)"] = [
-        result_80[y]["Costs of avoiding coal emissions (in trillion dollars)"][_s(y)]
-        * 1e12
-        / (
-            result_80[y]["Total emissions avoided including residual (GtCO2)"][_s(y)]
-            * 1e9
+    gdp_2023 = world_gdp_2023
+    if included_countries is not None:
+        gdp_marketcap_dict = util.read_json(util.gdp_marketcap_path)
+        # actual = np.nansum(list(gdp_marketcap_dict.values()))
+        # actual's value is 103.74, different from worldbank's own data of 105.44.
+        # Both come from worldbank.
+        # Convert to trillion dollars
+        gdp_2023 = (
+            np.nansum(
+                [
+                    gdp
+                    for country, gdp in gdp_marketcap_dict.items()
+                    if country in included_countries
+                ]
+            )
+            / 1e12
         )
-        for y in last_years
-    ]
-    for scc in sccs:
-        table[
-            f"scc {scc} Global benefit country decarbonization including residual benefit (in trillion dollars)"
-        ] = [result[scc][y][gc_benefit_old_name][_s(y)] for y in last_years]
-        table[
-            f"scc {scc} CC benefit including residual benefit (in trillion dollars)"
-        ] = [
-            result[scc][y]["country_benefit_country_reduction"][_s(y)]
-            for y in last_years
-        ]
-
-        table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"] = [
-            result[scc][y][gc_benefit_old_name][_s(y)]
+    for i, y in enumerate(last_years):
+        table["Costs per avoided tCO2e ($/tCO2e)"].append(
+            table["Costs of power sector decarbonization (in trillion dollars)"][i]
             * 1e12
-            / (
-                result[scc][y]["Total emissions avoided including residual (GtCO2)"][
-                    _s(y)
-                ]
-                * 1e9
+            / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+        )
+        arbitrage_period = y - NGFS_PEG_YEAR
+        for scc in sccs:
+            scc_scale = scc / scc_default
+            table[
+                f"scc {scc} Global benefit country decarbonization (in trillion dollars)"
+            ].append(result[y][gc_benefit_old_name][_s(y)] * scc_scale)
+            table[f"scc {scc} CC benefit (in trillion dollars)"].append(
+                result[y]["country_benefit_country_reduction"][_s(y)] * scc_scale
             )
-            for y in last_years
-        ]
-        table[f"scc {scc} Net benefit (in trillion dollars)"] = [
-            result[scc][y][
-                "Carbon arbitrage including residual benefit (in trillion dollars)"
-            ][_s(y)]
-            for y in last_years
-        ]
-        table[f"scc {scc} Net benefit relative to world GDP (%)"] = [
-            result[scc][y][
-                "Carbon arbitrage including residual benefit relative to world GDP (%)"
-            ][_s(y)]
-            for y in last_years
-        ]
-        table[f"scc {scc} Net benefit per avoided tCO2e ($/tCO2e)"] = [
-            result[scc][y][
-                "Carbon arbitrage including residual benefit (in trillion dollars)"
-            ][_s(y)]
-            * 1e12
-            / (
-                result[scc][y]["Total emissions avoided including residual (GtCO2)"][
-                    _s(y)
-                ]
-                * 1e9
+            table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"].append(
+                result[y][gc_benefit_old_name][_s(y)]
+                * scc_scale
+                * 1e12
+                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
             )
-            for y in last_years
-        ]
-    table["scc_share (%)"] = (
-        100
-        * sum(country_sccs.get(c, 0) for c in included_countries)
-        / country_sccs.sum()
-    )
+            table[f"scc {scc} CC net benefit (in trillion dollars)"].append(
+                table[f"scc {scc} CC benefit (in trillion dollars)"][i]
+                - table["Costs of power sector decarbonization (in trillion dollars)"][
+                    i
+                ]
+            )
+            table[f"scc {scc} Net benefit relative to GDP (%)"].append(
+                table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
+                * 100
+                / (gdp_2023 * arbitrage_period)
+            )
+            table[f"scc {scc} Net benefit per avoided tCO2e ($/tCO2e)"].append(
+                table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
+                * 1e12
+                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+            )
+        table["GDP over time period (in trillion dollars)"].append(
+            gdp_2023 * arbitrage_period
+        )
+    scc_share_percent = 100
+    if included_countries is not None:
+        scc_share_percent = (
+            100
+            * sum(country_sccs.get(c, 0) for c in included_countries)
+            / country_sccs.sum()
+        )
 
+    table["scc_share (%)"] = scc_share_percent
     uid = util.get_unique_id(include_date=False)
     df = pd.DataFrame(table).round(3).T
     df.to_csv(f"plots/table2_{name}_{uid}.csv")

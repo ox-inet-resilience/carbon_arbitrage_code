@@ -43,6 +43,7 @@ scc_bilal = 1056
 social_cost_of_carbon = social_cost_of_carbon_imf
 # social_cost_of_carbon = social_cost_of_carbon_biden_administration
 # social_cost_of_carbon = scc_bilal
+# Taken from https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
 world_gdp_2023 = 105.44  # trillion dolars
 gdp_marketcap_path = "data/all_countries_gdp_marketcap_2023.json"
 gdp_per_capita_path = "data/all_countries_gdp_per_capita_2023.json"
