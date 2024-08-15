@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 import processed_revenue
 import util
-from util import years_masterdata
 
 # g = nonpower_coal.groupby("asset_country")["_2022"].sum().sort_values(ascending=False).to_frame()
 # g["country_full_name"] = g.apply(lambda x: alpha2_to_full_name.get(x.name, x.name), axis=1)
@@ -14,9 +13,10 @@ from util import years_masterdata
 # g["coal_wage"] = 0
 # g.to_csv("plots/coal_producer_2022.csv")
 
-iso3166_df = pd.read_csv("data/country_ISO-3166_with_region.csv")
+iso3166_df = util.read_iso3166()
 alpha3_to_alpha2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
 alpha2_to_full_name = iso3166_df.set_index("alpha-2")["name"].to_dict()
+alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df = pd.read_csv("data/coal_producer_2022.csv")
 # Sanity check -- no zero salary
@@ -135,49 +135,61 @@ rho_mode_map = {
 # End of website sensitivity params
 
 # Data analysis part
-years = range(2023, 2100 + 1)
-_, nonpower_coal = util.read_masterdata()
-ngfss = util.read_ngfs_coal_and_power()
-countries = list(set(nonpower_coal.asset_country))
-
-grouped = nonpower_coal.groupby("asset_country")
-total_production_by_year_masterdata = []
-for year in years_masterdata:
-    tonnes_coal = grouped[f"_{year}"].sum()
-    production = tonnes_coal / 1e9  # convert to giga tonnes of coal
-    total_production_by_year_masterdata.append(production)
-
+NGFS_PEG_YEAR = 2024
+LAST_YEAR = 2050
+SECTOR_INCLUDED = "Power"
+scenario = "Net Zero 2050"
 ic_usa = 7231
+
+years = range(NGFS_PEG_YEAR + 1, LAST_YEAR + 1)
+df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
+ngfs_df = util.read_ngfs()
+
+countries = list(set(df_sector.asset_country))
+
+# Giga tonnes of coal
+total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
+# Giga tonnes of coal
+production_with_ngfs_projection, _ = util.calculate_ngfs_projection(
+    "production",
+    total_production_fa,
+    ngfs_df,
+    SECTOR_INCLUDED,
+    scenario,
+    NGFS_PEG_YEAR,
+    LAST_YEAR,
+    alpha2_to_alpha3,
+)
+production_with_ngfs_projection_CPS, _ = util.calculate_ngfs_projection(
+    "production",
+    total_production_fa,
+    ngfs_df,
+    SECTOR_INCLUDED,
+    "Current Policies",
+    NGFS_PEG_YEAR,
+    LAST_YEAR,
+    alpha2_to_alpha3,
+)
+
+DeltaP = util.subtract_array(
+    production_with_ngfs_projection_CPS, production_with_ngfs_projection
+)
 
 
 def calculate(rho_mode, do_plot=False, full_version=False):
-    scenario = "Net Zero 2050"
-    NGFS_PEG_YEAR = 2023
-
     rho = util.calculate_rho(processed_revenue.beta, rho_mode=rho_mode)
-    total_production_peg_year = total_production_by_year_masterdata[
-        NGFS_PEG_YEAR - 2022
-    ]
-    years_masterdata_up_to_peg = list(range(2022, NGFS_PEG_YEAR + 1))
-    fraction_increase_after_peg_year = util.calculate_ngfs_fractional_increase(
-        ngfss, "Coal", scenario, start_year=NGFS_PEG_YEAR
-    )
-    array_of_coal_production = total_production_by_year_masterdata[
-        : len(years_masterdata_up_to_peg)
-    ] + [
-        total_production_peg_year * v_np
-        for v_np in fraction_increase_after_peg_year.values()
-    ]
 
     def get_j_num_workers_lost_job(country, t):
-        num_workers_2022 = num_coal_workers_dict[country]
-        production_2022 = array_of_coal_production[0][country]
-        production_t = array_of_coal_production[t - 2022][country]
-        production_t_minus_1 = array_of_coal_production[t - 1 - 2022][country]
-        if math.isclose(production_2022, 0):
+        num_workers_peg_year = num_coal_workers_dict[country]
+        production_peg_year = DeltaP[0][country]
+        production_t = DeltaP[t - NGFS_PEG_YEAR][country]
+        production_t_minus_1 = DeltaP[t - 1 - NGFS_PEG_YEAR][country]
+        if math.isclose(production_peg_year, 0):
             return 0
         return (
-            num_workers_2022 * (production_t_minus_1 - production_t) / production_2022
+            num_workers_peg_year
+            * (production_t_minus_1 - production_t)
+            / production_peg_year
         )
 
     wage_lost_series = []
@@ -267,4 +279,6 @@ if __name__ == "__main__":
     out = {}
     for key, rho_mode in rho_mode_map.items():
         out[key] = calculate(rho_mode)
-    util.write_small_json(out, "plots/coal_worker_sensitivity_analysis.json")
+    util.write_small_json(
+        out, f"plots/coal_worker_sensitivity_analysis_{SECTOR_INCLUDED}.json"
+    )

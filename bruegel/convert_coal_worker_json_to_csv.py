@@ -11,8 +11,10 @@ sys.path.append(parent_dir)
 
 import util
 
+
 def do_round(x):
     return round(x, 4)
+
 
 # We use only the default 2.8%
 discount_rate_map = {
@@ -69,6 +71,9 @@ for year in years:
     )
 
 # Further rounding
-for col in ["opportunity costs compensation workers for lost wages", "opportunity costs retraining costs"]:
+for col in [
+    "opportunity costs compensation workers for lost wages",
+    "opportunity costs retraining costs",
+]:
     df[col] = do_round(df[col])
-df.to_csv("plots/bruegel/bruegel_oc_coal_worker_billion_usd.csv", index_label="alpha2")
+df.to_csv("plots/oc_coal_worker_billion_usd.csv", index_label="alpha2")
