@@ -11,7 +11,7 @@ ENABLE_BATTERY_LONG = True
 ENABLE_BATTERY_GRID = True
 ENABLE_RESIDUAL_BENEFIT = 1
 NGFS_RENEWABLE_WEIGHT = "static_50%"
-assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS", "dynamic_NGFS"]
+assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS"]
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
@@ -23,17 +23,6 @@ RENEWABLE_WEIGHTS = {
     "onshore_wind": 0.25,
     "offshore_wind": 0.25,
 }
-
-# To generate this data, make sure to generate
-# NGFS_renewable_additional_capacity_MODEL.json by running
-# data_preparation/prepare_world_wright_learning.py.
-# And then run misc/NGFS_renewable_additional_capacity.py
-if NGFS_RENEWABLE_WEIGHT == "dynamic_NGFS":
-    NGFS_dynamic_weight = util.read_json(
-        f"data/NGFS_renewable_dynamic_weight_{util.NGFS_MODEL}.json"
-    )
-else:
-    NGFS_dynamic_weight = None
 
 irena = util.read_json("data/irena.json")
 
@@ -178,8 +167,7 @@ class InvestmentCostWithLearning:
         elif NGFS_RENEWABLE_WEIGHT == "static_NGFS":
             weight = self.weights_static_NGFS[tech]
         else:
-            # Needs division by 100, because the unit is still in percent.
-            weight = NGFS_dynamic_weight[tech][str(year)] / 100
+            raise Exception("Should not happen")
         return weight
 
     def calculate_ic_1country_battery_short(self, year, country_name, total_R):
