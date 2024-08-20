@@ -25,6 +25,21 @@ RENEWABLE_WEIGHTS = {
 }
 
 irena = util.read_json("data/irena.json")
+fa_capacity_factor = pd.read_csv(
+    "./data_private/v3_capacity_weighted_average_capacity_factor.csv"
+)
+fa_capacity_factor = (
+    fa_capacity_factor[fa_capacity_factor.asset_location.notna()]
+    .set_index("asset_location")[["Solar", "Wind_Offshore", "Wind_Onshore"]]
+    .fillna(0.0)
+    .rename(
+        columns={
+            "Solar": "solar",
+            "Wind_Offshore": "offshore_wind",
+            "Wind_Onshore": "onshore_wind",
+        }
+    )
+)
 
 
 class InvestmentCostWithLearning:
@@ -47,15 +62,11 @@ class InvestmentCostWithLearning:
     gammas = {"solar": 0.32, "onshore_wind": 0.07, "offshore_wind": 0.04}
 
     def __init__(self):
-        self.capacity_factors = {}
         self.installed_costs = {}
         self.global_installed_capacities_kW_2020 = {}
         self.alphas = {}
         for tech in self.techs:
             # The [-1] is needed to get the value in 2020.
-            self.capacity_factors[tech] = (
-                irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100
-            )
             # Same as investment cost
             installed_cost = irena[f"installed_cost_{tech}_2010_2020_$/kW"][-1]
             self.installed_costs[tech] = installed_cost
@@ -142,7 +153,7 @@ class InvestmentCostWithLearning:
         total_R = 0.0
         for tech in self.techs:
             S = self.get_stock(country_name, tech, year)
-            R = self.kW2GJ(S) * self.capacity_factors[tech]
+            R = self.kW2GJ(S) * fa_capacity_factor[tech].get(country_name, 0)
             total_R += R
         return total_R
 
@@ -237,7 +248,7 @@ class InvestmentCostWithLearning:
         R_pe = 0.0
         for tech in self.techs:
             S = self.get_stock_battery_pe(country_name, tech, year)
-            R = self.kW2GJ(S) * self.capacity_factors[tech]
+            R = self.kW2GJ(S) * fa_capacity_factor[tech].get(country_name, 0)
             R_pe += R
         # End of based on calculate_total_R
 
@@ -251,8 +262,9 @@ class InvestmentCostWithLearning:
         ic = 0.0
         for tech in self.techs:
             weight = self.get_weight(tech, year)
+            capacity_factor = fa_capacity_factor[tech].get(country_name, 0)
             # kW
-            G = weight * D_kW / self.capacity_factors[tech]
+            G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             if ENABLE_WRIGHTS_LAW:
                 installed_cost = self.calculate_wrights_law_investment_cost(tech, year)
             else:
@@ -288,7 +300,8 @@ class InvestmentCostWithLearning:
         for tech in self.techs:
             # in kW
             weight = self.get_weight(tech, year)
-            G = weight * D_kW / self.capacity_factors[tech]
+            capacity_factor = fa_capacity_factor[tech].get(country_name, 0)
+            G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             installed_cost = self.installed_costs[tech]
             if ENABLE_WRIGHTS_LAW:
                 installed_cost = self.calculate_wrights_law_investment_cost(tech, year)
