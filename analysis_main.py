@@ -44,7 +44,6 @@ INVESTMENT_COST_DIVIDER = 1
 print("Renewable degradation:", with_learning.ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
 print("30 year lifespan:", with_learning.ENABLE_RENEWABLE_30Y_LIFESPAN)
 print("Wright's law", with_learning.ENABLE_WRIGHTS_LAW)
-print("Weight mode", with_learning.NGFS_RENEWABLE_WEIGHT)
 print("Residual benefit", with_learning.ENABLE_RESIDUAL_BENEFIT)
 print("Sector included", SECTOR_INCLUDED)
 print("BATTERY_SHORT", with_learning.ENABLE_BATTERY_SHORT)

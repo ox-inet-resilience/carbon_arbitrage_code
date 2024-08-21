@@ -10,24 +10,16 @@ ENABLE_BATTERY_SHORT = True
 ENABLE_BATTERY_LONG = True
 ENABLE_BATTERY_GRID = True
 ENABLE_RESIDUAL_BENEFIT = 1
-NGFS_RENEWABLE_WEIGHT = "static_50%"
-assert NGFS_RENEWABLE_WEIGHT in ["static_50%", "static_NGFS"]
 ENABLE_RENEWABLE_GRADUAL_DEGRADATION = 1
 ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
 
-RENEWABLE_WEIGHTS = {
-    "solar": 0.5,
-    "onshore_wind": 0.25,
-    "offshore_wind": 0.25,
-}
-
 irena = util.read_json("data/irena.json")
 
 
-def prepare_fa_capacity_factor():
+def prepare_fa_capacity_factor_data():
     fa_capacity_factor = pd.read_csv(
         "./data_private/v3_capacity_weighted_average_capacity_factor.csv"
     )
@@ -49,7 +41,41 @@ def prepare_fa_capacity_factor():
     return fa_capacity_factor, fa_capacity_factor_world
 
 
-fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor()
+def prepare_fa_renewable_weights_data():
+    fa_energy_mix = pd.read_csv(
+        "./data_private/v2_renewable_energy_mix_Forward_analytics.csv"
+    )
+    fa_energy_mix = fa_energy_mix[
+        [
+            "Unnamed: 0",
+            "asset_location",
+            "Solar_Capacity (%)",
+            "Wind_Offshore_Capacity (%)",
+            "Wind_Onshore_Capacity (%)",
+        ]
+    ].rename(
+        columns={
+            "Solar_Capacity (%)": "solar",
+            "Wind_Offshore_Capacity (%)": "offshore_wind",
+            "Wind_Onshore_Capacity (%)": "onshore_wind",
+        }
+    )
+    cols = ["solar", "offshore_wind", "onshore_wind"]
+    # Normalize solar and wind
+    normalization_factor = fa_energy_mix[cols].sum(axis=1)
+    fa_energy_mix[cols] = fa_energy_mix[cols].div(normalization_factor, axis=0)
+
+    fa_energy_mix_world = fa_energy_mix[fa_energy_mix["Unnamed: 0"] == "Global"].iloc[0]
+    fa_energy_mix = fa_energy_mix.fillna(0.0)
+
+    fa_energy_mix = fa_energy_mix[fa_energy_mix.asset_location.notna()].set_index(
+        "asset_location"
+    )
+    return fa_energy_mix, fa_energy_mix_world
+
+
+fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor_data()
+fa_energy_mix, fa_energy_mix_world = prepare_fa_renewable_weights_data()
 
 
 def get_capacity_factor(tech, country_name):
@@ -59,13 +85,15 @@ def get_capacity_factor(tech, country_name):
     return cf
 
 
+def get_fa_renewable_weight(tech, country_name):
+    weight = fa_energy_mix[tech].get(country_name, pd.NA)
+    if pd.isna(weight):
+        weight = fa_energy_mix_world[tech]
+    return weight
+
+
 class InvestmentCostWithLearning:
     techs = ["solar", "onshore_wind", "offshore_wind"]
-    weights_static_NGFS = {
-        "solar": 55.98399919148438 / 100,
-        "onshore_wind": 42.000406987439874 / 100,
-        "offshore_wind": 2.0155938210757327 / 100,
-    }
     # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
     # and Green 2014.
     degradation_rate = {
@@ -152,9 +180,6 @@ class InvestmentCostWithLearning:
             "long": {},
         }
 
-    def get_static_weight(self, tech):
-        return RENEWABLE_WEIGHTS[tech]
-
     def GJ2kW(self, x):
         # MW
         mw = util.GJ2MW(x)
@@ -189,13 +214,8 @@ class InvestmentCostWithLearning:
         self.cached_cumulative_G[tech][year] = cumulative_G
         return ic
 
-    def get_weight(self, tech, year):
-        if NGFS_RENEWABLE_WEIGHT == "static_50%":
-            weight = self.get_static_weight(tech)
-        elif NGFS_RENEWABLE_WEIGHT == "static_NGFS":
-            weight = self.weights_static_NGFS[tech]
-        else:
-            raise Exception("Should not happen")
+    def get_weight(self, tech, country_name, year):
+        weight = get_fa_renewable_weight(tech, country_name)
         return weight
 
     def calculate_ic_1country_battery_short(self, year, country_name, total_R):
@@ -278,7 +298,7 @@ class InvestmentCostWithLearning:
 
         ic = 0.0
         for tech in self.techs:
-            weight = self.get_weight(tech, year)
+            weight = self.get_weight(tech, country_name, year)
             capacity_factor = get_capacity_factor(tech, country_name)
             # kW
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
@@ -316,7 +336,7 @@ class InvestmentCostWithLearning:
         investment_cost = 0.0
         for tech in self.techs:
             # in kW
-            weight = self.get_weight(tech, year)
+            weight = self.get_weight(tech, country_name, year)
             capacity_factor = get_capacity_factor(tech, country_name)
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             installed_cost = self.installed_costs[tech]
