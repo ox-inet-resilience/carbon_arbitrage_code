@@ -25,21 +25,38 @@ RENEWABLE_WEIGHTS = {
 }
 
 irena = util.read_json("data/irena.json")
-fa_capacity_factor = pd.read_csv(
-    "./data_private/v3_capacity_weighted_average_capacity_factor.csv"
-)
-fa_capacity_factor = (
-    fa_capacity_factor[fa_capacity_factor.asset_location.notna()]
-    .set_index("asset_location")[["Solar", "Wind_Offshore", "Wind_Onshore"]]
-    .fillna(0.0)
-    .rename(
+
+
+def prepare_fa_capacity_factor():
+    fa_capacity_factor = pd.read_csv(
+        "./data_private/v3_capacity_weighted_average_capacity_factor.csv"
+    )
+    fa_capacity_factor = fa_capacity_factor[
+        ["region", "asset_location", "Solar", "Wind_Offshore", "Wind_Onshore"]
+    ].rename(
         columns={
             "Solar": "solar",
             "Wind_Offshore": "offshore_wind",
             "Wind_Onshore": "onshore_wind",
         }
     )
-)
+    fa_capacity_factor_world = fa_capacity_factor[
+        fa_capacity_factor.region == "Global"
+    ].iloc[0]
+    fa_capacity_factor = fa_capacity_factor[
+        fa_capacity_factor.asset_location.notna()
+    ].set_index("asset_location")
+    return fa_capacity_factor, fa_capacity_factor_world
+
+
+fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor()
+
+
+def get_capacity_factor(tech, country_name):
+    cf = fa_capacity_factor[tech].get(country_name, pd.NA)
+    if pd.isna(cf):
+        cf = fa_capacity_factor_world[tech]
+    return cf
 
 
 class InvestmentCostWithLearning:
@@ -153,7 +170,7 @@ class InvestmentCostWithLearning:
         total_R = 0.0
         for tech in self.techs:
             S = self.get_stock(country_name, tech, year)
-            R = self.kW2GJ(S) * fa_capacity_factor[tech].get(country_name, 0)
+            R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
             total_R += R
         return total_R
 
@@ -248,7 +265,7 @@ class InvestmentCostWithLearning:
         R_pe = 0.0
         for tech in self.techs:
             S = self.get_stock_battery_pe(country_name, tech, year)
-            R = self.kW2GJ(S) * fa_capacity_factor[tech].get(country_name, 0)
+            R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
             R_pe += R
         # End of based on calculate_total_R
 
@@ -262,7 +279,7 @@ class InvestmentCostWithLearning:
         ic = 0.0
         for tech in self.techs:
             weight = self.get_weight(tech, year)
-            capacity_factor = fa_capacity_factor[tech].get(country_name, 0)
+            capacity_factor = get_capacity_factor(tech, country_name)
             # kW
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             if ENABLE_WRIGHTS_LAW:
@@ -300,7 +317,7 @@ class InvestmentCostWithLearning:
         for tech in self.techs:
             # in kW
             weight = self.get_weight(tech, year)
-            capacity_factor = fa_capacity_factor[tech].get(country_name, 0)
+            capacity_factor = get_capacity_factor(tech, country_name)
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             installed_cost = self.installed_costs[tech]
             if ENABLE_WRIGHTS_LAW:
