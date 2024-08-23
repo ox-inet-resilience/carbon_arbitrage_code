@@ -17,8 +17,8 @@ assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 RENEWABLE_LIFESPAN = 30  # years
 CAPACITY_FACTOR_SOURCE = "FA"
 # CAPACITY_FACTOR_SOURCE = "IRENA"
-# RENEWABLE_WEIGHT_SOURCE = "FA"
-RENEWABLE_WEIGHT_SOURCE = "GCA1"
+RENEWABLE_WEIGHT_SOURCE = "FA"
+# RENEWABLE_WEIGHT_SOURCE = "GCA1"
 
 irena = util.read_json("data/irena.json")
 TECHS = ["solar", "onshore_wind", "offshore_wind"]
@@ -124,44 +124,50 @@ class InvestmentCostWithLearning:
     # Wright's law learning rate
     # See equation 15 in the carbon arbitrage paper on how these numbers are
     # calculated.
+    # From Samadi 2018
     gammas = {"solar": 0.32, "onshore_wind": 0.07, "offshore_wind": 0.04}
 
+    # Source: Table H.1. IRENA (2023), Renewable power generation costs in 2022
+    # Same as investment cost
+    installed_costs = {
+        "solar": 876,
+        "onshore_wind": 1274,
+        "offshore_wind": 3461,
+        "hydropower": 2881,
+        "geothermal": 3478,
+    }
+
+    # IRENA 2023
+    global_installed_capacities_kW = {
+        "solar": 1412093 * 1e3,
+        "onshore_wind": 944205 * 1e3,
+        "offshore_wind": 73185 * 1e3,
+        "hydropower": 1406863 * 1e3,
+        "geothermal": 14846 * 1e3,
+    }
+
     def __init__(self):
-        self.installed_costs = {}
-        self.global_installed_capacities_kW_2020 = {}
-        self.alphas = {}
-        for tech in TECHS:
-            # The [-1] is needed to get the value in 2020.
-            # Same as investment cost
-            installed_cost = irena[f"installed_cost_{tech}_2010_2020_$/kW"][-1]
-            self.installed_costs[tech] = installed_cost
-            global_installed_capacity_kW = (
-                irena[f"{tech}_MW_world_cumulative_total_installed_capacity_2011_2020"][
-                    -1
-                ]
-                * 1e3
-            )
-            self.global_installed_capacities_kW_2020[tech] = (
-                global_installed_capacity_kW
-            )
-            alpha = installed_cost / (
-                global_installed_capacity_kW ** -self.gammas[tech]
-            )
-            self.alphas[tech] = alpha
-        # 1173 is in GWh
-        self.G_battery_short_2020 = util.MWh2GJ(1173 * 1e3)  # GJ
+        self.alphas = {
+            self.installed_costs[tech]
+            / (self.global_installed_capacities_kW[tech] ** -self.gammas[tech])
+            for tech in TECHS
+        }
+
+        # IEA 2023
+        # 2400 is in GWh
+        self.G_battery_short = util.MWh2GJ(2400 * 1e3)  # GJ
         self.gamma_battery_short = -math.log2(1 - 0.253)
-        # The 310 is in $/kWh
-        self.alpha_2020_short_per_GJ = 310 / util.MWh2GJ(0.001)
-        self.alpha_battery_short = self.alpha_2020_short_per_GJ / (
-            self.G_battery_short_2020**-self.gamma_battery_short
+        # The 315 is in $/kWh, in 2022
+        self.alpha_short_per_GJ = 315 / util.MWh2GJ(0.001)
+        self.alpha_battery_short = self.alpha_short_per_GJ / (
+            self.G_battery_short**-self.gamma_battery_short
         )
-        self.G_battery_long_2020 = 80.24 * 1e3  # kW
+        self.G_battery_long = 217 * 1e3  # kW
         self.gamma_battery_long = -math.log2(1 - 0.086)
-        # The 1313 is in $/kW
-        self.alpha_2020_long_per_kW = 1313
-        self.alpha_battery_long = self.alpha_2020_long_per_kW / (
-            self.G_battery_long_2020**-self.gamma_battery_long
+        # The 1355 is in $/kW, in 2022
+        self.alpha_long_per_kW = 1355
+        self.alpha_battery_long = self.alpha_long_per_kW / (
+            self.G_battery_long**-self.gamma_battery_long
         )
         self.sigma_battery_long = 1 / 12
         self.stocks_kW = {tech: {} for tech in TECHS}
@@ -226,7 +232,7 @@ class InvestmentCostWithLearning:
     def calculate_wrights_law_investment_cost(self, tech, year):
         if year in self.cached_wrights_law_investment_costs[tech]:
             return self.cached_wrights_law_investment_costs[tech][year]
-        cumulative_G = self.global_installed_capacities_kW_2020[
+        cumulative_G = self.global_installed_capacities_kW[
             tech
         ] + self.get_stock_without_degradation(tech, year)
         ic = self._calculate_wrights_law(tech, year, cumulative_G)
@@ -253,14 +259,14 @@ class InvestmentCostWithLearning:
                 break
             stock_without_degradation += sum(stock_amount.values())
         # GJ
-        cumulative_G = self.G_battery_short_2020 + stock_without_degradation
+        cumulative_G = self.G_battery_short + stock_without_degradation
         # $/GJ
         if ENABLE_WRIGHTS_LAW:
             unit_ic = self.alpha_battery_short * (
                 cumulative_G**-self.gamma_battery_short
             )
         else:
-            unit_ic = self.alpha_2020_short_per_GJ
+            unit_ic = self.alpha_short_per_GJ
         # End of calculating unit_ic
         self.battery_unit_ic["short"][year] = unit_ic
         self.cached_cumulative_G["short"][year] = cumulative_G
@@ -286,12 +292,12 @@ class InvestmentCostWithLearning:
                 break
             stock_without_degradation += sum(stock_amount.values())
         # kW
-        cumulative_G = self.G_battery_long_2020 + stock_without_degradation
+        cumulative_G = self.G_battery_long + stock_without_degradation
         # $/kW
         if ENABLE_WRIGHTS_LAW:
             unit_ic = self.alpha_battery_long * (cumulative_G**-self.gamma_battery_long)
         else:
-            unit_ic = self.alpha_2020_long_per_kW
+            unit_ic = self.alpha_long_per_kW
         # End of calculating unit_ic
         self.battery_unit_ic["long"][year] = unit_ic
         self.cached_cumulative_G["long"][year] = cumulative_G
