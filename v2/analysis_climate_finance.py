@@ -325,11 +325,11 @@ def make_cost_benefit_plot(last_year, to_csv=False):
         for_df[investment_label_map[info_name]] = region_costs
     plt.figure(figsize=(6, 6))
     xs = np.arange(len(xticks))
-    width = 0.1
+    width = 0.2
     util.plot_stacked_bar(xs, plot_data, width=width)
 
     for i, benefit_type in enumerate(
-        ["country_benefit_country_reduction", "global_benefit_country_reduction"]
+        ["country_benefit_country_reduction"]
     ):
         plot_data_benefit = []
         for scc in [
@@ -346,7 +346,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
                     benefit_type, last_year, region_countries_map[region], scc=scc
                 )
                 region_benefit.append(_region_cost)
-            plot_data_benefit.append((benefit_type, region_benefit))
+            plot_data_benefit.append((f"Benefit {scc}", region_benefit))
             for_df[f"{benefit_type}_{scc}"] = region_benefit
 
         util.plot_stacked_bar(xs + width * (i + 1), plot_data_benefit, width=width)
@@ -357,6 +357,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
     plt.axvline(0.5, color="gray", linestyle="dashed")
     # Right after Emerging Market Countries
     plt.axvline((3 + 4) / 2, color="gray", linestyle="dashed")
+
     # Add explanatory text
     print(info_name, plot_data)
     text_height = None
@@ -671,8 +672,8 @@ def make_yearly_climate_financing_plot():
 
 
 if __name__ == "__main__":
-    run_table2_region()
-    exit()
+    # run_table2_region()
+    # exit()
     if 0:
         for info_name in [
             "cost",
