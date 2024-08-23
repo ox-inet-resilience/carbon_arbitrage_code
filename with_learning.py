@@ -148,7 +148,7 @@ class InvestmentCostWithLearning:
 
     def __init__(self):
         self.alphas = {
-            self.installed_costs[tech]
+            tech: self.installed_costs[tech]
             / (self.global_installed_capacities_kW[tech] ** -self.gammas[tech])
             for tech in TECHS
         }
