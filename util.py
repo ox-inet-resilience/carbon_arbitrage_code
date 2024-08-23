@@ -327,10 +327,10 @@ def calculate_ngfs_projection(
         fname = {
             "15-50": "3.1-NZ-15-50-v1-Secondary-annual.csv",
             "15-67": "4.1-NZ-15-67-v1-Secondary-annual.csv",
-            "16-67": "5.1-NZ-16-67-v1-Secondary-annual.csv"
+            "16-67": "5.1-NZ-16-67-v1-Secondary-annual.csv",
         }[CARBON_BUDGET_CONSISTENT]
         ngfs = pd.read_csv(f"./data_private/{fname}")
-        
+
     if sector == "Coal":
         variable = "Primary Energy|Coal"
     subsectors = ["Coal", "Oil", "Gas"]
