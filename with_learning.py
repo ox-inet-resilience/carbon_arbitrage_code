@@ -20,8 +20,11 @@ CAPACITY_FACTOR_SOURCE = "FA"
 RENEWABLE_WEIGHT_SOURCE = "FA"
 # RENEWABLE_WEIGHT_SOURCE = "GCA1"
 
+TECHS = ["solar", "onshore_wind", "offshore_wind", "geothermal", "hydropower"]
+if RENEWABLE_WEIGHT_SOURCE == "GCA1":
+    TECHS = ["solar", "onshore_wind", "offshore_wind"]
+TECHS_NO_LEARNING = ["geothermal", "hydropower"]
 irena = util.read_json("data/irena.json")
-TECHS = ["solar", "onshore_wind", "offshore_wind"]
 
 
 def prepare_fa_capacity_factor_data():
@@ -29,12 +32,22 @@ def prepare_fa_capacity_factor_data():
         "./data_private/v3_capacity_weighted_average_capacity_factor.csv"
     )
     fa_capacity_factor = fa_capacity_factor[
-        ["region", "asset_location", "Solar", "Wind_Offshore", "Wind_Onshore"]
+        [
+            "region",
+            "asset_location",
+            "Solar",
+            "Wind_Offshore",
+            "Wind_Onshore",
+            "Geothermal",
+            "Hydropower",
+        ]
     ].rename(
         columns={
             "Solar": "solar",
             "Wind_Offshore": "offshore_wind",
             "Wind_Onshore": "onshore_wind",
+            "Geothermal": "geothermal",
+            "Hydropower": "hydropower",
         }
     )
     fa_capacity_factor_world = fa_capacity_factor[
@@ -57,18 +70,21 @@ def prepare_fa_renewable_weights_data():
             "Solar_Capacity (%)",
             "Wind_Offshore_Capacity (%)",
             "Wind_Onshore_Capacity (%)",
+            "Geothermal_Capacity (%)",
+            "Hydropower_Capacity (%)",
         ]
     ].rename(
         columns={
             "Solar_Capacity (%)": "solar",
             "Wind_Offshore_Capacity (%)": "offshore_wind",
             "Wind_Onshore_Capacity (%)": "onshore_wind",
+            "Geothermal_Capacity (%)": "geothermal",
+            "Hydropower_Capacity (%)": "hydropower",
         }
     )
-    cols = ["solar", "offshore_wind", "onshore_wind"]
     # Normalize solar and wind
-    normalization_factor = fa_energy_mix[cols].sum(axis=1)
-    fa_energy_mix[cols] = fa_energy_mix[cols].div(normalization_factor, axis=0)
+    normalization_factor = fa_energy_mix[TECHS].sum(axis=1)
+    fa_energy_mix[TECHS] = fa_energy_mix[TECHS].div(normalization_factor, axis=0)
 
     fa_energy_mix_world = fa_energy_mix[fa_energy_mix["Unnamed: 0"] == "Global"].iloc[0]
     # This is where energy mix deviates from capacity factor.
@@ -133,8 +149,8 @@ class InvestmentCostWithLearning:
         "solar": 876,
         "onshore_wind": 1274,
         "offshore_wind": 3461,
-        "hydropower": 2881,
         "geothermal": 3478,
+        "hydropower": 2881,
     }
 
     # IRENA 2023
@@ -142,8 +158,8 @@ class InvestmentCostWithLearning:
         "solar": 1412093 * 1e3,
         "onshore_wind": 944205 * 1e3,
         "offshore_wind": 73185 * 1e3,
-        "hydropower": 1406863 * 1e3,
         "geothermal": 14846 * 1e3,
+        "hydropower": 1406863 * 1e3,
     }
 
     def __init__(self):
@@ -328,7 +344,7 @@ class InvestmentCostWithLearning:
             capacity_factor = get_capacity_factor(tech, country_name)
             # kW
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
-            if ENABLE_WRIGHTS_LAW:
+            if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
                 installed_cost = self.calculate_wrights_law_investment_cost(tech, year)
             else:
                 installed_cost = self.installed_costs[tech]
@@ -366,7 +382,7 @@ class InvestmentCostWithLearning:
             capacity_factor = get_capacity_factor(tech, country_name)
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
             installed_cost = self.installed_costs[tech]
-            if ENABLE_WRIGHTS_LAW:
+            if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
                 installed_cost = self.calculate_wrights_law_investment_cost(tech, year)
             investment_cost += G * installed_cost
             if year in self.stocks_kW[tech]:
