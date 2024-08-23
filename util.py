@@ -50,6 +50,10 @@ gdp_per_capita_path = "data/all_countries_gdp_per_capita_2023.json"
 EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
 # EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
 EMISSIONS_COLNAME = "annualco2tyear"
+CARBON_BUDGET_CONSISTENT = False
+# CARBON_BUDGET_CONSISTENT = "15-50"
+# CARBON_BUDGET_CONSISTENT = "15-67"
+# CARBON_BUDGET_CONSISTENT = "16-67"
 
 
 def read_json(filename):
@@ -319,6 +323,14 @@ def calculate_ngfs_projection(
     assert sector == "Power"
     ngfs = ngfs_df[production_or_emissions]
     ngfs = ngfs[ngfs.Scenario == scenario]
+    if scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
+        fname = {
+            "15-50": "3.1-NZ-15-50-v1-Secondary-annual.csv",
+            "15-67": "4.1-NZ-15-67-v1-Secondary-annual.csv",
+            "16-67": "5.1-NZ-16-67-v1-Secondary-annual.csv"
+        }[CARBON_BUDGET_CONSISTENT]
+        ngfs = pd.read_csv(f"./data_private/{fname}")
+        
     if sector == "Coal":
         variable = "Primary Energy|Coal"
     subsectors = ["Coal", "Oil", "Gas"]
