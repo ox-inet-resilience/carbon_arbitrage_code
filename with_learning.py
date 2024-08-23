@@ -15,8 +15,13 @@ ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
+CAPACITY_FACTOR_SOURCE = "FA"
+# CAPACITY_FACTOR_SOURCE = "IRENA"
+# RENEWABLE_WEIGHT_SOURCE = "FA"
+RENEWABLE_WEIGHT_SOURCE = "GCA1"
 
 irena = util.read_json("data/irena.json")
+TECHS = ["solar", "onshore_wind", "offshore_wind"]
 
 
 def prepare_fa_capacity_factor_data():
@@ -43,7 +48,7 @@ def prepare_fa_capacity_factor_data():
 
 def prepare_fa_renewable_weights_data():
     fa_energy_mix = pd.read_csv(
-        "./data_private/v2_renewable_energy_mix_Forward_analytics.csv"
+        "./data_private/v3_renewable_energy_mix_Forward_analytics.csv"
     )
     fa_energy_mix = fa_energy_mix[
         [
@@ -66,6 +71,9 @@ def prepare_fa_renewable_weights_data():
     fa_energy_mix[cols] = fa_energy_mix[cols].div(normalization_factor, axis=0)
 
     fa_energy_mix_world = fa_energy_mix[fa_energy_mix["Unnamed: 0"] == "Global"].iloc[0]
+    # This is where energy mix deviates from capacity factor.
+    # In there, if there is NaN value, we fallback to world capacity factor,
+    # but here, we fallback to 0.
     fa_energy_mix = fa_energy_mix.fillna(0.0)
 
     fa_energy_mix = fa_energy_mix[fa_energy_mix.asset_location.notna()].set_index(
@@ -76,16 +84,29 @@ def prepare_fa_renewable_weights_data():
 
 fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor_data()
 fa_energy_mix, fa_energy_mix_world = prepare_fa_renewable_weights_data()
+irena_capacity_factor = {
+    tech: irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100 for tech in TECHS
+}
 
 
 def get_capacity_factor(tech, country_name):
+    if CAPACITY_FACTOR_SOURCE == "IRENA":
+        return irena_capacity_factor[tech]
+    assert CAPACITY_FACTOR_SOURCE == "FA"
     cf = fa_capacity_factor[tech].get(country_name, pd.NA)
     if pd.isna(cf):
         cf = fa_capacity_factor_world[tech]
     return cf
 
 
-def get_fa_renewable_weight(tech, country_name):
+def get_renewable_weight(tech, country_name):
+    if RENEWABLE_WEIGHT_SOURCE == "GCA1":
+        return {
+            "solar": 0.5,
+            "onshore_wind": 0.25,
+            "offshore_wind": 0.25,
+        }[tech]
+    assert RENEWABLE_WEIGHT_SOURCE == "FA"
     weight = fa_energy_mix[tech].get(country_name, pd.NA)
     if pd.isna(weight):
         weight = fa_energy_mix_world[tech]
@@ -93,7 +114,6 @@ def get_fa_renewable_weight(tech, country_name):
 
 
 class InvestmentCostWithLearning:
-    techs = ["solar", "onshore_wind", "offshore_wind"]
     # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
     # and Green 2014.
     degradation_rate = {
@@ -110,7 +130,7 @@ class InvestmentCostWithLearning:
         self.installed_costs = {}
         self.global_installed_capacities_kW_2020 = {}
         self.alphas = {}
-        for tech in self.techs:
+        for tech in TECHS:
             # The [-1] is needed to get the value in 2020.
             # Same as investment cost
             installed_cost = irena[f"installed_cost_{tech}_2010_2020_$/kW"][-1]
@@ -144,10 +164,10 @@ class InvestmentCostWithLearning:
             self.G_battery_long_2020**-self.gamma_battery_long
         )
         self.sigma_battery_long = 1 / 12
-        self.stocks_kW = {tech: {} for tech in self.techs}
+        self.stocks_kW = {tech: {} for tech in TECHS}
         self.stocks_GJ_battery_short = defaultdict(dict)
         self.stocks_kW_battery_long = defaultdict(dict)
-        self.stocks_kW_battery_pe = {tech: defaultdict(dict) for tech in self.techs}
+        self.stocks_kW_battery_pe = {tech: defaultdict(dict) for tech in TECHS}
 
         # To be used in the full table1 calculation
         self.cost_non_discounted = []
@@ -193,7 +213,7 @@ class InvestmentCostWithLearning:
 
     def calculate_total_R(self, country_name, year):
         total_R = 0.0
-        for tech in self.techs:
+        for tech in TECHS:
             S = self.get_stock(country_name, tech, year)
             R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
             total_R += R
@@ -215,7 +235,7 @@ class InvestmentCostWithLearning:
         return ic
 
     def get_weight(self, tech, country_name, year):
-        weight = get_fa_renewable_weight(tech, country_name)
+        weight = get_renewable_weight(tech, country_name)
         return weight
 
     def calculate_ic_1country_battery_short(self, year, country_name, total_R):
@@ -283,7 +303,7 @@ class InvestmentCostWithLearning:
     def calculate_ic_1country_battery_pe(self, year, country_name, total_R):
         # Based on calculate_total_R
         R_pe = 0.0
-        for tech in self.techs:
+        for tech in TECHS:
             S = self.get_stock_battery_pe(country_name, tech, year)
             R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
             R_pe += R
@@ -297,7 +317,7 @@ class InvestmentCostWithLearning:
         D_kW = self.GJ2kW(D)
 
         ic = 0.0
-        for tech in self.techs:
+        for tech in TECHS:
             weight = self.get_weight(tech, country_name, year)
             capacity_factor = get_capacity_factor(tech, country_name)
             # kW
@@ -320,21 +340,21 @@ class InvestmentCostWithLearning:
         if math.isclose(D, 0):
             self.cost_non_discounted[-1][country_name] = 0.0
             self.cost_discounted[-1][country_name] = 0.0
-            for tech in self.techs:
+            for tech in TECHS:
                 if year in self.stocks_kW[tech]:
                     self.stocks_kW[tech][year][country_name] = 0.0
                 else:
                     self.stocks_kW[tech][year] = {country_name: 0.0}
             self.stocks_GJ_battery_short[year][country_name] = 0.0
             self.stocks_kW_battery_long[year][country_name] = 0.0
-            for tech in self.techs:
+            for tech in TECHS:
                 self.stocks_kW_battery_pe[tech][year][country_name] = 0.0
             return
         # in kW because installed_costs is in $/kW
         D_kW = self.GJ2kW(D)
 
         investment_cost = 0.0
-        for tech in self.techs:
+        for tech in TECHS:
             # in kW
             weight = self.get_weight(tech, country_name, year)
             capacity_factor = get_capacity_factor(tech, country_name)
@@ -513,7 +533,7 @@ class InvestmentCostWithLearning:
         for i in range(peg_year_index + 1):
             self.cost_non_discounted[i] = 0.0
             self.cost_discounted[i] = 0.0
-        for tech in self.techs:
+        for tech in TECHS:
             # Zero out all the stocks up to peg_year.
             self.stocks_kW[tech] = {
                 y: (0.0 if y <= peg_year else v)
