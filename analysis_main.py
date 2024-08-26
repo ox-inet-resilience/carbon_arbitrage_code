@@ -466,10 +466,10 @@ def get_cost_including_ngfs_renewable(
         weighted_emissions_factor_by_country_peg_year,
     )
     if MEASURE_GLOBAL_VARS and scenario == "Net Zero 2050":
-            global global_battery_unit_ic, global_unit_ic, global_cumulative_G
-            global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
-            global_unit_ic = temp_cost_with_learning.cached_wrights_law_investment_costs
-            global_cumulative_G = temp_cost_with_learning.cached_cumulative_G
+        global global_battery_unit_ic, global_unit_ic, global_cumulative_G
+        global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
+        global_unit_ic = temp_cost_with_learning.cached_wrights_law_investment_costs
+        global_cumulative_G = temp_cost_with_learning.cached_cumulative_G
     return (
         out_non_discounted,
         out_discounted,
@@ -1646,7 +1646,7 @@ def make_battery_unit_ic_plot():
     global MEASURE_GLOBAL_VARS
     MEASURE_GLOBAL_VARS = True
     run_table1(to_csv=False, do_round=False, plot_yearly=False)
-    years = range(2024, 2101)
+    years = range(2024, 2050 + 1)
 
     def convert_unit(arr):
         # Convert from $/GJ to $/kWh
@@ -1671,15 +1671,12 @@ def make_battery_unit_ic_plot():
     plt.xlabel("Time")
     plt.ylabel("Unit investment cost ($/kW)")
     plt.sca(axs[1])
-    plt.plot(years, kW2TW(global_cumulative_G["solar"].values()), label="Solar")
-    plt.plot(
-        years, kW2TW(global_cumulative_G["onshore_wind"].values()), label="Wind onshore"
-    )
-    plt.plot(
-        years,
-        kW2TW(global_cumulative_G["offshore_wind"].values()),
-        label="Wind offshore",
-    )
+    for name, label in {
+        "solar": "Solar",
+        "onshore_wind": "Wind onshore",
+        "offshore_wind": "Wind Offshore",
+    }.items():
+        plt.plot(years, kW2TW(global_cumulative_G[name].values()), label=label)
     # Need to convert GJ to TW
     print("short", GJ2TW(global_cumulative_G["short"].values()))
     print("long", kW2TW(global_cumulative_G["long"].values()))
@@ -1709,11 +1706,11 @@ if __name__ == "__main__":
         get_yearly_by_country()
         exit()
 
-    if 1:
+    if 0:
         run_table2()
         exit()
 
-    if 1:
+    if 0:
         sccs = [
             util.social_cost_of_carbon_imf,
             util.scc_biden_administration,
@@ -1726,7 +1723,7 @@ if __name__ == "__main__":
         # print(json.dumps(out, indent=2))
         # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
-    if 0:
+    if 1:
         # Battery yearly
         # do_cf_battery_yearly()
         # make_battery_plot()
