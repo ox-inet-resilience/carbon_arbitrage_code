@@ -15,15 +15,18 @@ ENABLE_RENEWABLE_30Y_LIFESPAN = 1
 assert ENABLE_RENEWABLE_GRADUAL_DEGRADATION or ENABLE_RENEWABLE_30Y_LIFESPAN
 # Lifespan of the renewable energy
 RENEWABLE_LIFESPAN = 30  # years
+BATTERY_LONG_LIFESPAN = 16  # years
+BATTERY_SHORT_LIFESPAN = 12  # years
 CAPACITY_FACTOR_SOURCE = "FA"
 # CAPACITY_FACTOR_SOURCE = "IRENA"
 RENEWABLE_WEIGHT_SOURCE = "FA"
 # RENEWABLE_WEIGHT_SOURCE = "GCA1"
 
-TECHS = ["solar", "onshore_wind", "offshore_wind", "geothermal", "hydropower"]
-if RENEWABLE_WEIGHT_SOURCE == "GCA1":
-    TECHS = ["solar", "onshore_wind", "offshore_wind"]
+TECHS_WITH_LEARNING = ["solar", "onshore_wind", "offshore_wind"]
 TECHS_NO_LEARNING = ["geothermal", "hydropower"]
+TECHS = TECHS_WITH_LEARNING + TECHS_NO_LEARNING
+if RENEWABLE_WEIGHT_SOURCE == "GCA1":
+    TECHS = TECHS_WITH_LEARNING
 irena = util.read_json("data/irena.json")
 
 
@@ -101,7 +104,7 @@ def prepare_fa_renewable_weights_data():
 fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor_data()
 fa_energy_mix, fa_energy_mix_world = prepare_fa_renewable_weights_data()
 irena_capacity_factor = {
-    tech: irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100 for tech in TECHS
+    tech: irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100 for tech in TECHS_WITH_LEARNING
 }
 
 
@@ -136,6 +139,8 @@ class InvestmentCostWithLearning:
         "solar": 0.5 / 100,
         "onshore_wind": 0.48 / 100,
         "offshore_wind": 0.48 / 100,
+        "geothermal": 0.5 / 100,
+        "hydropower": 0.5 / 100,
     }
     # Wright's law learning rate
     # See equation 15 in the carbon arbitrage paper on how these numbers are
@@ -166,7 +171,7 @@ class InvestmentCostWithLearning:
         self.alphas = {
             tech: self.installed_costs[tech]
             / (self.global_installed_capacities_kW[tech] ** -self.gammas[tech])
-            for tech in TECHS
+            for tech in TECHS_WITH_LEARNING
         }
 
         # IEA 2023
@@ -494,7 +499,7 @@ class InvestmentCostWithLearning:
             age = year - stock_year
             s = stock_amount[country_name]
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
-                if age <= 12:
+                if age <= BATTERY_SHORT_LIFESPAN:
                     out += s
             else:
                 out += s
@@ -510,7 +515,7 @@ class InvestmentCostWithLearning:
             age = year - stock_year
             s = stock_amount[country_name]
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
-                if age <= 16:
+                if age <= BATTERY_LONG_LIFESPAN:
                     out += s
             else:
                 out += s
