@@ -325,9 +325,9 @@ def calculate_ngfs_projection(
     ngfs = ngfs[ngfs.Scenario == scenario]
     if scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
         fname = {
-            "15-50": "3.1-NZ-15-50-v1-Secondary-annual.csv",
-            "15-67": "4.1-NZ-15-67-v1-Secondary-annual.csv",
-            "16-67": "5.1-NZ-16-67-v1-Secondary-annual.csv",
+            "15-50": "6.1-NZ-15-50-v2-Secondary-annual.csv",
+            "15-67": "7.1-NZ-15-67-v2-Secondary-annual.csv",
+            "16-67": "8.1-NZ-16-67-v2-Secondary-annual.csv",
         }[CARBON_BUDGET_CONSISTENT]
         ngfs = pd.read_csv(f"./data_private/{fname}")
 
