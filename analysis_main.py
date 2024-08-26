@@ -20,6 +20,7 @@ import with_learning
 global_unit_ic = None
 global_battery_unit_ic = None
 global_cumulative_G = None
+MEASURE_GLOBAL_VARS = False
 
 
 # Ensure that plots directory exists
@@ -464,8 +465,7 @@ def get_cost_including_ngfs_renewable(
         last_year + residual_benefits_years_offset,
         weighted_emissions_factor_by_country_peg_year,
     )
-    if last_year == 2100:
-        if scenario == "Net Zero 2050":
+    if MEASURE_GLOBAL_VARS and scenario == "Net Zero 2050":
             global global_battery_unit_ic, global_unit_ic, global_cumulative_G
             global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
             global_unit_ic = temp_cost_with_learning.cached_wrights_law_investment_costs
@@ -1643,6 +1643,8 @@ def get_yearly_by_country():
 
 
 def make_battery_unit_ic_plot():
+    global MEASURE_GLOBAL_VARS
+    MEASURE_GLOBAL_VARS = True
     run_table1(to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2101)
 
@@ -1699,6 +1701,7 @@ def make_battery_unit_ic_plot():
     plt.tight_layout()
     plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
     plt.close()
+    MEASURE_GLOBAL_VARS = False
 
 
 if __name__ == "__main__":
