@@ -5,6 +5,8 @@ import pandas as pd
 
 import util
 
+VERBOSE_ANALYSIS = False
+VERBOSE_ANALYSIS_COUNTRY = "PL"
 ENABLE_WRIGHTS_LAW = 1
 ENABLE_BATTERY_SHORT = True
 ENABLE_BATTERY_LONG = True
@@ -180,6 +182,7 @@ class InvestmentCostWithLearning:
         # IEA 2023
         # 2400 is in GWh
         self.G_battery_short = util.MWh2GJ(2400 * 1e3)  # GJ
+        # 0.42
         self.gamma_battery_short = -math.log2(1 - 0.253)
         # The 315 is in $/kWh, in 2022
         self.alpha_short_per_GJ = 315 / util.MWh2GJ(0.001)
@@ -212,6 +215,7 @@ class InvestmentCostWithLearning:
         self.cost_non_discounted_battery_long_by_country = []
         self.cost_non_discounted_battery_pe_by_country = []
         self.cost_non_discounted_battery_grid_by_country = []
+        self.energy_produced_by_country = []
 
         self.battery_unit_ic = {
             "short": {},
@@ -231,6 +235,7 @@ class InvestmentCostWithLearning:
         ]:
             self.cached_investment_costs[obj] = {}
             self.cached_cumulative_G[obj] = {}
+        self.cached_stock_without_degradation = defaultdict(dict)
 
     def GJ2kW(self, x):
         # MW
@@ -243,12 +248,15 @@ class InvestmentCostWithLearning:
         mw = x / 1e3
         return util.MW2GJ(mw)
 
+    def _calculate_R(self, country_name, tech, year):
+        S = self.get_stock(country_name, tech, year)
+        R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
+        return R
+
     def calculate_total_R(self, country_name, year):
         total_R = 0.0
         for tech in TECHS:
-            S = self.get_stock(country_name, tech, year)
-            R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
-            total_R += R
+            total_R += self._calculate_R(country_name, tech, year)
         return total_R
 
     def _calculate_wrights_law(self, tech, year, cumulative_G):
@@ -461,6 +469,10 @@ class InvestmentCostWithLearning:
         self.cost_non_discounted_battery_grid_by_country[-1][country_name] = (
             ic_battery_grid
         )
+        if VERBOSE_ANALYSIS:
+            self.energy_produced_by_country[-1][country_name] = {
+                tech: self._calculate_R(country_name, tech, year) for tech in TECHS
+            }
 
     def calculate_investment_cost(self, DeltaP, year, discount):
         self.cost_non_discounted_battery_short.append(0.0)
@@ -471,6 +483,7 @@ class InvestmentCostWithLearning:
         self.cost_non_discounted_battery_long_by_country.append({})
         self.cost_non_discounted_battery_pe_by_country.append({})
         self.cost_non_discounted_battery_grid_by_country.append({})
+        self.energy_produced_by_country.append({})
         if isinstance(DeltaP, float):
             assert math.isclose(DeltaP, 0)
             self.cost_non_discounted.append(0.0)
@@ -480,6 +493,24 @@ class InvestmentCostWithLearning:
         self.cost_discounted.append({})
         for country_name, dp in DeltaP.items():
             self.calculate_investment_cost_one_country(country_name, dp, year, discount)
+        if VERBOSE_ANALYSIS:
+            for tech in TECHS + ["short", "long"]:
+                stock_battery_pe = 0
+                if tech in TECHS_WITH_LEARNING:
+                    stock_battery_pe = self.stocks_kW_battery_pe[tech][year].get(
+                        VERBOSE_ANALYSIS_COUNTRY, 0
+                    )
+                if tech == "short":
+                    _stocks = self.stocks_GJ_battery_short
+                elif tech == "long":
+                    _stocks = self.stocks_kW_battery_long
+                else:
+                    _stocks = self.stocks_kW[tech]
+                stock = _stocks.get(year, 0)
+                stock = stock.get(VERBOSE_ANALYSIS_COUNTRY, 0) if isinstance(stock, dict) else 0
+                if tech == "short":
+                    stock = self.GJ2kW(stock)
+                self.cached_stock_without_degradation[tech][year] = stock + stock_battery_pe
 
     def get_stock(self, country_name, tech, year):
         out = 0.0
@@ -567,13 +598,12 @@ class InvestmentCostWithLearning:
         for stock_year, stock_amount in self.stocks_kW[tech].items():
             if stock_year >= year:
                 break
+            # Geothermal, hydropower doesn't use battery PE
+            stock_battery_pe = 0
             if tech in TECHS_WITH_LEARNING:
                 stock_battery_pe = sum(
                     self.stocks_kW_battery_pe[tech][stock_year].values()
                 )
-            else:
-                # Geothermal, hydropower doesn't use battery PE
-                stock_battery_pe = 0
             out += sum(stock_amount.values()) + stock_battery_pe
         return out
 

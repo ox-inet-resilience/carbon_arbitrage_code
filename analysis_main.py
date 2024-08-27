@@ -7,6 +7,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from cycler import cycler
 
 import util
 import processed_revenue
@@ -17,9 +18,7 @@ from util import (
 import with_learning
 
 # TODO these globals could be removed.
-global_unit_ic = None
-global_battery_unit_ic = None
-global_cumulative_G = None
+global_cost_with_learning = None
 MEASURE_GLOBAL_VARS = False
 
 
@@ -466,10 +465,8 @@ def get_cost_including_ngfs_renewable(
         weighted_emissions_factor_by_country_peg_year,
     )
     if MEASURE_GLOBAL_VARS and scenario == "Net Zero 2050":
-        global global_battery_unit_ic, global_unit_ic, global_cumulative_G
-        global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
-        global_unit_ic = temp_cost_with_learning.cached_investment_costs
-        global_cumulative_G = temp_cost_with_learning.cached_cumulative_G
+        global global_cost_with_learning
+        global_cost_with_learning = temp_cost_with_learning
     return (
         out_non_discounted,
         out_discounted,
@@ -1652,8 +1649,8 @@ def make_battery_unit_ic_plot():
         # Convert from $/GJ to $/kWh
         return [i / (util.GJ2MWh(1) * 1e3) for i in arr]
 
-    def kW2TW(arr):
-        return [i / 1e9 for i in arr]
+    def kW2GW(arr):
+        return [i / 1e6 for i in arr]
 
     def GJ2TW(arr):
         return [util.GJ2MW(i) / 1e6 for i in arr]
@@ -1670,23 +1667,79 @@ def make_battery_unit_ic_plot():
 
     plt.sca(axs[0])
     for name, label in name_labels.items():
-        plt.plot(years, global_unit_ic[name].values(), label=label)
+        plt.plot(
+            years,
+            global_cost_with_learning.cached_investment_costs[name].values(),
+            label=label,
+        )
     # Need to convert $/GJ to $/kWh
     plt.plot(
-        years, per_GJ2per_kWh(global_battery_unit_ic["short"].values()), label="Short"
+        years,
+        per_GJ2per_kWh(global_cost_with_learning.battery_unit_ic["short"].values()),
+        label="Short",
     )
-    plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
+    plt.plot(
+        years,
+        global_cost_with_learning.battery_unit_ic["long"].values(),
+        label="Battery long",
+    )
     plt.xlabel("Time")
     plt.ylabel("Unit investment cost ($/kW)")
 
     plt.sca(axs[1])
-    for name, label in name_labels.items():
-        plt.plot(years, kW2TW(global_cumulative_G[name].values()), label=label)
-    # Need to convert GJ to TW
-    plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
-    plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
+    # Define a custom color and marker cycle
+    colors = plt.cm.tab10.colors[:9]
+    markers = ["^", "v", ">", "<", "o", "s", "D", "P", "*"]
+    markersize = 2
+    axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
+    country_name = with_learning.VERBOSE_ANALYSIS_COUNTRY
+    assert country_name == "PL"
+    plt.title("Poland")
+    for tech, label in {
+        **name_labels,
+        "short": "Battery short",
+        "long": "Battery long",
+    }.items():
+        y = np.cumsum(
+            kW2GW(
+                list(
+                    global_cost_with_learning.cached_stock_without_degradation[
+                        tech
+                    ].values()
+                )
+            )
+        )
+        plt.plot(
+            years,
+            y,
+            label=label,
+            markersize=markersize,
+            linewidth=0.8,
+        )
+    # Need to convert GJ to GW
+    # plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
+    # plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
+
+    # Reset color cycler
+    axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
+    energy_produced_1country = [
+        {
+            tech: e[country_name][tech] if country_name in e else 0
+            for tech in with_learning.TECHS
+        }
+        for e in global_cost_with_learning.energy_produced_by_country
+    ]
+    for tech, label in name_labels.items():
+        plt.plot(
+            years,
+            util.GJ2MW(np.array([e[tech] for e in energy_produced_1country])) / 1e3,
+            linestyle="dotted",
+            label=tech,
+            markersize=markersize,
+        )
+
     plt.xlabel("Time")
-    plt.ylabel("Cumulative installed capacity (TW)")
+    plt.ylabel("Capacity (GW)")
 
     # Deduplicate labels
     handles, labels = plt.gca().get_legend_handles_labels()
