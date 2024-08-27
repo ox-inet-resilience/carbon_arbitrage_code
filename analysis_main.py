@@ -1757,6 +1757,43 @@ def make_battery_unit_ic_plot():
     plt.tight_layout()
     plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
     plt.close()
+
+    # 2nd file
+    fig = plt.figure()
+    plt.title("Poland")
+    for tech, label in {
+        **name_labels,
+        "short": "Battery short",
+        "long": "Battery long",
+    }.items():
+        y = kW2GW(
+                list(
+                    global_cost_with_learning.cached_stock_without_degradation[
+                        tech
+                    ].values()
+                )
+            )
+        plt.plot(
+            years,
+            y,
+            label=label,
+            markersize=markersize,
+            linewidth=0.8,
+        )
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
+        ncol=5,
+    )
+    plt.tight_layout()
+    plt.savefig("plots/battery_yearly_installed_capacity.png", bbox_inches="tight")
+    plt.close()
+
     MEASURE_GLOBAL_VARS = False
     with_learning.VERBOSE_ANALYSIS = False
 
