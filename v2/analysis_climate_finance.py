@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
@@ -16,6 +17,7 @@ import analysis_main  # noqa
 import util  # noqa
 from util import world_gdp_2023  # noqa
 
+sns.set_theme(style="ticks")
 # Common variables
 git_branch = util.get_git_branch()
 cost_batteries = [

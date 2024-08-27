@@ -7,6 +7,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from cycler import cycler
 
 import util
@@ -17,6 +18,7 @@ from util import (
 )
 import with_learning
 
+sns.set_theme(style="ticks")
 # TODO these globals could be removed.
 global_cost_with_learning = None
 MEASURE_GLOBAL_VARS = False
