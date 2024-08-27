@@ -386,7 +386,7 @@ class InvestmentCostWithLearning:
                     self.stocks_kW[tech][year] = {country_name: 0.0}
             self.stocks_GJ_battery_short[year][country_name] = 0.0
             self.stocks_kW_battery_long[year][country_name] = 0.0
-            for tech in TECHS:
+            for tech in TECHS_WITH_LEARNING:
                 self.stocks_kW_battery_pe[tech][year][country_name] = 0.0
             return
         # in kW because installed_costs is in $/kW
