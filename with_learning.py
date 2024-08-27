@@ -141,6 +141,8 @@ class InvestmentCostWithLearning:
         "offshore_wind": 0.48 / 100,
         "geothermal": 0.5 / 100,
         "hydropower": 0.5 / 100,
+        "short": 2 / 100,
+        "long": 0.5 / 100,
     }
     # Wright's law learning rate
     # See equation 15 in the carbon arbitrage paper on how these numbers are
@@ -498,6 +500,9 @@ class InvestmentCostWithLearning:
                 break
             age = year - stock_year
             s = stock_amount[country_name]
+            if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
+                s *= (1 - self.degradation_rate["short"]) ** age
+
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
                 if age <= BATTERY_SHORT_LIFESPAN:
                     out += s
@@ -514,6 +519,9 @@ class InvestmentCostWithLearning:
                 break
             age = year - stock_year
             s = stock_amount[country_name]
+            if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
+                s *= (1 - self.degradation_rate["long"]) ** age
+
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
                 if age <= BATTERY_LONG_LIFESPAN:
                     out += s
