@@ -1648,7 +1648,7 @@ def make_battery_unit_ic_plot():
     run_table1(to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2050 + 1)
 
-    def convert_unit(arr):
+    def per_GJ2per_kWh(arr):
         # Convert from $/GJ to $/kWh
         return [i / (util.GJ2MWh(1) * 1e3) for i in arr]
 
@@ -1658,32 +1658,33 @@ def make_battery_unit_ic_plot():
     def GJ2TW(arr):
         return [util.GJ2MW(i) / 1e6 for i in arr]
 
-    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
-    plt.sca(axs[0])
-    plt.plot(years, global_unit_ic["solar"].values(), label="Solar")
-    plt.plot(years, global_unit_ic["onshore_wind"].values(), label="Wind onshore")
-    plt.plot(years, global_unit_ic["offshore_wind"].values(), label="Wind offshore")
-    # Need to convert $/GJ to $/kWh
-    plt.plot(
-        years, convert_unit(global_battery_unit_ic["short"].values()), label="Short"
-    )
-    plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
-    plt.xlabel("Time")
-    plt.ylabel("Unit investment cost ($/kW)")
-    plt.sca(axs[1])
-    for name, label in {
+    name_labels = {
         "solar": "Solar",
         "onshore_wind": "Wind onshore",
         "offshore_wind": "Wind Offshore",
         "geothermal": "Geothermal",
         "hydropower": "Hydropower",
-    }.items():
+    }
+
+    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+
+    plt.sca(axs[0])
+    for name, label in name_labels.items():
+        plt.plot(years, global_unit_ic[name].values(), label=label)
+    # Need to convert $/GJ to $/kWh
+    plt.plot(
+        years, per_GJ2per_kWh(global_battery_unit_ic["short"].values()), label="Short"
+    )
+    plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
+    plt.xlabel("Time")
+    plt.ylabel("Unit investment cost ($/kW)")
+
+    plt.sca(axs[1])
+    for name, label in name_labels.items():
         plt.plot(years, kW2TW(global_cumulative_G[name].values()), label=label)
     # Need to convert GJ to TW
-    print("short", GJ2TW(global_cumulative_G["short"].values()))
-    print("long", kW2TW(global_cumulative_G["long"].values()))
     plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
-    plt.plot(years, kW2TW(global_cumulative_G["long"].values()), label="Long")
+    plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
     plt.xlabel("Time")
     plt.ylabel("Cumulative installed capacity (TW)")
 
