@@ -104,7 +104,8 @@ def prepare_fa_renewable_weights_data():
 fa_capacity_factor, fa_capacity_factor_world = prepare_fa_capacity_factor_data()
 fa_energy_mix, fa_energy_mix_world = prepare_fa_renewable_weights_data()
 irena_capacity_factor = {
-    tech: irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100 for tech in TECHS_WITH_LEARNING
+    tech: irena[f"capacity_factor_{tech}_2010_2020_percent"][-1] / 100
+    for tech in TECHS_WITH_LEARNING
 }
 
 
@@ -196,7 +197,9 @@ class InvestmentCostWithLearning:
         self.stocks_kW = {tech: {} for tech in TECHS}
         self.stocks_GJ_battery_short = defaultdict(dict)
         self.stocks_kW_battery_long = defaultdict(dict)
-        self.stocks_kW_battery_pe = {tech: defaultdict(dict) for tech in TECHS_WITH_LEARNING}
+        self.stocks_kW_battery_pe = {
+            tech: defaultdict(dict) for tech in TECHS_WITH_LEARNING
+        }
 
         # To be used in the full table1 calculation
         self.cost_non_discounted = []
@@ -215,19 +218,19 @@ class InvestmentCostWithLearning:
             "long": {},
         }
 
-        self.cached_wrights_law_investment_costs = {
-            "solar": {},
-            "onshore_wind": {},
-            "offshore_wind": {},
-        }
-
-        self.cached_cumulative_G = {
-            "solar": {},
-            "onshore_wind": {},
-            "offshore_wind": {},
-            "short": {},
-            "long": {},
-        }
+        self.cached_wrights_law_investment_costs = {}
+        self.cached_cumulative_G = {}
+        for obj in [
+            "solar",
+            "onshore_wind",
+            "offshore_wind",
+            "short",
+            "long",
+            "geothermal",
+            "hydropower",
+        ]:
+            self.cached_wrights_law_investment_costs[obj] = {}
+            self.cached_cumulative_G[obj] = {}
 
     def GJ2kW(self, x):
         # MW
@@ -252,21 +255,23 @@ class InvestmentCostWithLearning:
         # Equation WrightsLaw, i.e. 15
         return self.alphas[tech] * (cumulative_G ** -self.gammas[tech])
 
-    def calculate_wrights_law_investment_cost(self, tech, year):
-        if year in self.cached_wrights_law_investment_costs[tech]:
-            return self.cached_wrights_law_investment_costs[tech][year]
+    def calculate_installed_cost_maybe_with_learning(self, tech, year):
+        if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
+            if year in self.cached_wrights_law_investment_costs[tech]:
+                return self.cached_wrights_law_investment_costs[tech][year]
+
         cumulative_G = self.global_installed_capacities_kW[
             tech
         ] + self.get_stock_without_degradation(tech, year)
-        ic = self._calculate_wrights_law(tech, year, cumulative_G)
+
+        if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
+            ic = self._calculate_wrights_law(tech, year, cumulative_G)
+        else:
+            ic = self.installed_costs[tech]
+
         self.cached_wrights_law_investment_costs[tech][year] = ic
         self.cached_cumulative_G[tech][year] = cumulative_G
         return ic
-
-    def calculate_installed_cost_maybe_wright(self, tech, year):
-        if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
-            return self.calculate_wrights_law_investment_cost(tech, year)
-        return self.installed_costs[tech]
 
     def get_weight(self, tech, country_name, year):
         weight = get_renewable_weight(tech, country_name)
@@ -356,7 +361,9 @@ class InvestmentCostWithLearning:
             capacity_factor = get_capacity_factor(tech, country_name)
             # kW
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
-            installed_cost = self.calculate_installed_cost_maybe_wright(tech, year)
+            installed_cost = self.calculate_installed_cost_maybe_with_learning(
+                tech, year
+            )
 
             ic += G * installed_cost
             self.stocks_kW_battery_pe[tech][year][country_name] = G
@@ -391,7 +398,9 @@ class InvestmentCostWithLearning:
             weight = self.get_weight(tech, country_name, year)
             capacity_factor = get_capacity_factor(tech, country_name)
             G = weight * D_kW / capacity_factor if capacity_factor > 0 else 0
-            installed_cost = self.calculate_installed_cost_maybe_wright(tech, year)
+            installed_cost = self.calculate_installed_cost_maybe_with_learning(
+                tech, year
+            )
             investment_cost += G * installed_cost
             if year in self.stocks_kW[tech]:
                 self.stocks_kW[tech][year][country_name] = G
@@ -558,7 +567,11 @@ class InvestmentCostWithLearning:
         for stock_year, stock_amount in self.stocks_kW[tech].items():
             if stock_year >= year:
                 break
-            stock_battery_pe = sum(self.stocks_kW_battery_pe[tech][stock_year].values())
+            if tech in TECHS_WITH_LEARNING:
+                stock_battery_pe = sum(self.stocks_kW_battery_pe[tech][stock_year].values())
+            else:
+                # Geothermal, hydropower doesn't use battery PE
+                stock_battery_pe = 0
             out += sum(stock_amount.values()) + stock_battery_pe
         return out
 
