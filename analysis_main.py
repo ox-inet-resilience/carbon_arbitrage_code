@@ -468,7 +468,7 @@ def get_cost_including_ngfs_renewable(
     if MEASURE_GLOBAL_VARS and scenario == "Net Zero 2050":
         global global_battery_unit_ic, global_unit_ic, global_cumulative_G
         global_battery_unit_ic = temp_cost_with_learning.battery_unit_ic
-        global_unit_ic = temp_cost_with_learning.cached_wrights_law_investment_costs
+        global_unit_ic = temp_cost_with_learning.cached_investment_costs
         global_cumulative_G = temp_cost_with_learning.cached_cumulative_G
     return (
         out_non_discounted,
@@ -1675,6 +1675,8 @@ def make_battery_unit_ic_plot():
         "solar": "Solar",
         "onshore_wind": "Wind onshore",
         "offshore_wind": "Wind Offshore",
+        "geothermal": "Geothermal",
+        "hydropower": "Hydropower",
     }.items():
         plt.plot(years, kW2TW(global_cumulative_G[name].values()), label=label)
     # Need to convert GJ to TW

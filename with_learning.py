@@ -218,7 +218,7 @@ class InvestmentCostWithLearning:
             "long": {},
         }
 
-        self.cached_wrights_law_investment_costs = {}
+        self.cached_investment_costs = {}
         self.cached_cumulative_G = {}
         for obj in [
             "solar",
@@ -229,7 +229,7 @@ class InvestmentCostWithLearning:
             "geothermal",
             "hydropower",
         ]:
-            self.cached_wrights_law_investment_costs[obj] = {}
+            self.cached_investment_costs[obj] = {}
             self.cached_cumulative_G[obj] = {}
 
     def GJ2kW(self, x):
@@ -257,8 +257,8 @@ class InvestmentCostWithLearning:
 
     def calculate_installed_cost_maybe_with_learning(self, tech, year):
         if ENABLE_WRIGHTS_LAW and tech not in TECHS_NO_LEARNING:
-            if year in self.cached_wrights_law_investment_costs[tech]:
-                return self.cached_wrights_law_investment_costs[tech][year]
+            if year in self.cached_investment_costs[tech]:
+                return self.cached_investment_costs[tech][year]
 
         cumulative_G = self.global_installed_capacities_kW[
             tech
@@ -269,7 +269,7 @@ class InvestmentCostWithLearning:
         else:
             ic = self.installed_costs[tech]
 
-        self.cached_wrights_law_investment_costs[tech][year] = ic
+        self.cached_investment_costs[tech][year] = ic
         self.cached_cumulative_G[tech][year] = cumulative_G
         return ic
 
@@ -568,7 +568,9 @@ class InvestmentCostWithLearning:
             if stock_year >= year:
                 break
             if tech in TECHS_WITH_LEARNING:
-                stock_battery_pe = sum(self.stocks_kW_battery_pe[tech][stock_year].values())
+                stock_battery_pe = sum(
+                    self.stocks_kW_battery_pe[tech][stock_year].values()
+                )
             else:
                 # Geothermal, hydropower doesn't use battery PE
                 stock_battery_pe = 0
