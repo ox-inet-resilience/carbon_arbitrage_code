@@ -1644,6 +1644,7 @@ def get_yearly_by_country():
 def make_battery_unit_ic_plot():
     global MEASURE_GLOBAL_VARS
     MEASURE_GLOBAL_VARS = True
+    with_learning.VERBOSE_ANALYSIS = True
     run_table1(to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2050 + 1)
 
@@ -1757,6 +1758,7 @@ def make_battery_unit_ic_plot():
     plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
     plt.close()
     MEASURE_GLOBAL_VARS = False
+    with_learning.VERBOSE_ANALYSIS = False
 
 
 if __name__ == "__main__":
