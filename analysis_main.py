@@ -1780,6 +1780,8 @@ def make_battery_unit_ic_plot():
             markersize=markersize,
             linewidth=0.8,
         )
+    plt.xlabel("Time")
+    plt.ylabel("Annual installed capacity (GW)")
     # Deduplicate labels
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
