@@ -905,12 +905,18 @@ def run_table2(name="", included_countries=None):
                 ]
             )
 
-            table[f"scc {scc} Net benefit relative to GDP (%)"].append(
+            table[f"scc {scc} CC Net benefit relative to GDP (%)"].append(
                 table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
                 * 100
                 / (gdp_2023 * arbitrage_period)
             )
-            table[f"scc {scc} Net benefit per avoided tCO2e ($/tCO2e)"].append(
+
+            table[f"scc {scc} GC Net benefit per avoided tCO2e ($/tCO2e)"].append(
+                table[f"scc {scc} GC net benefit (in trillion dollars)"][i]
+                * 1e12
+                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+            )
+            table[f"scc {scc} CC Net benefit per avoided tCO2e ($/tCO2e)"].append(
                 table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
                 * 1e12
                 / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
