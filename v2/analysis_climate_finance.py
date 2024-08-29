@@ -98,6 +98,21 @@ def get_info_investment(info_name, last_year, included_countries=None):
     return get_info(info_name, last_year, included_countries)
 
 
+def run_table2_3_scenarios(name, included_countries):
+    dfs = []
+    for param, _name in [(False, "baseline"), ("15-50", "15-50"), ("15-67", "15-67")]:
+        util.CARBON_BUDGET_CONSISTENT = param
+        out = analysis_main.run_table2(_name, included_countries)
+        out = out.rename(columns={0: f"{_name} 2030", 1: f"{_name} 2050"})
+        dfs.append(out.copy())
+    out = pd.concat(dfs, axis=1)
+
+    uid = util.get_unique_id(include_date=False)
+    out.to_csv(f"plots/table2_3scen_{name}_{uid}.csv")
+    # Reset
+    util.CARBON_BUDGET_CONSISTENT = False
+
+
 def run_table2_region():
     # For sanity check
     df_cost_benefit = make_cost_benefit_plot(2050).set_index("region")
@@ -330,9 +345,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
     width = 0.2
     util.plot_stacked_bar(xs, plot_data, width=width)
 
-    for i, benefit_type in enumerate(
-        ["country_benefit_country_reduction"]
-    ):
+    for i, benefit_type in enumerate(["country_benefit_country_reduction"]):
         plot_data_benefit = []
         for scc in [
             util.social_cost_of_carbon_imf,
@@ -675,7 +688,8 @@ def make_yearly_climate_financing_plot():
 
 if __name__ == "__main__":
     # run_table2_region()
-    # exit()
+    run_table2_3_scenarios("PL", ["PL"])
+    exit()
     if 0:
         for info_name in [
             "cost",
