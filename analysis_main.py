@@ -876,11 +876,27 @@ def run_table2(name="", included_countries=None):
             table[f"scc {scc} CC benefit (in trillion dollars)"].append(
                 result[y]["country_benefit_country_reduction"][_s(y)] * scc_scale
             )
+
             table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"].append(
                 result[y][gc_benefit_old_name][_s(y)]
                 * scc_scale
                 * 1e12
                 / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+            )
+            table[f"scc {scc} CC benefit per avoided tCO2e ($/tCO2e)"].append(
+                result[y]["country_benefit_country_reduction"][_s(y)]
+                * scc_scale
+                * 1e12
+                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+            )
+
+            table[f"scc {scc} GC net benefit (in trillion dollars)"].append(
+                table[
+                    f"scc {scc} Global benefit country decarbonization (in trillion dollars)"
+                ][i]
+                - table["Costs of power sector decarbonization (in trillion dollars)"][
+                    i
+                ]
             )
             table[f"scc {scc} CC net benefit (in trillion dollars)"].append(
                 table[f"scc {scc} CC benefit (in trillion dollars)"][i]
@@ -888,6 +904,7 @@ def run_table2(name="", included_countries=None):
                     i
                 ]
             )
+
             table[f"scc {scc} Net benefit relative to GDP (%)"].append(
                 table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
                 * 100
@@ -1767,12 +1784,12 @@ def make_battery_unit_ic_plot():
         "long": "Battery long",
     }.items():
         y = kW2GW(
-                list(
-                    global_cost_with_learning.cached_stock_without_degradation[
-                        tech
-                    ].values()
-                )
+            list(
+                global_cost_with_learning.cached_stock_without_degradation[
+                    tech
+                ].values()
             )
+        )
         plt.plot(
             years,
             y,

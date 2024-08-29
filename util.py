@@ -324,6 +324,7 @@ def calculate_ngfs_projection(
     ngfs = ngfs_df[production_or_emissions]
     ngfs = ngfs[ngfs.Scenario == scenario]
     if scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
+        # This is emissions only.
         fname = {
             "15-50": "6.1-NZ-15-50-v2-Secondary-annual.csv",
             "15-67": "7.1-NZ-15-67-v2-Secondary-annual.csv",
