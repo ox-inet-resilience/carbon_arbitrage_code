@@ -111,6 +111,52 @@ def run_table2_3_scenarios(name, included_countries):
     out.to_csv(f"plots/table2_3scen_{name}_{uid}.csv")
     # Reset
     util.CARBON_BUDGET_CONSISTENT = False
+    return out
+
+
+def plot_table2_3scen(df, name):
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
+    xlabels = {
+        "Investment costs (in trillion dollars)": "Total investment costs",
+        "Investment costs in renewable energy": "Renewable energy",
+        "Investment costs short-term storage": "Short-term storage",
+        "Investment costs long-term storage": "Long-term storage",
+        "Investment costs renewables to power electrolyzers": "Renewables\nto power electrolyzers",
+        "Investment costs grid extension": "Grid extension",
+    }
+    xs = np.arange(len(xlabels))
+    width = 0.2
+    for i, last_year in enumerate([2030, 2050]):
+        plt.sca(axs[i])
+        for j, (scenario, label) in enumerate(
+            [
+                ("15-67", r"$1.5\degree 67\%$"),
+                ("15-50", r"$1.5\degree 50\%$"),
+                ("baseline", "NGFS Net Zero"),
+            ]
+        ):
+            data = (
+                df[f"{scenario} {last_year}"].loc[list(xlabels.keys())] * 1e3
+            ).tolist()
+            plt.bar(xs + j * width, data, width, label=label)
+        plt.xticks(xs, labels=list(xlabels.values()), rotation=45, ha="right")
+        plt.ylabel("Investment costs\n(Billions USD)")
+        plt.title(f"{name} 2024-{last_year}")
+
+    # Deduplicate labels
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    fig.legend(
+       by_label.values(),
+       by_label.keys(),
+       loc="upper center",
+       bbox_to_anchor=(0.5, 0),
+       ncol=3,
+    )
+    plt.tight_layout()
+    uid = util.get_unique_id(include_date=False)
+    plt.savefig(f"plots/bar_table2_{uid}.png", bbox_inches="tight")
+    plt.close()
 
 
 def run_table2_region():
@@ -688,7 +734,8 @@ def make_yearly_climate_financing_plot():
 
 if __name__ == "__main__":
     # run_table2_region()
-    run_table2_3_scenarios("PL", ["PL"])
+    out = run_table2_3_scenarios("PL", ["PL"])
+    plot_table2_3scen(out, "Poland")
     exit()
     if 0:
         for info_name in [
