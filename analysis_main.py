@@ -11,7 +11,6 @@ import seaborn as sns
 from cycler import cycler
 
 import util
-import processed_revenue
 from util import (
     social_cost_of_carbon,
     world_gdp_2023,
@@ -73,12 +72,10 @@ def pandas_divide_or_zero(num, dem):
 
 ngfs_df = util.read_ngfs()
 iso3166_df = util.read_iso3166()
+unit_profit_df = pd.read_csv("data_private/v0_main_country_region_av_profitability.csv")
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
-processed_revenue.prepare_average_unit_profit(df)
-# We re-generate df_sector again now that df has "energy_type_specific_average_unit_profit".
-_, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED, df)
 country_sccs = pd.Series(util.read_country_specific_scc_filtered())
 
 
@@ -259,7 +256,7 @@ def calculate_table1_info(
     residual_production = residual_production_series.sum() / 1e9
 
     # rho is the same everywhere
-    rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+    rho = util.calculate_rho(util.beta, rho_mode=RHO_MODE)
 
     def discount_the_array(arr):
         out = []
@@ -416,19 +413,12 @@ def calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower):
 def get_cost_including_ngfs_revenue(
     _df,
     rho,
-    DeltaP,
+    delta_profit,
     scenario,
     last_year,
 ):
-    # In this case, the energy-type-specific is coal
-    # aup is the same across the df rows anyway
-    if len(_df) > 0:
-        aup = _df.energy_type_specific_average_unit_profit.iloc[0]
-    else:
-        aup = 0.0
-
     # Calculate cost
-    out_non_discounted = [dp * aup for dp in DeltaP]
+    out_non_discounted = delta_profit
     out_discounted = util.discount_array(out_non_discounted, rho)
     return (
         out_non_discounted,
@@ -506,25 +496,29 @@ def generate_table1_output(
     )
 
     production_with_ngfs_projection_CPS = None
+    profit_ngfs_projection_CPS = None
     for scenario in ["Current Policies", "Net Zero 2050"]:
         # NGFS_PEG_YEAR
         cost_new_method = with_learning.InvestmentCostWithLearning()
 
         last_year = LAST_YEAR
         # Giga tonnes of coal
-        production_with_ngfs_projection, gigatonnes_coal_production = (
-            util.calculate_ngfs_projection(
-                "production",
-                total_production_fa,
-                ngfs_df,
-                SECTOR_INCLUDED,
-                scenario,
-                NGFS_PEG_YEAR,
-                last_year,
-                alpha2_to_alpha3,
-            )
+        (
+            production_with_ngfs_projection,
+            gigatonnes_coal_production,
+            profit_ngfs_projection,
+        ) = util.calculate_ngfs_projection(
+            "production",
+            total_production_fa,
+            ngfs_df,
+            SECTOR_INCLUDED,
+            scenario,
+            NGFS_PEG_YEAR,
+            last_year,
+            alpha2_to_alpha3,
+            unit_profit_df=unit_profit_df,
         )
-        emissions_with_ngfs_projection, _ = util.calculate_ngfs_projection(
+        emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
             "emissions",
             emissions_fa,
             ngfs_df,
@@ -538,6 +532,7 @@ def generate_table1_output(
         if scenario == "Current Policies":
             # To prepare for the s2-s1 for NZ2050
             production_with_ngfs_projection_CPS = production_with_ngfs_projection.copy()
+            profit_ngfs_projection_CPS = profit_ngfs_projection.copy()
 
         scenario_formatted = f"FA + {scenario} Scenario"
 
@@ -548,8 +543,10 @@ def generate_table1_output(
             DeltaP = util.subtract_array(
                 production_with_ngfs_projection_CPS, production_with_ngfs_projection
             )
+            delta_profit = util.subtract_array(profit_ngfs_projection_CPS, profit_ngfs_projection)
         else:
             DeltaP = production_with_ngfs_projection_CPS
+            delta_profit = profit_ngfs_projection_CPS
         # Convert Giga tonnes of coal to GJ
         DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
 
@@ -559,7 +556,7 @@ def generate_table1_output(
         ) = get_cost_including_ngfs_revenue(
             _df_nonpower,
             rho,
-            DeltaP,
+            delta_profit,
             scenario,
             last_year,
         )
@@ -717,7 +714,7 @@ def run_table1(
     included_countries=None,
 ):
     # rho is the same everywhere
-    rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+    rho = util.calculate_rho(util.beta, rho_mode=RHO_MODE)
 
     out, yearly = generate_table1_output(
         rho,
@@ -1828,7 +1825,7 @@ if __name__ == "__main__":
         get_yearly_by_country()
         exit()
 
-    if 0:
+    if 1:
         run_table2()
         exit()
 

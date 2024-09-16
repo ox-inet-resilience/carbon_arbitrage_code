@@ -55,6 +55,11 @@ CARBON_BUDGET_CONSISTENT = False
 # CARBON_BUDGET_CONSISTENT = "15-67"
 # CARBON_BUDGET_CONSISTENT = "16-67"
 
+# We set the beta to be constant, based on the MM beta of aggregate_beta.py
+# We simplify the model because the beta data is not good.
+# The un_leveraged_beta is calculated from misc/aggregate_beta.py.
+un_leveraged_beta = 0.9132710997126332
+beta = un_leveraged_beta
 
 def read_json(filename):
     with open(filename) as f:
@@ -203,6 +208,11 @@ def coal2GJ(x):
     return x * mul
 
 
+def coal2MWh(x):
+    gj = coal2GJ(x)
+    return GJ2MWh(gj)
+
+
 def GJ2coal(x):
     return x / 29.3076
 
@@ -319,7 +329,13 @@ def calculate_ngfs_projection(
     last_year,
     alpha2_to_alpha3,
     filter_subsector=None,
+    unit_profit_df=None,
 ):
+    """
+    Returns timeseries of production with NGFS projection,
+            gigatonnes coal production,
+            timeseries of profit with NGFS projection
+    """
     assert sector == "Power"
     ngfs = ngfs_df[production_or_emissions]
     ngfs = ngfs[ngfs.Scenario == scenario]
@@ -341,6 +357,8 @@ def calculate_ngfs_projection(
     # Use set to deduplicate countries list.
     countries = list(set(value_fa.index.get_level_values("asset_country").to_list()))
     out = None
+    # This is profit associated with the production.
+    out_profit = None
 
     ngfs_country_wo_iea_stats = ngfs[
         ngfs.Region == "Downscaling|Countries without IEA statistics"
@@ -353,10 +371,20 @@ def calculate_ngfs_projection(
 
     for country in countries:
         ngfs_country = ngfs[ngfs.Region == country_mapper(country)]
+        unit_profit_country = None
+        if unit_profit_df is not None:
+            unit_profit_country = unit_profit_df[
+                unit_profit_df["Alpha-2 Code"] == country
+            ]
+            if len(unit_profit_country) == 0:
+                unit_profit_country = 0
+            else:
+                unit_profit_country = unit_profit_country.iloc[0]
         if len(ngfs_country) == 0:
             ngfs_country = ngfs_country_wo_iea_stats
         value_fa_country = value_fa[country]
         timeseries = None
+        timeseries_profit = None
         for subsector in subsectors:
             if subsector not in value_fa_country:
                 continue
@@ -379,18 +407,36 @@ def calculate_ngfs_projection(
             across_years = [
                 value_fa[country][subsector] * e / across_years[0] for e in across_years
             ]
+            unit_profit_country_subsector = unit_profit_country[
+                f"{subsector}_Av_Profitability_$/MWh"
+            ] if isinstance(unit_profit_country, pd.Series) else 0
+            across_years_profit = [
+                coal2MWh(e) * unit_profit_country_subsector for e in across_years
+            ]
             if timeseries is None:
                 timeseries = across_years.copy()
             else:
                 timeseries = add_array(timeseries, across_years)
-        if timeseries is None:
-            continue
-        if out is None:
-            out = {country: timeseries}
-        else:
-            out[country] = timeseries
+            if unit_profit_df is None:
+                # No need to calculate profit for emissions
+                continue
+            if timeseries_profit is None:
+                timeseries_profit = across_years_profit.copy()
+            else:
+                timeseries_profit = add_array(timeseries_profit, across_years_profit)
+        if timeseries is not None:
+            if out is None:
+                out = {country: timeseries}
+            else:
+                out[country] = timeseries
+        if timeseries_profit is not None:
+            if out_profit is None:
+                out_profit = {country: timeseries_profit}
+            else:
+                out_profit[country] = timeseries_profit
+
     if out is None:
-        return pd.Series([]), 0
+        return pd.Series([]), 0, pd.Series([])
     summed = 0
     for value in out.values():
         summed += sum(value)
@@ -399,7 +445,13 @@ def calculate_ngfs_projection(
         final_out.append(
             pd.Series({country: value[i] for country, value in out.items()})
         )
-    return final_out, summed
+    final_out_profit = []
+    if unit_profit_df is not None:
+        for i in range(len(years_interpolated)):
+            final_out_profit.append(
+                pd.Series({country: value[i] for country, value in out_profit.items()})
+            )
+    return final_out, summed, final_out_profit
 
 
 def calculate_ngfs_projection_by_subsector(
