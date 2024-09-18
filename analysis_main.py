@@ -72,7 +72,10 @@ def pandas_divide_or_zero(num, dem):
 
 ngfs_df = util.read_ngfs()
 iso3166_df = util.read_iso3166()
-unit_profit_df = pd.read_csv("data_private/v0_main_country_region_av_profitability.csv")
+unit_profit_df = pd.read_csv(
+    "data_private/v1_bbg_main_country_region_av_profitability.csv.zip",
+    compression="zip",
+)
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
@@ -543,7 +546,9 @@ def generate_table1_output(
             DeltaP = util.subtract_array(
                 production_with_ngfs_projection_CPS, production_with_ngfs_projection
             )
-            delta_profit = util.subtract_array(profit_ngfs_projection_CPS, profit_ngfs_projection)
+            delta_profit = util.subtract_array(
+                profit_ngfs_projection_CPS, profit_ngfs_projection
+            )
         else:
             DeltaP = production_with_ngfs_projection_CPS
             delta_profit = profit_ngfs_projection_CPS

@@ -377,6 +377,7 @@ def calculate_ngfs_projection(
                 unit_profit_df["Alpha-2 Code"] == country
             ]
             # If we don't have data for the country, set it to 0
+            # Only Kosovo so far.
             if len(unit_profit_country) == 0:
                 unit_profit_country = 0
             else:
