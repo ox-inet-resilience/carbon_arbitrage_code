@@ -61,6 +61,7 @@ CARBON_BUDGET_CONSISTENT = False
 un_leveraged_beta = 0.9132710997126332
 beta = un_leveraged_beta
 
+
 def read_json(filename):
     with open(filename) as f:
         obj = json.load(f)
@@ -253,7 +254,7 @@ def MW2Gigatonnes_of_coal(x):
 
 
 def maybe_load_forward_analytics_data(pre_existing_df=None):
-    print("Reading from Masterdata")
+    print("Reading from FA")
     filename = "v3_power_Forward_Analytics2024.csv.zip"
     filename = "FA2024_power_only_preprocessed.csv.gz"
     # filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
@@ -279,6 +280,8 @@ def maybe_load_forward_analytics_data(pre_existing_df=None):
                 # "unit": _str_type,
             },
         )
+        # Put back Namibia's alpha-2
+        df["asset_country"] = df["asset_country"].replace(pd.NA, "NA")
     else:
         df = pre_existing_df
     return df
@@ -409,9 +412,11 @@ def calculate_ngfs_projection(
             across_years = [
                 value_fa[country][subsector] * e / across_years[0] for e in across_years
             ]
-            unit_profit_country_subsector = unit_profit_country[
-                f"{subsector}_Av_Profitability_$/MWh"
-            ] if isinstance(unit_profit_country, pd.Series) else 0
+            unit_profit_country_subsector = (
+                unit_profit_country[f"{subsector}_Av_Profitability_$/MWh"]
+                if isinstance(unit_profit_country, pd.Series)
+                else 0
+            )
             across_years_profit = [
                 coal2MWh(e) * unit_profit_country_subsector for e in across_years
             ]

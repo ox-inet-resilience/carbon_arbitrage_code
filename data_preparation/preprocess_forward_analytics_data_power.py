@@ -1,9 +1,18 @@
+import pathlib
+import sys
+
 import pandas as pd
+
+parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
+sys.path.append(parent_dir)
 
 import util
 
 df = pd.read_csv(
-    "./data_private/v3_power_Forward_Analytics2024.csv.zip", compression="zip"
+    "./data_private/v3_power_Forward_Analytics2024.csv.zip",
+    compression="zip",
+    # Needs this because otherwise NA for Namibia is interpreted as NaN
+    na_filter=False,
 )
 df = df[df["status"] == "operating"]
 print(len(df))
@@ -14,8 +23,11 @@ df.loc[df.subsector == "Coal", "sector"] = "Power"
 df = df[df.sector == "Power"]
 print(set(df.sector))
 print(set(df.subsector))
-print(len(df))
+print("Length", len(df))
 print(df.columns)
+# Remove unknown countries
+df = df[df.countryiso3 != "unknown"]
+print("After removing unknown countries", len(df))
 
 
 def more_robust_a3_to_a2(a3):

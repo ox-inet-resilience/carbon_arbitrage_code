@@ -4,96 +4,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import processed_revenue
 import util
-
-# g = nonpower_coal.groupby("asset_country")["_2022"].sum().sort_values(ascending=False).to_frame()
-# g["country_full_name"] = g.apply(lambda x: alpha2_to_full_name.get(x.name, x.name), axis=1)
-# g["num_coal_workers"] = 0
-# g["coal_wage"] = 0
-# g.to_csv("plots/coal_producer_2022.csv")
 
 iso3166_df = util.read_iso3166()
 alpha3_to_alpha2 = iso3166_df.set_index("alpha-3")["alpha-2"].to_dict()
 alpha2_to_full_name = iso3166_df.set_index("alpha-2")["name"].to_dict()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
-df = pd.read_csv("data/coal_producer_2022.csv")
-# Sanity check -- no zero salary
-assert len(df[df.coal_wage_local_currency == 0]) == 0
-
-# Source: google.com as of oct 21 2022
-cur_exchange = dict(
-    CN=0.14,
-    US=1,
-    IN=0.012,
-    AU=1.60,
-    RU=0.016,
-    ID=0.000064,
-    ZA=0.054,
-    DE=0.98,  # euro
-    KZ=0.0021,
-    PL=0.20,
-    TR=0.054,
-    CO=0.00021,
-    GR=0.98,  # euro
-    CA=0.72,
-    UA=0.027,
-    VN=0.000040,
-    MN=0.000295089,
-    BG=0.50,
-    CZ=0.040,
-    RS=0.0083,
-    RO=0.20,
-    TH=0.026,
-    BR=0.19,
-    PH=0.017,
-    MZ=0.016,
-    BA=0.50,
-    LA=0.000058,
-    UZ=0.000089,
-    MX=0.050,
-    ZW=0.003106,
-    GB=1.11,
-    XK=0.98,  # euro
-    HU=0.0024,
-    IR=0.000024,
-    MK=0.016,
-    PK=0.0045,
-    ES=0.98,  # euro
-    SI=0.98,  # euro
-    SK=0.98,  # euro
-    NZ=0.56,
-    ME=0.98,  # euro
-    BW=0.074,
-    TJ=0.098,
-    CL=0.0010,
-    VE=0.119596,
-    MM=0.00047,
-    AR=0.0065,
-    TZ=0.00043,
-    ZM=0.062,
-    GE=0.36,
-    JP=0.0066,
-    KG=0.012,
-    BD=0.0098,
-    MW=0.00097,
-    NE=0.0015,
-    NO=0.094,
-    PE=0.25,
-    ET=0.019,
-    CD=0.00049,
-    NG=0.0023,
-    MG=0.00023,
-)
-
-# Wage
-df["coal_wage_usd"] = df.apply(
-    lambda row: row.coal_wage_local_currency * cur_exchange[row.asset_country], axis=1
-)
-# df = df.sort_values(by="coal_wage_usd", ascending=False)
-# df[["asset_country", "coal_wage_usd"]].to_csv("plots/coal_wage_usd.csv")
-wage_usd_dict = df.set_index("asset_country")["coal_wage_usd"].to_dict()
+df_coal_worker = pd.read_csv(
+    "./data_private/v0_main_powerplant_salaries.csv",
+    na_filter=False,
+).set_index("asset_location")
 
 
 def reduce_precision(dictionary):
@@ -101,28 +22,6 @@ def reduce_precision(dictionary):
     return {k: float(f"{v:.8f}") for k, v in dictionary.items()}
 
 
-def prepare_num_workers_dict(df):
-    # Number of workers
-    is_covered = df[df.num_coal_workers_source == "worldbank"]
-    P_total = df._2022.sum()
-    P_covered = is_covered._2022.sum()
-    num_workers_is_covered = is_covered.num_coal_workers.sum()
-
-    def f(row):
-        if row.num_coal_workers_source == "worldbank":
-            return row.num_coal_workers
-        return int((4.7e6 - num_workers_is_covered) * row._2022 / (P_total - P_covered))
-
-    df["num_coal_workers"] = df.apply(f, axis=1)
-    df["num_coal_workers_source"] = df.num_coal_workers_source.apply(
-        lambda x: x.replace("TODO", "estimated")
-    )
-    # df.to_csv("plots/coal_producer_2022_estimated.csv")
-    num_coal_workers_dict = df.set_index("asset_country")["num_coal_workers"].to_dict()
-    return num_coal_workers_dict
-
-
-num_coal_workers_dict = prepare_num_workers_dict(df)
 
 # Website sensitivity params
 rho_mode_map = {
@@ -150,7 +49,7 @@ countries = list(set(df_sector.asset_country))
 # Giga tonnes of coal
 total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
 # Giga tonnes of coal
-production_with_ngfs_projection, _ = util.calculate_ngfs_projection(
+production_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
     "production",
     total_production_fa,
     ngfs_df,
@@ -160,7 +59,7 @@ production_with_ngfs_projection, _ = util.calculate_ngfs_projection(
     LAST_YEAR,
     alpha2_to_alpha3,
 )
-production_with_ngfs_projection_CPS, _ = util.calculate_ngfs_projection(
+production_with_ngfs_projection_CPS, _, _ = util.calculate_ngfs_projection(
     "production",
     total_production_fa,
     ngfs_df,
@@ -176,11 +75,23 @@ DeltaP = util.subtract_array(
 )
 
 
-def calculate(rho_mode, do_plot=False, full_version=False):
-    rho = util.calculate_rho(processed_revenue.beta, rho_mode=rho_mode)
+def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
+    rho = util.calculate_rho(util.beta, rho_mode=rho_mode)
+    # Wage
+    wage_usd_dict = (
+        df_coal_worker[f"Average Annual Salary {subsector_column} USD"]
+        .replace(r"^\s*$", np.nan, regex=True)
+        .astype(float)
+        .to_dict()
+    )
+    num_coal_workers_dict = df_coal_worker[f"{subsector_column}_workers"].to_dict()
 
     def get_j_num_workers_lost_job(country, t):
-        num_workers_peg_year = num_coal_workers_dict[country]
+        try:
+            num_workers_peg_year = num_coal_workers_dict[country]
+        except KeyError:
+            # print("Missing num workers", country)
+            num_workers_peg_year = 0
         production_peg_year = DeltaP[0][country]
         production_t = DeltaP[t - NGFS_PEG_YEAR][country]
         production_t_minus_1 = DeltaP[t - 1 - NGFS_PEG_YEAR][country]
@@ -199,7 +110,7 @@ def calculate(rho_mode, do_plot=False, full_version=False):
         wl_dict = {}
         for country in countries:
             j_lost_job = get_j_num_workers_lost_job(country, t)
-            wage = wage_usd_dict[country]
+            wage = wage_usd_dict.get(country, 0)
             val = j_lost_job * wage
             wl += val
             wl_dict[country] = val
@@ -273,7 +184,9 @@ def calculate(rho_mode, do_plot=False, full_version=False):
 
 
 if __name__ == "__main__":
-    calculate("default", do_plot=True)
+    subsector_column = "CFPP"
+    calculate("default", subsector_column, do_plot=True)
+    exit()
 
     # To be used in greatcarbonarbitrage.com
     out = {}
