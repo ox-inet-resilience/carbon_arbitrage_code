@@ -771,7 +771,7 @@ def run_table2(name="", included_countries=None):
         util.scc_bilal,
     ]
     scc_default = util.social_cost_of_carbon_imf
-    last_years = [2030, 2035, 2050]
+    last_years = [2035, 2050]
     for last_year in last_years:
         util.social_cost_of_carbon = scc_default
         social_cost_of_carbon = scc_default
