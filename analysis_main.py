@@ -30,8 +30,8 @@ os.makedirs("plots", exist_ok=True)
 lcoe_mode = "solar+wind"
 # lcoe_mode="solar+wind+gas"
 ENABLE_COAL_EXPORT = 0
+ENABLE_WORKER = 1
 LAST_YEAR = 2050
-# LAST_YEAR = 2030
 # The year where the NGFS value is pegged/rescaled to be the same as Masterdata
 # global production value.
 NGFS_PEG_YEAR = 2024
@@ -135,6 +135,7 @@ def add_array_of_mixed_objs(x, y):
 
 def calculate_table1_info(
     do_round,
+    scenario,
     data_set,
     time_period,
     total_production,
@@ -147,6 +148,7 @@ def calculate_table1_info(
     residual_emissions_series=0.0,
     residual_production_series=0.0,
     final_cost_with_learning=None,
+    included_countries=None,
 ):
     if INVESTMENT_COST_DIVIDER > 1:
         array_of_cost_discounted_investment = divide_array_of_mixed_objs(
@@ -156,6 +158,39 @@ def calculate_table1_info(
             array_of_cost_non_discounted_investment, INVESTMENT_COST_DIVIDER
         )
     out_yearly_info = {}
+
+    # Workers
+    subsectors = ["Coal", "Oil", "Gas"]
+    cost_discounted_worker = 0
+    worker_compensation = None
+    worker_retraining_cost = None
+    if ENABLE_WORKER:
+        import coal_worker
+
+        worker_by_subsector = {
+            subsector: coal_worker.calculate(
+                "default",
+                subsector,
+                LAST_YEAR,
+                included_countries=included_countries,
+                return_summed=True,
+                scenario=scenario,
+            )
+            for subsector in subsectors
+        }
+        worker_compensation = {
+            subsector: worker_by_subsector[subsector][0] for subsector in subsectors
+        }
+        worker_compensation_sum_trillion = sum(worker_compensation.values()) / 1e3
+        worker_retraining_cost = {
+            subsector: worker_by_subsector[subsector][1] for subsector in subsectors
+        }
+        worker_rc_sum_trillion = sum(worker_retraining_cost.values()) / 1e3
+        cost_discounted_worker = (
+            worker_compensation_sum_trillion + worker_rc_sum_trillion
+        )
+    # End of workers
+
     cost_non_discounted_revenue = sum_array_of_mixed_objs(
         array_of_cost_non_discounted_revenue
     )
@@ -325,7 +360,9 @@ def calculate_table1_info(
 
     # Costs of avoiding coal emissions
     assert cost_discounted_investment >= 0
-    cost_discounted = cost_discounted_revenue + cost_discounted_investment
+    cost_discounted = (
+        cost_discounted_revenue + cost_discounted_investment + cost_discounted_worker
+    )
 
     # Equation 1 in the paper
     net_benefit = benefit_non_discounted - cost_discounted
@@ -382,6 +419,14 @@ def calculate_table1_info(
             out_yearly_info["country_benefit_country_reduction"].values()
         ),
     }
+    if ENABLE_WORKER:
+        for subsector in subsectors:
+            # Trillion
+            data[f"OC workers lost wages {subsector}"] = worker_compensation[subsector] / 1e3
+            data[f"OC workers retraining cost {subsector}"] = worker_retraining_cost[
+                subsector
+            ] / 1e3
+
     for k, v in data.items():
         if k in [
             "Using production projections of data set",
@@ -389,6 +434,8 @@ def calculate_table1_info(
         ]:
             continue
         data[k] = maybe_round3(do_round, v)
+    # TODO included worker
+    out_yearly_info = None
     return data, out_yearly_info
 
 
@@ -636,6 +683,7 @@ def generate_table1_output(
         text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}"
         table1_info, yearly_info = calculate_table1_info(
             do_round,
+            scenario,
             scenario_formatted,
             f"{NGFS_PEG_YEAR}-{last_year}",
             gigatonnes_coal_production,
@@ -648,6 +696,7 @@ def generate_table1_output(
             residual_emissions_series=residual_emissions,
             residual_production_series=residual_production,
             final_cost_with_learning=final_cost_with_learning,
+            included_countries=included_countries,
         )
         out[text] = table1_info
         out_yearly[text] = yearly_info
@@ -792,6 +841,12 @@ def run_table2(name="", included_countries=None):
         "Investment costs renewables to power electrolyzers": "investment_cost_battery_pe_trillion",
         "Investment costs grid extension": "investment_cost_battery_grid_trillion",
     }
+    subsectors = ["Coal", "Oil", "Gas"]
+    for subsector in subsectors:
+        val = f"OC workers lost wages {subsector}"
+        mapper[val] = val
+        val = f"OC workers retraining cost {subsector}"
+        mapper[val] = val
 
     def _s(y):
         return f"2024-{y} FA + Net Zero 2050 Scenario"

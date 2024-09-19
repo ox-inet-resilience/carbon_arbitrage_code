@@ -22,7 +22,6 @@ def reduce_precision(dictionary):
     return {k: float(f"{v:.8f}") for k, v in dictionary.items()}
 
 
-
 # Website sensitivity params
 rho_mode_map = {
     "0%": "0%",
@@ -35,12 +34,9 @@ rho_mode_map = {
 
 # Data analysis part
 NGFS_PEG_YEAR = 2024
-LAST_YEAR = 2050
 SECTOR_INCLUDED = "Power"
-scenario = "Net Zero 2050"
 ic_usa = 7231
 
-years = range(NGFS_PEG_YEAR + 1, LAST_YEAR + 1)
 df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
 ngfs_df = util.read_ngfs()
 
@@ -48,35 +44,43 @@ countries = list(set(df_sector.asset_country))
 
 # Giga tonnes of coal
 total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
-# Giga tonnes of coal
-production_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
-    "production",
-    total_production_fa,
-    ngfs_df,
-    SECTOR_INCLUDED,
-    scenario,
-    NGFS_PEG_YEAR,
-    LAST_YEAR,
-    alpha2_to_alpha3,
-)
-production_with_ngfs_projection_CPS, _, _ = util.calculate_ngfs_projection(
-    "production",
-    total_production_fa,
-    ngfs_df,
-    SECTOR_INCLUDED,
-    "Current Policies",
-    NGFS_PEG_YEAR,
-    LAST_YEAR,
-    alpha2_to_alpha3,
-)
 
-DeltaP = util.subtract_array(
-    production_with_ngfs_projection_CPS, production_with_ngfs_projection
-)
+subsector_column_map = {
+    "Coal": "CFPP",
+    "Oil": "OFPP",
+    "Gas": "GFPP",
+}
 
 
-def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
+def calculate(
+    rho_mode,
+    subsector,
+    last_year,
+    do_plot=False,
+    full_version=False,
+    included_countries=None,
+    return_summed=False,
+    scenario="Net Zero 2050",
+):
+    years = range(NGFS_PEG_YEAR + 1, last_year + 1)
     rho = util.calculate_rho(util.beta, rho_mode=rho_mode)
+    subsector_column = subsector_column_map[subsector]
+    if included_countries is None:
+        included_countries = countries
+
+    # Giga tonnes of coal
+    P_s2, _, _ = util.calculate_ngfs_projection(
+        "production",
+        total_production_fa,
+        ngfs_df,
+        SECTOR_INCLUDED,
+        scenario,
+        NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+        filter_subsector=subsector,
+    )
+
     # Wage
     wage_usd_dict = (
         df_coal_worker[f"Average Annual Salary {subsector_column} USD"]
@@ -92,11 +96,11 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
         except KeyError:
             # print("Missing num workers", country)
             num_workers_peg_year = 0
-        production_peg_year = DeltaP[0][country]
-        production_t = DeltaP[t - NGFS_PEG_YEAR][country]
-        production_t_minus_1 = DeltaP[t - 1 - NGFS_PEG_YEAR][country]
+        production_peg_year = P_s2[0].get(country, 0)
         if math.isclose(production_peg_year, 0):
             return 0
+        production_t = P_s2[t - NGFS_PEG_YEAR][country]
+        production_t_minus_1 = P_s2[t - 1 - NGFS_PEG_YEAR][country]
         return (
             num_workers_peg_year
             * (production_t_minus_1 - production_t)
@@ -108,7 +112,7 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
     for t in years:
         wl = 0.0
         wl_dict = {}
-        for country in countries:
+        for country in included_countries:
             j_lost_job = get_j_num_workers_lost_job(country, t)
             wage = wage_usd_dict.get(country, 0)
             val = j_lost_job * wage
@@ -128,7 +132,7 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
     opportunity_cost_by_country = {}
     retraining_cost_by_country = {}
     rhos = [util.calculate_discount(rho, i + 1) for i in range(len(wage_lost_series))]
-    for country in countries:
+    for country in included_countries:
         opportunity_cost_by_country[country] = sum(
             wage_lost_series_by_country[i][country] * 5 * _r
             for i, _r in enumerate(rhos)
@@ -139,7 +143,7 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
         )
 
     retraining_cost = pv_wage_lost * ic_usa / wage_usd_dict["US"]
-    pv_opportunity_cost = pv_wage_lost * 5  # billion dollars
+    pv_compensation = pv_wage_lost * 5  # billion dollars
 
     # Sanity check
     assert math.isclose(
@@ -147,13 +151,18 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
         sum(retraining_cost_by_country.values()),
     )
     assert math.isclose(
-        pv_opportunity_cost,
+        pv_compensation,
         sum(opportunity_cost_by_country.values()),
     )
 
-    opportunity_cost_series = wage_lost_series * 5
+    compensation_series = wage_lost_series * 5
+    # retraining_cost_series = wage_lost_series * ic_usa / wage_usd_dict["US"]
+
+    if return_summed:
+        return pv_compensation, retraining_cost
+
     if do_plot:
-        print("PV opportunity cost", pv_opportunity_cost, "billion dollars")
+        print("PV opportunity cost", pv_compensation, "billion dollars")
         print(
             "IC retraining USA",
             ic_usa,
@@ -163,7 +172,7 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
         )
 
         plt.figure()
-        plt.plot(years, opportunity_cost_series)
+        plt.plot(years, compensation_series)
         plt.xlabel("Time")
         plt.ylabel("Compensation for lost wage (billion dollars)")
         plt.savefig("plots/coal_worker_compensation.png")
@@ -179,13 +188,15 @@ def calculate(rho_mode, subsector_column, do_plot=False, full_version=False):
     # This is used in the battery branch for yearly climate financing.
     if full_version:
         out["wage_lost_series"] = wage_lost_series
-        out["opportunity_cost_series"] = opportunity_cost_series
+        out["compensation_series"] = compensation_series
     return out
 
 
 if __name__ == "__main__":
-    subsector_column = "CFPP"
-    calculate("default", subsector_column, do_plot=True)
+    for last_year in [2035, 2050]:
+        for subsector in subsector_column_map:
+            print("Subsector", subsector, last_year)
+            calculate("default", subsector, last_year, do_plot=True)
     exit()
 
     # To be used in greatcarbonarbitrage.com
