@@ -103,7 +103,7 @@ def run_table2_3_scenarios(name, included_countries):
     for param, _name in [(False, "baseline"), ("15-50", "15-50"), ("15-67", "15-67")]:
         util.CARBON_BUDGET_CONSISTENT = param
         out = analysis_main.run_table2(_name, included_countries)
-        out = out.rename(columns={0: f"{_name} 2030", 1: f"{_name} 2050"})
+        out = out.rename(columns={0: f"{_name} 2035", 1: f"{_name} 2050"})
         dfs.append(out.copy())
     out = pd.concat(dfs, axis=1)
 
@@ -126,7 +126,7 @@ def plot_table2_3scen(df, name):
     }
     xs = np.arange(len(xlabels))
     width = 0.2
-    for i, last_year in enumerate([2030, 2050]):
+    for i, last_year in enumerate([2035, 2050]):
         plt.sca(axs[i])
         for j, (scenario, label) in enumerate(
             [
@@ -273,7 +273,7 @@ def make_climate_financing_plot(
         "Emerging Market Countries",
     ] + regions
     for_df = {"region": xticks}
-    for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR, 2030), (2031, 2050)]:
+    for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR, 2035), (2031, 2050)]:
         _world = get_info_with_start_year(year_start, year_end)
         _developed = get_info_with_start_year(
             year_start, year_end, developed_country_shortnames
@@ -422,7 +422,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
     # Add explanatory text
     print(info_name, plot_data)
     text_height = None
-    if last_year == 2030:
+    if last_year == 2035:
         text_height = 4
     elif last_year == 2050:
         text_height = 11
@@ -749,7 +749,7 @@ if __name__ == "__main__":
         ]:
             make_climate_financing_plot(info_name=info_name)
     if 1:
-        for last_year in [2030, 2050]:
+        for last_year in [2035, 2050]:
             make_cost_benefit_plot(last_year, to_csv=True)
             # make_climate_financing_top15_plot(last_year)
         exit()
