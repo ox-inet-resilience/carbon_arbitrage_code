@@ -54,16 +54,8 @@ print("BATTERY_LONG", with_learning.ENABLE_BATTERY_LONG)
 assert SECTOR_INCLUDED in ["Power", "Coal"]
 
 
-def round2(x):
-    return round(x, 2)
-
-
-def maybe_round2(do_it, x):
-    return round2(x) if do_it else x
-
-
-def maybe_round3(do_it, x):
-    return round(x, 3) if do_it else x
+def maybe_round6(do_it, x):
+    return round(x, 6) if do_it else x
 
 
 def pandas_divide_or_zero(num, dem):
@@ -73,7 +65,7 @@ def pandas_divide_or_zero(num, dem):
 ngfs_df = util.read_ngfs()
 iso3166_df = util.read_iso3166()
 unit_profit_df = pd.read_csv(
-    "data_private/v2_bbg_main_country_region_av_profitability.csv.zip",
+    "data_private/v3_bbg_main_country_region_av_profitability.csv.zip",
     compression="zip",
 )
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
@@ -370,6 +362,16 @@ def calculate_table1_info(
     last_year = int(time_period.split("-")[1])
     arbitrage_period = last_year - NGFS_PEG_YEAR
 
+    worker_dict = {}
+    if ENABLE_WORKER:
+        for subsector in subsectors:
+            # Trillion
+            worker_dict[f"OC workers lost wages {subsector}"] = worker_compensation[subsector] / 1e3
+            worker_dict[f"OC workers retraining cost {subsector}"] = worker_retraining_cost[
+                subsector
+            ] / 1e3
+
+
     ic_battery_short = sum_array_of_mixed_objs(out_yearly_info["cost_battery_short"])
     ic_battery_long = sum_array_of_mixed_objs(out_yearly_info["cost_battery_long"])
     ic_battery_pe = sum_array_of_mixed_objs(out_yearly_info["cost_battery_pe"])
@@ -393,7 +395,9 @@ def calculate_table1_info(
         "Total emissions avoided including residual (GtCO2)": saved_non_discounted
         + residual_emissions,
         "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
-        "Opportunity costs (in trillion dollars)": cost_discounted_revenue,
+        "Opportunity costs (in trillion dollars)": cost_discounted_revenue + cost_discounted_worker,
+        "OC owner (in trillion dollars)": cost_discounted_revenue,
+        **worker_dict,
         "investment_cost_battery_short_trillion": ic_battery_short,
         "investment_cost_battery_long_trillion": ic_battery_long,
         "investment_cost_battery_pe_trillion": ic_battery_pe,
@@ -419,13 +423,6 @@ def calculate_table1_info(
             out_yearly_info["country_benefit_country_reduction"].values()
         ),
     }
-    if ENABLE_WORKER:
-        for subsector in subsectors:
-            # Trillion
-            data[f"OC workers lost wages {subsector}"] = worker_compensation[subsector] / 1e3
-            data[f"OC workers retraining cost {subsector}"] = worker_retraining_cost[
-                subsector
-            ] / 1e3
 
     for k, v in data.items():
         if k in [
@@ -433,7 +430,7 @@ def calculate_table1_info(
             "Time Period of Carbon Arbitrage",
         ]:
             continue
-        data[k] = maybe_round3(do_round, v)
+        data[k] = maybe_round6(do_round, v)
     # TODO included worker
     out_yearly_info = None
     return data, out_yearly_info
@@ -786,7 +783,7 @@ def run_table1(
         ]:
             both_dict[key] = out_dict[key]
         else:
-            both_dict[key] = maybe_round3(
+            both_dict[key] = maybe_round6(
                 do_round,
                 pd.Series(out_dict[key]),
             ).to_dict()
@@ -827,6 +824,14 @@ def run_table2(name="", included_countries=None):
         LAST_YEAR = last_year
         result[last_year] = run_table1(included_countries=included_countries)
     gc_benefit_old_name = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
+    subsectors = ["Coal", "Oil", "Gas"]
+    mapper_worker = {}
+    for subsector in subsectors:
+        val = f"OC workers lost wages {subsector}"
+        mapper_worker[val] = val
+        val = f"OC workers retraining cost {subsector}"
+        mapper_worker[val] = val
+
     # Rename the key
     mapper = {
         "Time Period": "Time Period of Carbon Arbitrage",
@@ -834,6 +839,8 @@ def run_table2(name="", included_countries=None):
         "Avoided emissions (GtCO2e)": "Total emissions avoided including residual (GtCO2)",
         "Costs of power sector decarbonization (in trillion dollars)": "Costs of avoiding coal emissions (in trillion dollars)",
         "Opportunity costs (in trillion dollars)": "Opportunity costs (in trillion dollars)",
+        "OC owner (in trillion dollars)": "OC owner (in trillion dollars)",
+        **mapper_worker,
         "Investment costs (in trillion dollars)": "Investment costs (in trillion dollars)",
         "Investment costs in renewable energy": "Investment costs in renewable energy",
         "Investment costs short-term storage": "investment_cost_battery_short_trillion",
@@ -841,12 +848,6 @@ def run_table2(name="", included_countries=None):
         "Investment costs renewables to power electrolyzers": "investment_cost_battery_pe_trillion",
         "Investment costs grid extension": "investment_cost_battery_grid_trillion",
     }
-    subsectors = ["Coal", "Oil", "Gas"]
-    for subsector in subsectors:
-        val = f"OC workers lost wages {subsector}"
-        mapper[val] = val
-        val = f"OC workers retraining cost {subsector}"
-        mapper[val] = val
 
     def _s(y):
         return f"2024-{y} FA + Net Zero 2050 Scenario"
@@ -928,7 +929,7 @@ def run_table2(name="", included_countries=None):
         for scc in sccs:
             scc_scale = scc / scc_default
             table[
-                f"scc {scc} Global benefit country decarbonization (in trillion dollars)"
+                f"scc {scc} GC benefit (in trillion dollars)"
             ].append(result[y][gc_benefit_old_name][_s(y)] * scc_scale)
             table[f"scc {scc} CC benefit (in trillion dollars)"].append(
                 result[y]["country_benefit_country_reduction"][_s(y)] * scc_scale
@@ -949,7 +950,7 @@ def run_table2(name="", included_countries=None):
 
             table[f"scc {scc} GC net benefit (in trillion dollars)"].append(
                 table[
-                    f"scc {scc} Global benefit country decarbonization (in trillion dollars)"
+                    f"scc {scc} GC benefit (in trillion dollars)"
                 ][i]
                 - table["Costs of power sector decarbonization (in trillion dollars)"][
                     i
@@ -991,7 +992,7 @@ def run_table2(name="", included_countries=None):
 
     table["scc_share (%)"] = scc_share_percent
     uid = util.get_unique_id(include_date=False)
-    df = pd.DataFrame(table).round(3).T
+    df = pd.DataFrame(table).round(6).T
     df.to_csv(f"plots/table2_{name}_{uid}.csv")
     return df
 

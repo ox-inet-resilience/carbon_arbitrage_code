@@ -415,8 +415,9 @@ def calculate_ngfs_projection(
                 if isinstance(unit_profit_country, pd.Series)
                 else 0
             )
+            # Multiply by 1e9 because it is Giga tonnes of coal
             across_years_profit = [
-                coal2MWh(e) * unit_profit_country_subsector for e in across_years
+                coal2MWh(e) * 1e9 * unit_profit_country_subsector for e in across_years
             ]
             if timeseries is None:
                 timeseries = across_years.copy()
