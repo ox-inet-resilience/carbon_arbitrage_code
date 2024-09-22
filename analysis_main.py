@@ -1,4 +1,5 @@
 import copy
+import functools
 import json
 import math
 import os
@@ -132,8 +133,8 @@ def calculate_table1_info(
     time_period,
     total_production,
     array_of_total_emissions_non_discounted,
-    array_of_cost_non_discounted_revenue,
-    array_of_cost_discounted_revenue,  # opportunity cost
+    array_of_cost_non_discounted_owner_by_subsector,
+    array_of_cost_discounted_owner_by_subsector,  # opportunity cost
     array_of_cost_non_discounted_investment,
     array_of_cost_discounted_investment,
     current_policies=None,
@@ -152,7 +153,7 @@ def calculate_table1_info(
     out_yearly_info = {}
 
     # Workers
-    subsectors = ["Coal", "Oil", "Gas"]
+    subsectors = util.SUBSECTORS
     cost_discounted_worker = 0
     worker_compensation = None
     worker_retraining_cost = None
@@ -183,10 +184,18 @@ def calculate_table1_info(
         )
     # End of workers
 
-    cost_non_discounted_revenue = sum_array_of_mixed_objs(
-        array_of_cost_non_discounted_revenue
+    # Sum across subsectors
+    array_of_cost_non_discounted_owner = functools.reduce(
+        util.add_array, array_of_cost_non_discounted_owner_by_subsector.values()
     )
-    cost_discounted_revenue = sum_array_of_mixed_objs(array_of_cost_discounted_revenue)
+    array_of_cost_discounted_owner = functools.reduce(
+        util.add_array, array_of_cost_discounted_owner_by_subsector.values()
+    )
+
+    cost_non_discounted_owner = sum_array_of_mixed_objs(
+        array_of_cost_non_discounted_owner
+    )
+    cost_discounted_owner = np.sum(array_of_cost_discounted_owner)
     cost_non_discounted_investment = sum_array_of_mixed_objs(
         array_of_cost_non_discounted_investment
     )
@@ -263,15 +272,15 @@ def calculate_table1_info(
     )
 
     # Convert to trillion USD
-    cost_non_discounted_revenue /= 1e12
-    cost_discounted_revenue /= 1e12
+    cost_non_discounted_owner /= 1e12
+    cost_discounted_owner /= 1e12
     cost_non_discounted_investment /= 1e12
     cost_discounted_investment /= 1e12
-    array_of_cost_non_discounted_revenue_trillions = divide_array_of_mixed_objs(
-        array_of_cost_non_discounted_revenue, 1e12
+    array_of_cost_non_discounted_owner_trillions = divide_array_of_mixed_objs(
+        array_of_cost_non_discounted_owner, 1e12
     )
-    array_of_cost_discounted_revenue_trillions = divide_array_of_mixed_objs(
-        array_of_cost_discounted_revenue, 1e12
+    array_of_cost_discounted_owner_trillions = divide_array_of_mixed_objs(
+        array_of_cost_discounted_owner, 1e12
     )
     array_of_cost_non_discounted_investment_trillions = divide_array_of_mixed_objs(
         array_of_cost_non_discounted_investment, 1e12
@@ -299,7 +308,7 @@ def calculate_table1_info(
         return out
 
     out_yearly_info["opportunity_cost_non_discounted"] = (
-        array_of_cost_non_discounted_revenue_trillions
+        array_of_cost_non_discounted_owner_trillions
     )
     out_yearly_info["investment_cost_non_discounted"] = (
         array_of_cost_non_discounted_investment_trillions
@@ -317,7 +326,7 @@ def calculate_table1_info(
     out_yearly_info["cost_battery_grid_non_discounted"] = divide_array_of_mixed_objs(
         final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
     )
-    out_yearly_info["opportunity_cost"] = array_of_cost_discounted_revenue_trillions
+    out_yearly_info["opportunity_cost_owner"] = array_of_cost_discounted_owner_trillions
     out_yearly_info["investment_cost"] = array_of_cost_discounted_investment_trillions
     out_yearly_info["cost_battery_short"] = discount_the_array(
         divide_array_of_mixed_objs(
@@ -343,7 +352,7 @@ def calculate_table1_info(
         )
     )
     out_yearly_info["cost"] = add_array_of_mixed_objs(
-        out_yearly_info["opportunity_cost"], out_yearly_info["investment_cost"]
+        out_yearly_info["opportunity_cost_owner"], out_yearly_info["investment_cost"]
     )
     out_yearly_info["residual_benefit"] = {
         k: v * social_cost_of_carbon / 1e12
@@ -353,7 +362,7 @@ def calculate_table1_info(
     # Costs of avoiding coal emissions
     assert cost_discounted_investment >= 0
     cost_discounted = (
-        cost_discounted_revenue + cost_discounted_investment + cost_discounted_worker
+        cost_discounted_owner + cost_discounted_investment + cost_discounted_worker
     )
 
     # Equation 1 in the paper
@@ -362,15 +371,23 @@ def calculate_table1_info(
     last_year = int(time_period.split("-")[1])
     arbitrage_period = last_year - NGFS_PEG_YEAR
 
+    owner_dict = {
+        f"OC owner {subsector}": np.sum(
+            array_of_cost_discounted_owner_by_subsector[subsector]
+        )
+        / 1e12
+        for subsector in subsectors
+    }
     worker_dict = {}
     if ENABLE_WORKER:
         for subsector in subsectors:
             # Trillion
-            worker_dict[f"OC workers lost wages {subsector}"] = worker_compensation[subsector] / 1e3
-            worker_dict[f"OC workers retraining cost {subsector}"] = worker_retraining_cost[
-                subsector
-            ] / 1e3
-
+            worker_dict[f"OC workers lost wages {subsector}"] = (
+                worker_compensation[subsector] / 1e3
+            )
+            worker_dict[f"OC workers retraining cost {subsector}"] = (
+                worker_retraining_cost[subsector] / 1e3
+            )
 
     ic_battery_short = sum_array_of_mixed_objs(out_yearly_info["cost_battery_short"])
     ic_battery_long = sum_array_of_mixed_objs(out_yearly_info["cost_battery_long"])
@@ -395,8 +412,10 @@ def calculate_table1_info(
         "Total emissions avoided including residual (GtCO2)": saved_non_discounted
         + residual_emissions,
         "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
-        "Opportunity costs (in trillion dollars)": cost_discounted_revenue + cost_discounted_worker,
-        "OC owner (in trillion dollars)": cost_discounted_revenue,
+        "Opportunity costs (in trillion dollars)": cost_discounted_owner
+        + cost_discounted_worker,
+        "OC owner (in trillion dollars)": cost_discounted_owner,
+        **owner_dict,
         **worker_dict,
         "investment_cost_battery_short_trillion": ic_battery_short,
         "investment_cost_battery_long_trillion": ic_battery_long,
@@ -457,7 +476,7 @@ def calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower):
     return ef
 
 
-def get_cost_including_ngfs_revenue(
+def get_opportunity_cost_owner(
     _df,
     rho,
     delta_profit,
@@ -466,7 +485,10 @@ def get_cost_including_ngfs_revenue(
 ):
     # Calculate cost
     out_non_discounted = delta_profit
-    out_discounted = util.discount_array(out_non_discounted, rho)
+    out_discounted = {
+        subsector: util.discount_array(out_non_discounted[subsector], rho)
+        for subsector in util.SUBSECTORS
+    }
     return (
         out_non_discounted,
         out_discounted,
@@ -590,9 +612,13 @@ def generate_table1_output(
             DeltaP = util.subtract_array(
                 production_with_ngfs_projection_CPS, production_with_ngfs_projection
             )
-            delta_profit = util.subtract_array(
-                profit_ngfs_projection_CPS, profit_ngfs_projection
-            )
+            delta_profit = {
+                subsector: util.subtract_array(
+                    profit_ngfs_projection_CPS[subsector],
+                    profit_ngfs_projection[subsector],
+                )
+                for subsector in util.SUBSECTORS
+            }
         else:
             DeltaP = production_with_ngfs_projection_CPS
             delta_profit = profit_ngfs_projection_CPS
@@ -600,9 +626,9 @@ def generate_table1_output(
         DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
 
         (
-            cost_non_discounted_revenue,
-            cost_discounted_revenue,
-        ) = get_cost_including_ngfs_revenue(
+            cost_non_discounted_owner,
+            cost_discounted_owner,
+        ) = get_opportunity_cost_owner(
             _df_nonpower,
             rho,
             delta_profit,
@@ -652,8 +678,14 @@ def generate_table1_output(
             array_of_total_emissions_non_discounted = _filter_arr(
                 array_of_total_emissions_non_discounted
             )
-            cost_non_discounted_revenue = _filter_arr(cost_non_discounted_revenue)
-            cost_discounted_revenue = _filter_arr(cost_discounted_revenue)
+            cost_non_discounted_owner = {
+                subsector: _filter_arr(cost_non_discounted_owner[subsector])
+                for subsector in util.SUBSECTORS
+            }
+            cost_discounted_owner = {
+                subsector: _filter_arr(cost_discounted_owner[subsector])
+                for subsector in util.SUBSECTORS
+            }
             cost_non_discounted_investment = _filter_arr(cost_non_discounted_investment)
             cost_discounted_investment = _filter_arr(cost_discounted_investment)
             residual_emissions = _filter(residual_emissions)
@@ -685,8 +717,8 @@ def generate_table1_output(
             f"{NGFS_PEG_YEAR}-{last_year}",
             gigatonnes_coal_production,
             copy.deepcopy(array_of_total_emissions_non_discounted),
-            cost_non_discounted_revenue,
-            cost_discounted_revenue,
+            cost_non_discounted_owner,
+            cost_discounted_owner,
             cost_non_discounted_investment,
             cost_discounted_investment,
             current_policies=current_policies,
@@ -827,6 +859,8 @@ def run_table2(name="", included_countries=None):
     subsectors = ["Coal", "Oil", "Gas"]
     mapper_worker = {}
     for subsector in subsectors:
+        val = f"OC owner {subsector}"
+        mapper_worker[val] = val
         val = f"OC workers lost wages {subsector}"
         mapper_worker[val] = val
         val = f"OC workers retraining cost {subsector}"
@@ -928,9 +962,9 @@ def run_table2(name="", included_countries=None):
         arbitrage_period = y - NGFS_PEG_YEAR
         for scc in sccs:
             scc_scale = scc / scc_default
-            table[
-                f"scc {scc} GC benefit (in trillion dollars)"
-            ].append(result[y][gc_benefit_old_name][_s(y)] * scc_scale)
+            table[f"scc {scc} GC benefit (in trillion dollars)"].append(
+                result[y][gc_benefit_old_name][_s(y)] * scc_scale
+            )
             table[f"scc {scc} CC benefit (in trillion dollars)"].append(
                 result[y]["country_benefit_country_reduction"][_s(y)] * scc_scale
             )
@@ -949,9 +983,7 @@ def run_table2(name="", included_countries=None):
             )
 
             table[f"scc {scc} GC net benefit (in trillion dollars)"].append(
-                table[
-                    f"scc {scc} GC benefit (in trillion dollars)"
-                ][i]
+                table[f"scc {scc} GC benefit (in trillion dollars)"][i]
                 - table["Costs of power sector decarbonization (in trillion dollars)"][
                     i
                 ]
