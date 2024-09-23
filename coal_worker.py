@@ -101,9 +101,10 @@ def calculate(
             return 0
         production_t = P_s2[t - NGFS_PEG_YEAR][country]
         production_t_minus_1 = P_s2[t - 1 - NGFS_PEG_YEAR][country]
+        # max(Pt-1 - Pt, 0) is so that the term is never negative.
         return (
             num_workers_peg_year
-            * (production_t_minus_1 - production_t)
+            * max(production_t_minus_1 - production_t, 0)
             / production_peg_year
         )
 

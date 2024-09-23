@@ -736,6 +736,7 @@ if __name__ == "__main__":
     # run_table2_region()
     # out = run_table2_3_scenarios("PL", ["PL"])
     # plot_table2_3scen(out, "Poland")
+    run_table2_3_scenarios("world", None)
     six = "IN US VN ID TR DE".split()
     for a2 in six:
         run_table2_3_scenarios(a2, [a2])
