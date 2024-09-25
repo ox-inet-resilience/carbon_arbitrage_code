@@ -363,7 +363,7 @@ def calculate_ngfs_projection(
     years_interpolated = list(range(start_year, last_year + 1))
     # Use set to deduplicate countries list.
     countries = list(set(value_fa.index.get_level_values("asset_country").to_list()))
-    out = None
+    out = {}
     # This is profit associated with the production.
     out_profit = defaultdict(dict)
 
@@ -392,7 +392,6 @@ def calculate_ngfs_projection(
         if len(ngfs_country) == 0:
             ngfs_country = ngfs_country_wo_iea_stats
         value_fa_country = value_fa[country]
-        timeseries = None
         for subsector in subsectors:
             if subsector not in value_fa_country:
                 continue
@@ -426,30 +425,20 @@ def calculate_ngfs_projection(
             across_years_profit = [
                 coal2MWh(e) * 1e9 * unit_profit_country_subsector for e in across_years
             ]
-            if timeseries is None:
-                timeseries = across_years.copy()
-            else:
-                timeseries = add_array(timeseries, across_years)
+            out[(country, subsector)] = across_years.copy()
             if unit_profit_df is None:
                 # No need to calculate profit for emissions
                 continue
             out_profit[subsector][country] = across_years_profit.copy()
-        if timeseries is not None:
-            if out is None:
-                out = {country: timeseries}
-            else:
-                out[country] = timeseries
 
-    if out is None:
+    if len(out) == 0:
         return pd.Series([]), 0, pd.Series([])
     summed = 0
     for value in out.values():
         summed += sum(value)
     final_out = []
     for i in range(len(years_interpolated)):
-        final_out.append(
-            pd.Series({country: value[i] for country, value in out.items()})
-        )
+        final_out.append(pd.Series({k: v[i] for k, v in out.items()}))
     final_out_profit = defaultdict(list)
     if unit_profit_df is not None:
         for subsector in subsectors:
@@ -457,6 +446,10 @@ def calculate_ngfs_projection(
                 final_out_profit[subsector].append(
                     pd.Series({country: value[i] for country, value in out_profit[subsector].items()})
                 )
+    if production_or_emissions == "production":
+        for i in range(len(years_interpolated)):
+            # Sum across subsectors
+            final_out[i] = final_out[i].groupby(level=0).sum()
     return final_out, summed, final_out_profit
 
 

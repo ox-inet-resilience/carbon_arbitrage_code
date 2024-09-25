@@ -206,8 +206,9 @@ def calculate_table1_info(
     residual_emissions = residual_emissions_series.sum() / 1e9
     if current_policies is None:
         assert data_set == "FA" or "Current Policies" in data_set, data_set
-        avoided_emissions_by_country: pd.Series = sum(
-            array_of_total_emissions_non_discounted
+        # The groupby-sum aggregates across subsectors
+        avoided_emissions_by_country: pd.Series = (
+            sum(array_of_total_emissions_non_discounted).groupby(level=0).sum()
         )
         saved_non_discounted: float = avoided_emissions_by_country.sum()
         total_production_avoided = total_production
@@ -216,9 +217,15 @@ def calculate_table1_info(
         )
     else:
         assert not (data_set == "FA" or "Current Policies" in data_set)
-        avoided_emissions_by_country: pd.Series = sum(
-            current_policies["emissions_non_discounted"]
-        ) - sum(array_of_total_emissions_non_discounted)
+        # The groupby-sum aggregates across subsectors
+        avoided_emissions_by_country: pd.Series = (
+            (
+                sum(current_policies["emissions_non_discounted"])
+                - sum(array_of_total_emissions_non_discounted)
+            )
+            .groupby(level=0)
+            .sum()
+        )
         saved_non_discounted: float = avoided_emissions_by_country.sum()
 
         total_production_avoided = (
@@ -663,20 +670,22 @@ def generate_table1_output(
 
         if included_countries is not None:
 
-            def _filter(e):
+            def _filter(e, is_multiindex=False):
                 if isinstance(e, dict):
                     e = pd.Series(e)
+                if is_multiindex:
+                    return e[e.index.get_level_values(0).isin(included_countries)]
                 return e[e.index.isin(included_countries)]
 
-            def _filter_arr(arr):
-                return [_filter(e) for e in arr]
+            def _filter_arr(arr, is_multiindex=False):
+                return [_filter(e, is_multiindex) for e in arr]
 
             gigatonnes_coal_production = _filter(
                 sum(production_with_ngfs_projection)
             ).sum()
 
             array_of_total_emissions_non_discounted = _filter_arr(
-                array_of_total_emissions_non_discounted
+                array_of_total_emissions_non_discounted, is_multiindex=True
             )
             cost_non_discounted_owner = {
                 subsector: _filter_arr(cost_non_discounted_owner[subsector])
@@ -890,51 +899,6 @@ def run_table2(name="", included_countries=None):
     for k, v in mapper.items():
         for y in last_years:
             table[k].append(result[y][v][_s(y)])
-
-    # For emissions by subsector
-    # emissions_fa = util.get_emissions_by_country(df_sector)
-    # # Filter by country
-    # if included_countries is not None:
-    #     emissions_fa = emissions_fa[
-    #         emissions_fa.index.get_level_values("asset_country").isin(
-    #             included_countries
-    #         )
-    #     ]
-    # by_subsectors_years = defaultdict(list)
-    # subsectors = ["Coal", "Oil", "Gas"]
-    # for last_year in last_years:
-    #     by_subsectors_nz2050 = util.calculate_ngfs_projection_by_subsector(
-    #         "emissions",
-    #         emissions_fa,
-    #         ngfs_df,
-    #         SECTOR_INCLUDED,
-    #         "Net Zero 2050",
-    #         NGFS_PEG_YEAR,
-    #         last_year,
-    #         alpha2_to_alpha3,
-    #     )
-    #     by_subsectors_cp = util.calculate_ngfs_projection_by_subsector(
-    #         "emissions",
-    #         emissions_fa,
-    #         ngfs_df,
-    #         SECTOR_INCLUDED,
-    #         "Current Policies",
-    #         NGFS_PEG_YEAR,
-    #         last_year,
-    #         alpha2_to_alpha3,
-    #     )
-
-    #     for subsector in subsectors:
-    #         by_subsectors_years[subsector].append(
-    #             # Delta E
-    #             sum(by_subsectors_cp[subsector]).sum()
-    #             - sum(by_subsectors_nz2050[subsector]).sum()
-    #         )
-    # for subsector in subsectors:
-    #     table[f"Avoided emissions {subsector} (GtCO2e)"] = by_subsectors_years[
-    #         subsector
-    #     ]
-    # End of for emissions by subsector
 
     gdp_2023 = world_gdp_2023
     if included_countries is not None:
