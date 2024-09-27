@@ -210,7 +210,10 @@ def calculate_table1_info(
         avoided_emissions_by_country: pd.Series = (
             sum(array_of_total_emissions_non_discounted).groupby(level=0).sum()
         )
-        saved_non_discounted: float = avoided_emissions_by_country.sum()
+        avoided_emissions_non_discounted: float = avoided_emissions_by_country.sum()
+        avoided_emissions_by_subsector = (
+            sum(array_of_total_emissions_non_discounted).groupby(level=1).sum()
+        )
         total_production_avoided = total_production
         out_yearly_info["benefit_non_discounted"] = list(
             array_of_total_emissions_non_discounted
@@ -226,7 +229,15 @@ def calculate_table1_info(
             .groupby(level=0)
             .sum()
         )
-        saved_non_discounted: float = avoided_emissions_by_country.sum()
+        avoided_emissions_non_discounted: float = avoided_emissions_by_country.sum()
+        avoided_emissions_by_subsector: pd.Series = (
+            (
+                sum(current_policies["emissions_non_discounted"])
+                - sum(array_of_total_emissions_non_discounted)
+            )
+            .groupby(level=1)
+            .sum()
+        )
 
         total_production_avoided = (
             current_policies["total_production"] - total_production
@@ -235,6 +246,12 @@ def calculate_table1_info(
             current_policies["emissions_non_discounted"],
             array_of_total_emissions_non_discounted,
         )
+    # Rescale to include residual emissions
+    ae_by_subsector_with_residual = (
+        avoided_emissions_by_subsector
+        * (1 + residual_emissions / avoided_emissions_by_subsector.sum())
+    ).to_dict()
+
     # We multiply by 1e9 to go from GtCO2 to tCO2
     # We divide by 1e12 to get trilllion USD
     for i in range(len(out_yearly_info["benefit_non_discounted"])):
@@ -247,7 +264,7 @@ def calculate_table1_info(
         avoided_emissions_by_country + residual_emissions_series / 1e9
     )
     # Sanity check
-    expected = saved_non_discounted + residual_emissions
+    expected = avoided_emissions_non_discounted + residual_emissions
     assert math.isclose(
         out_yearly_info["avoided_emissions_including_residual_emissions"].sum(),
         expected,
@@ -415,9 +432,10 @@ def calculate_table1_info(
             / util.seconds_in_1hour
             / 1e6
         ),
-        "Total emissions avoided (GtCO2)": saved_non_discounted,
-        "Total emissions avoided including residual (GtCO2)": saved_non_discounted
+        "Total emissions avoided (GtCO2)": avoided_emissions_non_discounted,
+        "Total emissions avoided including residual (GtCO2)": avoided_emissions_non_discounted
         + residual_emissions,
+        **{f"AE+residual {k}": v for k, v in ae_by_subsector_with_residual.items()},
         "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
         "Opportunity costs (in trillion dollars)": cost_discounted_owner
         + cost_discounted_worker,
@@ -880,6 +898,7 @@ def run_table2(name="", included_countries=None):
         "Time Period": "Time Period of Carbon Arbitrage",
         "Avoided fossil fuel electricity generation (PWh)": "Electricity generation avoided including residual (PWh)",
         "Avoided emissions (GtCO2e)": "Total emissions avoided including residual (GtCO2)",
+        **{f"Avoided emissions {s}": f"AE+residual {s}" for s in util.SUBSECTORS},
         "Costs of power sector decarbonization (in trillion dollars)": "Costs of avoiding coal emissions (in trillion dollars)",
         "Opportunity costs (in trillion dollars)": "Opportunity costs (in trillion dollars)",
         "OC owner (in trillion dollars)": "OC owner (in trillion dollars)",
