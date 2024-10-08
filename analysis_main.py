@@ -1741,7 +1741,6 @@ def make_battery_unit_ic_plot():
     global MEASURE_GLOBAL_VARS
     MEASURE_GLOBAL_VARS = True
     with_learning.VERBOSE_ANALYSIS = True
-    run_table1(to_csv=False, do_round=False, plot_yearly=False)
     years = range(2024, 2050 + 1)
 
     def per_GJ2per_kWh(arr):
@@ -1762,135 +1761,164 @@ def make_battery_unit_ic_plot():
         "hydropower": "Hydropower",
     }
 
-    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+    a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
+    for country in "WORLD IN ID DE US TR VN".split():
+        with_learning.VERBOSE_ANALYSIS_COUNTRY = country
+        title = a2_to_full_name[country] if country != "WORLD" else "World"
+        run_table1(to_csv=False, do_round=False, plot_yearly=False)
+        fig, axs = plt.subplots(1, 2, figsize=(8, 5))
 
-    plt.sca(axs[0])
-    for name, label in name_labels.items():
+        plt.sca(axs[0])
+        for name, label in name_labels.items():
+            plt.plot(
+                years,
+                global_cost_with_learning.cached_investment_costs[name].values(),
+                label=label,
+            )
+        # Need to convert $/GJ to $/kWh
         plt.plot(
             years,
-            global_cost_with_learning.cached_investment_costs[name].values(),
-            label=label,
+            per_GJ2per_kWh(global_cost_with_learning.battery_unit_ic["short"].values()),
+            label="Short",
         )
-    # Need to convert $/GJ to $/kWh
-    plt.plot(
-        years,
-        per_GJ2per_kWh(global_cost_with_learning.battery_unit_ic["short"].values()),
-        label="Short",
-    )
-    plt.plot(
-        years,
-        global_cost_with_learning.battery_unit_ic["long"].values(),
-        label="Battery long",
-    )
-    plt.xlabel("Time")
-    plt.ylabel("Unit investment cost ($/kW)")
+        plt.plot(
+            years,
+            global_cost_with_learning.battery_unit_ic["long"].values(),
+            label="Battery long",
+        )
+        plt.xlabel("Time")
+        plt.ylabel("Unit investment cost ($/kW)")
 
-    plt.sca(axs[1])
-    # Define a custom color and marker cycle
-    colors = plt.cm.tab10.colors[:9]
-    markers = ["^", "v", ">", "<", "o", "s", "D", "P", "*"]
-    markersize = 2
-    axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
-    country_name = with_learning.VERBOSE_ANALYSIS_COUNTRY
-    assert country_name == "PL"
-    plt.title("Poland")
-    for tech, label in {
-        **name_labels,
-        "short": "Battery short",
-        "long": "Battery long",
-    }.items():
-        y = np.cumsum(
-            kW2GW(
+        plt.sca(axs[1])
+        # Define a custom color and marker cycle
+        colors = plt.cm.tab10.colors[:9]
+        markers = ["^", "v", ">", "<", "o", "s", "D", "P", "*"]
+        markersize = 2
+        axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
+        country_name = with_learning.VERBOSE_ANALYSIS_COUNTRY
+        plt.title(title)
+        for tech, label in {
+            **name_labels,
+            "short": "Battery short",
+            "long": "Battery long",
+        }.items():
+            y = np.cumsum(
+                kW2GW(
+                    list(
+                        global_cost_with_learning.cached_stock_without_degradation[
+                            tech
+                        ].values()
+                    )
+                )
+            )
+            plt.plot(
+                years,
+                y,
+                label=label,
+                markersize=markersize,
+                linewidth=0.8,
+            )
+        # Need to convert GJ to GW
+        # plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
+        # plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
+
+        # Reset color cycler
+        axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
+        energy_produced_1country = [
+            {
+                tech: e[country_name][tech] if country_name in e else 0
+                for tech in with_learning.TECHS
+            }
+            for e in global_cost_with_learning.energy_produced_by_country
+        ]
+        for tech, label in name_labels.items():
+            plt.plot(
+                years,
+                util.GJ2MW(np.array([e[tech] for e in energy_produced_1country])) / 1e3,
+                linestyle="dotted",
+                label=tech,
+                markersize=markersize,
+            )
+
+        plt.xlabel("Time")
+        plt.ylabel("Capacity (GW)")
+
+        # Deduplicate labels
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        fig.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0),
+            ncol=5,
+        )
+        plt.tight_layout()
+        plt.savefig(f"plots/battery_unit_ic_{country}.png", bbox_inches="tight")
+        plt.close()
+
+        # 2nd file
+        fig = plt.figure()
+        plt.title(title)
+        for tech, label in {
+            **name_labels,
+            "short": "Battery short",
+            "long": "Battery long",
+        }.items():
+            y = kW2GW(
                 list(
                     global_cost_with_learning.cached_stock_without_degradation[
                         tech
                     ].values()
                 )
             )
-        )
-        plt.plot(
-            years,
-            y,
-            label=label,
-            markersize=markersize,
-            linewidth=0.8,
-        )
-    # Need to convert GJ to GW
-    # plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
-    # plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
-
-    # Reset color cycler
-    axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
-    energy_produced_1country = [
-        {
-            tech: e[country_name][tech] if country_name in e else 0
-            for tech in with_learning.TECHS
-        }
-        for e in global_cost_with_learning.energy_produced_by_country
-    ]
-    for tech, label in name_labels.items():
-        plt.plot(
-            years,
-            util.GJ2MW(np.array([e[tech] for e in energy_produced_1country])) / 1e3,
-            linestyle="dotted",
-            label=tech,
-            markersize=markersize,
-        )
-
-    plt.xlabel("Time")
-    plt.ylabel("Capacity (GW)")
-
-    # Deduplicate labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0),
-        ncol=5,
-    )
-    plt.tight_layout()
-    plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
-    plt.close()
-
-    # 2nd file
-    fig = plt.figure()
-    plt.title("Poland")
-    for tech, label in {
-        **name_labels,
-        "short": "Battery short",
-        "long": "Battery long",
-    }.items():
-        y = kW2GW(
-            list(
-                global_cost_with_learning.cached_stock_without_degradation[
-                    tech
-                ].values()
+            plt.plot(
+                years,
+                y,
+                label=label,
+                markersize=markersize,
+                linewidth=0.8,
             )
+        plt.xlabel("Time")
+        plt.ylabel("Annual installed capacity (GW)")
+        # Deduplicate labels
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        fig.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0),
+            ncol=5,
         )
-        plt.plot(
-            years,
-            y,
-            label=label,
-            markersize=markersize,
-            linewidth=0.8,
+        plt.tight_layout()
+        plt.savefig(
+            f"plots/battery_yearly_installed_capacity_{country}.png",
+            bbox_inches="tight",
         )
-    plt.xlabel("Time")
-    plt.ylabel("Annual installed capacity (GW)")
-    # Deduplicate labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0),
-        ncol=5,
-    )
-    plt.tight_layout()
-    plt.savefig("plots/battery_yearly_installed_capacity.png", bbox_inches="tight")
-    plt.close()
+        plt.close()
+        util.write_small_json(
+            dict(global_cost_with_learning.cached_stock_without_degradation),
+            f"plots/battery_yearly_installed_capacity_{country}.json",
+        )
+        util.write_small_json(
+            dict(global_cost_with_learning.cached_stock),
+            f"plots/battery_yearly_available_capacity_{country}.json",
+        )
+
+
+        # 3rd file
+        fig = plt.figure()
+        plt.title(title)
+        y = sum(
+            np.array(list(d.values()))
+            for d in global_cost_with_learning.cached_stock_without_degradation.values()
+        )
+        plt.plot(years, kW2GW(y))
+        plt.xlabel("Time")
+        plt.ylabel("Annual installed capacity (GW)")
+        plt.savefig(f"plots/battery_yearly_installed_capacity_{country}_summed.png")
+        plt.close()
 
     MEASURE_GLOBAL_VARS = False
     with_learning.VERBOSE_ANALYSIS = False
@@ -1901,7 +1929,7 @@ if __name__ == "__main__":
         get_yearly_by_country()
         exit()
 
-    if 1:
+    if 0:
         run_table2()
         exit()
 
@@ -1915,8 +1943,6 @@ if __name__ == "__main__":
             util.social_cost_of_carbon = scc
             social_cost_of_carbon = scc  # noqa: F811
             out = run_table1(to_csv=True, do_round=True, plot_yearly=False)
-        # print(json.dumps(out, indent=2))
-        # print(out["Total emissions avoided including residual (GtCO2)"])
         exit()
     if 1:
         # Battery yearly

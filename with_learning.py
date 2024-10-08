@@ -236,6 +236,7 @@ class InvestmentCostWithLearning:
             self.cached_investment_costs[obj] = {}
             self.cached_cumulative_G[obj] = {}
         self.cached_stock_without_degradation = defaultdict(dict)
+        self.cached_stock = defaultdict(dict)
 
     def GJ2kW(self, x):
         # MW
@@ -497,9 +498,14 @@ class InvestmentCostWithLearning:
             for tech in TECHS + ["short", "long"]:
                 stock_battery_pe = 0
                 if tech in TECHS_WITH_LEARNING:
-                    stock_battery_pe = self.stocks_kW_battery_pe[tech][year].get(
-                        VERBOSE_ANALYSIS_COUNTRY, 0
-                    )
+                    if VERBOSE_ANALYSIS_COUNTRY == "WORLD":
+                        stock_battery_pe = sum(
+                            self.stocks_kW_battery_pe[tech][year].values()
+                        )
+                    else:
+                        stock_battery_pe = self.stocks_kW_battery_pe[tech][year].get(
+                            VERBOSE_ANALYSIS_COUNTRY, 0
+                        )
                 if tech == "short":
                     _stocks = self.stocks_GJ_battery_short
                 elif tech == "long":
@@ -507,10 +513,48 @@ class InvestmentCostWithLearning:
                 else:
                     _stocks = self.stocks_kW[tech]
                 stock = _stocks.get(year, 0)
-                stock = stock.get(VERBOSE_ANALYSIS_COUNTRY, 0) if isinstance(stock, dict) else 0
+                if VERBOSE_ANALYSIS_COUNTRY == "WORLD":
+                    stock = sum(stock.values()) if isinstance(stock, dict) else 0
+                else:
+                    stock = (
+                        stock.get(VERBOSE_ANALYSIS_COUNTRY, 0)
+                        if isinstance(stock, dict)
+                        else 0
+                    )
                 if tech == "short":
                     stock = self.GJ2kW(stock)
-                self.cached_stock_without_degradation[tech][year] = stock + stock_battery_pe
+                self.cached_stock_without_degradation[tech][year] = (
+                    stock + stock_battery_pe
+                )
+
+                # With degradation
+                stock_battery_pe = 0
+                if tech in TECHS_WITH_LEARNING:
+                    if VERBOSE_ANALYSIS_COUNTRY == "WORLD":
+                        stock_battery_pe = sum(
+                            self.get_stock_battery_pe(c, tech, year)
+                            for c in DeltaP.keys()
+                        )
+                    else:
+                        stock_battery_pe = self.get_stock_battery_pe(
+                            VERBOSE_ANALYSIS_COUNTRY, tech, year
+                        )
+
+                match tech:
+                    case "short":
+                        _fn = lambda c, y: self.get_stock_battery_short(y, c)  # noqa
+                    case "long":
+                        _fn = lambda c, y: self.get_stock_battery_long(y, c)  # noqa
+                    case _:
+                        _fn = lambda c, y: self.get_stock(c, tech, y)  # noqa
+                if VERBOSE_ANALYSIS_COUNTRY == "WORLD":
+                    self.cached_stock[tech][year] = (
+                        sum(_fn(c, year) for c in DeltaP.keys()) + stock_battery_pe
+                    )
+                else:
+                    self.cached_stock[tech][year] = (
+                        _fn(VERBOSE_ANALYSIS_COUNTRY, year) + stock_battery_pe
+                    )
 
     def get_stock(self, country_name, tech, year):
         out = 0.0
