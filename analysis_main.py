@@ -917,15 +917,7 @@ def run_table2(name="", included_countries=None):
     table = defaultdict(list)
     for k, v in mapper.items():
         for y in last_years:
-            try:
-                table[k].append(result[y][v][_s(y)])
-            except KeyError:
-                print("Missing either of", k, y, v)
-                continue
-        if len(table[k]) == 0:
-            # Some countries may have missing at least one of coal/oil/gas
-            # e.g. Viet Nam has 0 oil
-            del table[k]
+            table[k].append(result[y][v][_s(y)])
 
     gdp_2023 = world_gdp_2023
     if included_countries is not None:
