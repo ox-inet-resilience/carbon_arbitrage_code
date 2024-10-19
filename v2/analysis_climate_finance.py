@@ -732,10 +732,22 @@ def make_yearly_climate_financing_plot():
     plt.close()
 
 
+def get_emde():
+    emerging_country_shortnames = util.get_emerging_countries()
+    developING_country_shortnames = util.get_developing_countries()
+    return emerging_country_shortnames + developING_country_shortnames
+
+
 if __name__ == "__main__":
     # run_table2_region()
     # out = run_table2_3_scenarios("PL", ["PL"])
     # plot_table2_3scen(out, "Poland")
+
+    emde = get_emde()
+    run_table2_3_scenarios("EMDE", emde)
+    # run_table2_3_scenarios("KZ", ["KZ"])
+    # run_table2_3_scenarios("PL", ["PL"])
+    exit()
     run_table2_3_scenarios("world", None)
     six = "IN US VN ID TR DE".split()
     for a2 in six:

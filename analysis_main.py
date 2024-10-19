@@ -195,7 +195,8 @@ def calculate_table1_info(
     cost_non_discounted_owner = sum_array_of_mixed_objs(
         array_of_cost_non_discounted_owner
     )
-    cost_discounted_owner = np.sum(array_of_cost_discounted_owner)
+    # nansum is needed because PG has nan value for gas
+    cost_discounted_owner = np.nansum(array_of_cost_discounted_owner)
     cost_non_discounted_investment = sum_array_of_mixed_objs(
         array_of_cost_non_discounted_investment
     )
@@ -396,7 +397,8 @@ def calculate_table1_info(
     arbitrage_period = last_year - NGFS_PEG_YEAR
 
     owner_dict = {
-        f"OC owner {subsector}": np.sum(
+        # nansum is needed because PG has nan value for gas
+        f"OC owner {subsector}": np.nansum(
             array_of_cost_discounted_owner_by_subsector[subsector]
         )
         / 1e12
@@ -1913,7 +1915,6 @@ def make_battery_unit_ic_plot():
             dict(global_cost_with_learning.cached_stock),
             f"plots/battery_yearly_available_capacity_{country}.json",
         )
-
 
         # 3rd file
         fig = plt.figure()
