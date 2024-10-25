@@ -1751,6 +1751,7 @@ def make_battery_unit_ic_plot():
     global MEASURE_GLOBAL_VARS
     MEASURE_GLOBAL_VARS = True
     with_learning.VERBOSE_ANALYSIS = True
+    util.CARBON_BUDGET_CONSISTENT = "15-50"
     years = range(2024, 2050 + 1)
 
     def per_GJ2per_kWh(arr):
@@ -1931,6 +1932,7 @@ def make_battery_unit_ic_plot():
 
     MEASURE_GLOBAL_VARS = False
     with_learning.VERBOSE_ANALYSIS = False
+    util.CARBON_BUDGET_CONSISTENT = False
 
 
 if __name__ == "__main__":
