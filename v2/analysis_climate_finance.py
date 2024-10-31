@@ -744,7 +744,9 @@ if __name__ == "__main__":
     # plot_table2_3scen(out, "Poland")
 
     emde = get_emde()
-    run_table2_3_scenarios("EMDE", emde)
+    # run_table2_3_scenarios("EMDE", emde)
+    # run_table2_3_scenarios("EMDE-CN", [c for c in emde if c != "CN"])
+    run_table2_3_scenarios("CN", ["CN"])
     # run_table2_3_scenarios("KZ", ["KZ"])
     # run_table2_3_scenarios("PL", ["PL"])
     exit()

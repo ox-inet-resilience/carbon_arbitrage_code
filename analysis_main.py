@@ -71,7 +71,7 @@ unit_profit_df = pd.read_csv(
 )
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
-df, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
+_, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
 country_sccs = pd.Series(util.read_country_specific_scc_filtered())
 
 

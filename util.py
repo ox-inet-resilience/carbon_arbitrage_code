@@ -325,6 +325,15 @@ def read_ngfs():
     }
 
 
+def read_carbon_budget_consistent(carbon_budget_consistent):
+    # This is emissions only.
+    fname = {
+        "15-50": "6.1-NZ-15-50-v2-Secondary-annual.csv",
+        "15-67": "7.1-NZ-15-67-v2-Secondary-annual.csv",
+        "16-67": "8.1-NZ-16-67-v2-Secondary-annual.csv",
+    }[carbon_budget_consistent]
+    return pd.read_csv(f"./data_private/{fname}")
+
 def calculate_ngfs_projection(
     production_or_emissions,
     value_fa,
@@ -346,13 +355,7 @@ def calculate_ngfs_projection(
     ngfs = ngfs_df[production_or_emissions]
     ngfs = ngfs[ngfs.Scenario == scenario]
     if scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
-        # This is emissions only.
-        fname = {
-            "15-50": "6.1-NZ-15-50-v2-Secondary-annual.csv",
-            "15-67": "7.1-NZ-15-67-v2-Secondary-annual.csv",
-            "16-67": "8.1-NZ-16-67-v2-Secondary-annual.csv",
-        }[CARBON_BUDGET_CONSISTENT]
-        ngfs = pd.read_csv(f"./data_private/{fname}")
+        ngfs = read_carbon_budget_consistent(CARBON_BUDGET_CONSISTENT)
 
     if sector == "Coal":
         variable = "Primary Energy|Coal"
