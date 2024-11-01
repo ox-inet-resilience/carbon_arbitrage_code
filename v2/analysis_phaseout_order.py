@@ -10,15 +10,20 @@ import util  # noqa
 import analysis_main  # noqa
 
 last_year = 2030
+util.CARBON_BUDGET_CONSISTENT = "15-50"
 
 _, df_sector = util.read_forward_analytics_data(analysis_main.SECTOR_INCLUDED)
 emissions_fa = util.get_emissions_by_country(df_sector)
 iso3166_df = util.read_iso3166()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 ngfs_df = util.read_ngfs()
-maturity_dict = pd.read_csv(
-    "./data_private/v0_power_plant_maturity_dates.csv.zip", compression="zip"
-).to_dict()
+maturity_dict = (
+    pd.read_csv(
+        "./data_private/v0_power_plant_maturity_dates.csv.zip", compression="zip"
+    )
+    .set_index("uniqueforwardassetid")["maturity_year"]
+    .to_dict()
+)
 
 
 def get_emissions_projection(scenario):
@@ -65,15 +70,22 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
         power_plant_order = pd.DataFrame()
         for subsector in util.SUBSECTORS:
             for i, year in enumerate(years):
-                try:
-                    ep = ep_by_country[i].loc[subsector]
-                except KeyError:
+                if i == 0:
+                    # There is nothing to phase out at the start
                     continue
-                while ep > 0:
+                try:
+                    phaseout = (
+                        ep_by_country[i - 1].loc[subsector]
+                        - ep_by_country[i].loc[subsector]
+                    )
+                except KeyError:
+                    # The country doesn't own this subsector
+                    continue
+                while phaseout > 0:
                     try:
                         row = df_country_mutated.iloc[power_plant_index]
                     except IndexError:
-                        break
+                        raise Exception("Should not happen")
                     # The division by 1e3 converts MtCO2 to GtCO2.
                     e = row[util.EMISSIONS_COLNAME] / 1e3
                     e_original = (
@@ -84,26 +96,27 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                             "uniqueforwardassetid": [row.uniqueforwardassetid],
                             "asset_name": [row.asset_name],
                             "subsector": [subsector],
-                            "fraction": [min(1, min(e, ep) / e_original)],
-                            "amount_gtco2": [min(e, ep)],
+                            "fraction": [min(1, min(e, phaseout) / e_original)],
+                            "amount_mtco2": [min(e, phaseout) * 1e3],
+                            "score": [row[measure]],
                             "year": [year],
                         }
                     )
-                    if e < ep:
-                        ep -= e
+                    if e < phaseout:
+                        phaseout -= e
                         power_plant_index += 1
                     else:
                         df_country_mutated.loc[
                             df_country_mutated.index[power_plant_index],
                             util.EMISSIONS_COLNAME,
-                        ] -= ep * 1e3  # converts ep from GtCO2 to MtCO2
-                        ep = 0
+                        ] -= phaseout * 1e3  # converts phaseout from GtCO2 to MtCO2
+                        phaseout = 0
                     power_plant_order = pd.concat(
                         [power_plant_order, order], ignore_index=True
                     )
         power_plant_order.to_csv(
             f"plots/v2_power_plant_phaseout_order_by_{method_name}_{country}.csv",
-            index=True,
+            index=False,
         )
 
 
@@ -154,10 +167,11 @@ def prepare_by_maturity(df):
         if maturity < 1000:
             maturity = 3000
         return -maturity
+
     df["minus_maturity"] = df.apply(func, axis=1)
 
 
-calculate_power_plant_phaseout_order("emissions", df_sector, util.EMISSIONS_COLNAME)
+calculate_power_plant_phaseout_order("emission_factor", df_sector, "emission_factor")
 prepare_by_emissions_per_oc(df_sector)
 calculate_power_plant_phaseout_order(
     "emissions_per_opportunity_cost", df_sector, "emissions/OC"
