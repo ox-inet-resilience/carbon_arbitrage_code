@@ -52,9 +52,6 @@ emde6 = "IN ID VN TR PL KZ".split()
 
 # emissions_projection_CPS = get_emissions_projection("Current Policies")
 emissions_projection_NZ2050 = get_emissions_projection("Net Zero 2050")
-# avoided_emissions = [
-#     emissions_projection_CPS[i] - e for i, e in enumerate(emissions_projection_NZ2050)
-# ]
 years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
 
 
@@ -123,26 +120,35 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
 def prepare_by_emissions_per_oc(df):
     unit_profit_df = analysis_main.unit_profit_df
 
+    total_production_fa = util.get_production_by_country(
+        df, analysis_main.SECTOR_INCLUDED
+    )
+    scenario_CPS = "Current Policies"
+    # Giga tonnes of coal
+    (
+        production_with_ngfs_projection,
+        gigatonnes_coal_production,
+        profit_ngfs_projection,
+    ) = util.calculate_ngfs_projection(
+        "production",
+        total_production_fa,
+        ngfs_df,
+        analysis_main.SECTOR_INCLUDED,
+        scenario_CPS,
+        analysis_main.NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+        unit_profit_df=unit_profit_df,
+    )
+    # This is profit projection divided by total production for a given country and subsector.
+    profit_projection_fraction = {
+        subsector: sum(e) / total_production_fa.xs(subsector, level="subsector")
+        for subsector, e in profit_ngfs_projection.items()
+    }
+
     def func(row):
-        unit_profit_country = unit_profit_df[
-            unit_profit_df["Alpha-2 Code"] == row.asset_country
-        ]
-
-        # If we don't have data for the country, set it to 0
-        # Only Kosovo so far.
-        if len(unit_profit_country) == 0:
-            unit_profit_country = 0
-        else:
-            unit_profit_country = unit_profit_country.iloc[0]
-
         if row.subsector == "Other":
             return 0
-
-        unit_profit_country_subsector = (
-            unit_profit_country[f"{row.subsector}_Av_Profitability_$/MWh"]
-            if isinstance(unit_profit_country, pd.Series)
-            else 0
-        )
 
         match row.sector:
             case "Extraction":
@@ -152,7 +158,11 @@ def prepare_by_emissions_per_oc(df):
                 mul = util.seconds_in_1hour / 1e3 * util.GJ2coal(1) / 1e9
             case _:
                 raise Exception("Should never happen")
-        opportunity_cost = row.activity * mul * unit_profit_country_subsector
+        opportunity_cost = (
+            row.activity
+            * mul
+            * profit_projection_fraction[row.subsector][row.asset_country]
+        )
         if opportunity_cost <= 0:
             return 0
         # The division of emissions by 1e3 converts MtCO2 to GtCO2.
@@ -172,9 +182,11 @@ def prepare_by_maturity(df):
 
 
 calculate_power_plant_phaseout_order("emission_factor", df_sector, "emission_factor")
+
 prepare_by_emissions_per_oc(df_sector)
 calculate_power_plant_phaseout_order(
-    "emissions_per_opportunity_cost", df_sector, "emissions/OC"
+    "emissions_per_opportunity_cost_projection", df_sector, "emissions/OC"
 )
+
 prepare_by_maturity(df_sector)
 calculate_power_plant_phaseout_order("maturity", df_sector, "minus_maturity")
