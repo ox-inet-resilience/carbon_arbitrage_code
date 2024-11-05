@@ -48,6 +48,19 @@ def get_ngfs_scenario(scenario):
     return ngfs
 
 
+def get_activity_unit_multiplier(row):
+    mul = None
+    match row.sector:
+        case "Extraction":
+            mul = 1e-3  # From mega tonnes to giga tonnes
+        case "Power":
+            # From MWh to MJ to GJ to giga tonnes of coal
+            mul = util.seconds_in_1hour / 1e3 * util.GJ2coal(1) / 1e9
+        case _:
+            raise Exception("Should never happen")
+    return mul
+
+
 emde6 = "IN ID VN TR PL KZ".split()
 
 # emissions_projection_CPS = get_emissions_projection("Current Policies")
@@ -56,6 +69,7 @@ years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
 
 
 def calculate_power_plant_phaseout_order(method_name, df, measure):
+    rho = util.calculate_rho(util.beta, rho_mode=analysis_main.RHO_MODE)
     for country in emde6:
         ep_by_country = [ep.loc[country, :] for ep in emissions_projection_NZ2050]
         df_country = df[df.asset_country == country].sort_values(
@@ -63,6 +77,8 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
         )
         # We clone df_country, because its value is going to be changed over the course of the years.
         df_country_mutated = df_country.copy()
+        total_opportunity_cost_owner = 0
+        total_opportunity_cost_owner_discounted = 0
         power_plant_index = 0
         power_plant_order = pd.DataFrame()
         for subsector in util.SUBSECTORS:
@@ -70,6 +86,7 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                 if i == 0:
                     # There is nothing to phase out at the start
                     continue
+                discount = util.calculate_discount(rho, i)
                 try:
                     phaseout = (
                         ep_by_country[i - 1].loc[subsector]
@@ -88,32 +105,47 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                     e_original = (
                         df_country.iloc[power_plant_index][util.EMISSIONS_COLNAME] / 1e3
                     )
+                    phaseout_amount = min(e, phaseout)
+                    fraction = min(1, phaseout_amount / e_original)
+                    oc_owner = (
+                        fraction * row.activity * get_activity_unit_multiplier(row)
+                    )
+                    total_opportunity_cost_owner += oc_owner
+                    total_opportunity_cost_owner_discounted += oc_owner * discount
                     order = pd.DataFrame(
                         {
                             "uniqueforwardassetid": [row.uniqueforwardassetid],
                             "asset_name": [row.asset_name],
                             "subsector": [subsector],
-                            "fraction": [min(1, min(e, phaseout) / e_original)],
-                            "amount_mtco2": [min(e, phaseout) * 1e3],
+                            "fraction": [fraction],
+                            "amount_mtco2": [phaseout_amount * 1e3],
+                            "oc_owner": [oc_owner],
                             "score": [row[measure]],
                             "year": [year],
                         }
                     )
+                    # The order is important here.
                     if e < phaseout:
-                        phaseout -= e
                         power_plant_index += 1
                     else:
                         df_country_mutated.loc[
                             df_country_mutated.index[power_plant_index],
                             util.EMISSIONS_COLNAME,
                         ] -= phaseout * 1e3  # converts phaseout from GtCO2 to MtCO2
-                        phaseout = 0
+                    phaseout -= phaseout_amount
                     power_plant_order = pd.concat(
                         [power_plant_order, order], ignore_index=True
                     )
         power_plant_order.to_csv(
-            f"plots/v2_power_plant_phaseout_order_by_{method_name}_{country}.csv",
+            f"plots/v2_power_plant_phaseout_order_by_{method_name}_{country}_{last_year}.csv",
             index=False,
+        )
+        print(
+            method_name,
+            country,
+            "owner OC",
+            total_opportunity_cost_owner,
+            total_opportunity_cost_owner_discounted,
         )
 
 
@@ -150,17 +182,9 @@ def prepare_by_emissions_per_oc(df):
         if row.subsector == "Other":
             return 0
 
-        match row.sector:
-            case "Extraction":
-                mul = 1e-3  # From mega tonnes to giga tonnes
-            case "Power":
-                # From MWh to MJ to GJ to giga tonnes of coal
-                mul = util.seconds_in_1hour / 1e3 * util.GJ2coal(1) / 1e9
-            case _:
-                raise Exception("Should never happen")
         opportunity_cost = (
             row.activity
-            * mul
+            * get_activity_unit_multiplier(row)
             * profit_projection_fraction[row.subsector][row.asset_country]
         )
         if opportunity_cost <= 0:
