@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 import util  # noqa
 import analysis_main  # noqa
 
-last_year = 2030
+last_year = 2050
 util.CARBON_BUDGET_CONSISTENT = "15-50"
 
 _, df_sector = util.read_forward_analytics_data(analysis_main.SECTOR_INCLUDED)
@@ -24,6 +24,7 @@ maturity_dict = (
     .set_index("uniqueforwardassetid")["maturity_year"]
     .to_dict()
 )
+emde6 = "IN ID VN TR PL KZ".split()
 
 
 def get_emissions_projection(scenario):
@@ -61,8 +62,6 @@ def get_activity_unit_multiplier(row):
     return mul
 
 
-emde6 = "IN ID VN TR PL KZ".split()
-
 # emissions_projection_CPS = get_emissions_projection("Current Policies")
 emissions_projection_NZ2050 = get_emissions_projection("Net Zero 2050")
 years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
@@ -82,19 +81,22 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
         power_plant_index = 0
         power_plant_order = pd.DataFrame()
         for subsector in util.SUBSECTORS:
+            try:
+                ep_initial = ep_by_country[0].loc[subsector]
+            except KeyError:
+                # The country doesn't own this subsector
+                continue
             for i, year in enumerate(years):
                 if i == 0:
                     # There is nothing to phase out at the start
                     continue
                 discount = util.calculate_discount(rho, i)
-                try:
-                    phaseout = (
-                        ep_by_country[i - 1].loc[subsector]
-                        - ep_by_country[i].loc[subsector]
-                    )
-                except KeyError:
-                    # The country doesn't own this subsector
-                    continue
+                # Make sure that at any given time, the emissions never exceed the
+                # initial emissions in 2024 (Forward Analytics). This is because
+                # the emissions "budget" the power plants is only as much as FA value.
+                before = min(ep_by_country[i - 1].loc[subsector], ep_initial)
+                after = min(ep_by_country[i].loc[subsector], ep_initial)
+                phaseout = before - after
                 while phaseout > 0:
                     try:
                         row = df_country_mutated.iloc[power_plant_index]
@@ -173,7 +175,7 @@ def prepare_by_emissions_per_oc(df):
         unit_profit_df=unit_profit_df,
     )
     # This is profit projection divided by total production for a given country and subsector.
-    profit_projection_fraction = {
+    profit_projection_per_production_fa = {
         subsector: sum(e) / total_production_fa.xs(subsector, level="subsector")
         for subsector, e in profit_ngfs_projection.items()
     }
@@ -182,14 +184,16 @@ def prepare_by_emissions_per_oc(df):
         if row.subsector == "Other":
             return 0
 
+        # Division by 1e12 converts to trillion USD
         opportunity_cost = (
             row.activity
             * get_activity_unit_multiplier(row)
-            * profit_projection_fraction[row.subsector][row.asset_country]
-        )
+            * profit_projection_per_production_fa[row.subsector][row.asset_country]
+        ) / 1e12
         if opportunity_cost <= 0:
             return 0
         # The division of emissions by 1e3 converts MtCO2 to GtCO2.
+        # The unit is GtCO2/trillionUSD
         return row[util.EMISSIONS_COLNAME] / 1e3 / opportunity_cost
 
     df["emissions/OC"] = df.apply(func, axis=1)
