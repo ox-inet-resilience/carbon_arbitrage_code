@@ -504,7 +504,6 @@ def calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower):
 
 
 def get_opportunity_cost_owner(
-    _df,
     rho,
     delta_profit,
     scenario,
@@ -656,7 +655,6 @@ def generate_table1_output(
             cost_non_discounted_owner,
             cost_discounted_owner,
         ) = get_opportunity_cost_owner(
-            _df_nonpower,
             rho,
             delta_profit,
             scenario,

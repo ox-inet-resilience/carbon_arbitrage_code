@@ -25,6 +25,7 @@ maturity_dict = (
     .set_index("uniqueforwardassetid")["maturity_year"]
     .to_dict()
 )
+rho = util.calculate_rho(util.beta, rho_mode=analysis_main.RHO_MODE)
 emde6 = "IN ID VN TR PL KZ".split()
 
 
@@ -69,7 +70,6 @@ years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
 
 
 def calculate_power_plant_phaseout_order(method_name, df, measure):
-    rho = util.calculate_rho(util.beta, rho_mode=analysis_main.RHO_MODE)
     for country in emde6:
         ep_by_country = [ep.loc[country, :] for ep in emissions_projection_NZ2050]
         df_country = df[df.asset_country == country].sort_values(
@@ -191,9 +191,17 @@ def prepare_by_emissions_per_oc(df):
         alpha2_to_alpha3,
         unit_profit_df=unit_profit_df,
     )
+
+    def discounted_sum(timeseries):
+        out = 0
+        for i, e in enumerate(timeseries):
+            out += util.calculate_discount(rho, i) * e
+        return out
+
     # This is profit projection divided by total production for a given country and subsector.
     profit_projection_per_production_fa = {
-        subsector: sum(e) / total_production_fa.xs(subsector, level="subsector")
+        subsector: discounted_sum(e)
+        / total_production_fa.xs(subsector, level="subsector")
         for subsector, e in profit_ngfs_projection.items()
     }
 
