@@ -1,6 +1,7 @@
 import pathlib
 import sys
 
+import numpy as np
 import pandas as pd
 
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
@@ -81,22 +82,28 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
         power_plant_index = 0
         power_plant_order = pd.DataFrame()
         for subsector in util.SUBSECTORS:
-            try:
-                ep_initial = ep_by_country[0].loc[subsector]
-            except KeyError:
-                # The country doesn't own this subsector
-                continue
+            imaginary_power_plant_emissions = 0
+            actuals = []  # For sanity check
             for i, year in enumerate(years):
                 if i == 0:
                     # There is nothing to phase out at the start
                     continue
                 discount = util.calculate_discount(rho, i)
-                # Make sure that at any given time, the emissions never exceed the
-                # initial emissions in 2024 (Forward Analytics). This is because
-                # the emissions "budget" the power plants is only as much as FA value.
-                before = min(ep_by_country[i - 1].loc[subsector], ep_initial)
-                after = min(ep_by_country[i].loc[subsector], ep_initial)
+                try:
+                    before = ep_by_country[i - 1].loc[subsector]
+                    after = ep_by_country[i].loc[subsector]
+                except KeyError:
+                    # The country doesn't own this subsector
+                    continue
                 phaseout = before - after
+                if phaseout < 0:
+                    # Emissions increases, but we are going to assume new imaginary
+                    # power plants are created.
+                    imaginary_power_plant_emissions += abs(phaseout)
+                else:
+                    undo_emissions = min(phaseout, imaginary_power_plant_emissions)
+                    phaseout -= undo_emissions
+                    imaginary_power_plant_emissions -= undo_emissions
                 while phaseout > 0:
                     try:
                         row = df_country_mutated.iloc[power_plant_index]
@@ -138,6 +145,16 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                     power_plant_order = pd.concat(
                         [power_plant_order, order], ignore_index=True
                     )
+                # For sanity check
+                actual = (
+                    power_plant_order.amount_mtco2.sum() / 1e3
+                    + after
+                    - imaginary_power_plant_emissions
+                )
+                actuals.append(actual)
+            # Do sanity check
+            if len(actuals) > 0:
+                assert np.all(np.isclose(actuals, actuals[0])), actuals
         power_plant_order.to_csv(
             f"plots/v2_power_plant_phaseout_order_by_{method_name}_{country}_{last_year}.csv",
             index=False,
@@ -190,28 +207,34 @@ def prepare_by_emissions_per_oc(df):
         last_year,
         alpha2_to_alpha3,
     )
-    delta_emissions_projection = (
-        emissions_with_ngfs_projection[-1] - emissions_with_ngfs_projection[0]
+    cumulative_emissions_projection = sum(emissions_with_ngfs_projection)
+    intersection = cumulative_emissions_projection.index.intersection(
+        emissions_fa.index
     )
-    intersection = delta_emissions_projection.index.intersection(emissions_fa.index)
-    delta_e_per_emissions_fa = delta_emissions_projection[intersection] / emissions_fa[intersection]
+    emissions_per_emissions_fa = (
+        cumulative_emissions_projection[intersection] / emissions_fa[intersection]
+    )
 
     def func(row):
         if row.subsector == "Other":
             return 0
 
-        # Division by 1e12 converts to trillion USD
+        # Division by 1e9 converts to trillion USD
         opportunity_cost = (
             row.activity
             * get_activity_unit_multiplier(row)
             * profit_projection_per_production_fa[row.subsector][row.asset_country]
-        ) / 1e12
+        ) / 1e9
         if opportunity_cost <= 0:
             return 0
         # The division of emissions by 1e3 converts MtCO2 to GtCO2.
-        avoided_emissions = row[util.EMISSIONS_COLNAME] / 1e3 * delta_e_per_emissions_fa[(row.asset_country, row.subsector)]
-        # The unit is GtCO2/trillionUSD
-        return avoided_emissions / opportunity_cost
+        avoided_emissions = (
+            row[util.EMISSIONS_COLNAME]
+            / 1e3
+            * emissions_per_emissions_fa[(row.asset_country, row.subsector)]
+        )
+        # The unit is GtCO2 * USD/CO2 / billionUSD
+        return avoided_emissions * util.social_cost_of_carbon / opportunity_cost
 
     df["emissions/OC"] = df.apply(func, axis=1)
 
