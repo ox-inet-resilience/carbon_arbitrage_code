@@ -157,7 +157,7 @@ def prepare_by_emissions_per_oc(df):
     total_production_fa = util.get_production_by_country(
         df, analysis_main.SECTOR_INCLUDED
     )
-    scenario_CPS = "Current Policies"
+    scenario = "Current Policies"
     # Giga tonnes of coal
     (
         production_with_ngfs_projection,
@@ -168,7 +168,7 @@ def prepare_by_emissions_per_oc(df):
         total_production_fa,
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
-        scenario_CPS,
+        scenario,
         analysis_main.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
@@ -179,6 +179,22 @@ def prepare_by_emissions_per_oc(df):
         subsector: sum(e) / total_production_fa.xs(subsector, level="subsector")
         for subsector, e in profit_ngfs_projection.items()
     }
+
+    emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
+        "emissions",
+        emissions_fa,
+        ngfs_df,
+        analysis_main.SECTOR_INCLUDED,
+        scenario,
+        analysis_main.NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+    )
+    delta_emissions_projection = (
+        emissions_with_ngfs_projection[-1] - emissions_with_ngfs_projection[0]
+    )
+    intersection = delta_emissions_projection.index.intersection(emissions_fa.index)
+    delta_e_per_emissions_fa = delta_emissions_projection[intersection] / emissions_fa[intersection]
 
     def func(row):
         if row.subsector == "Other":
@@ -193,8 +209,9 @@ def prepare_by_emissions_per_oc(df):
         if opportunity_cost <= 0:
             return 0
         # The division of emissions by 1e3 converts MtCO2 to GtCO2.
+        avoided_emissions = row[util.EMISSIONS_COLNAME] / 1e3 * delta_e_per_emissions_fa[(row.asset_country, row.subsector)]
         # The unit is GtCO2/trillionUSD
-        return row[util.EMISSIONS_COLNAME] / 1e3 / opportunity_cost
+        return avoided_emissions / opportunity_cost
 
     df["emissions/OC"] = df.apply(func, axis=1)
 
