@@ -51,6 +51,13 @@ def get_ngfs_scenario(scenario):
     return ngfs
 
 
+def get_maturity(row):
+    maturity = maturity_dict.get(row.uniqueforwardassetid, 0)
+    if maturity < 1000:
+        maturity = 3000
+    return maturity
+
+
 def get_activity_unit_multiplier(row):
     mul = None
     match row.sector:
@@ -247,22 +254,115 @@ def prepare_by_emissions_per_oc(df):
     df["emissions/OC"] = df.apply(func, axis=1)
 
 
+def prepare_by_emissions_per_oc_with_maturity(df):
+    unit_profit_df = analysis_main.unit_profit_df
+
+    total_production_fa = util.get_production_by_country(
+        df, analysis_main.SECTOR_INCLUDED
+    )
+    scenario = "Current Policies"
+    # Giga tonnes of coal
+    (
+        production_with_ngfs_projection,
+        gigatonnes_coal_production,
+        profit_ngfs_projection,
+    ) = util.calculate_ngfs_projection(
+        "production",
+        total_production_fa,
+        ngfs_df,
+        analysis_main.SECTOR_INCLUDED,
+        scenario,
+        analysis_main.NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+        unit_profit_df=unit_profit_df,
+    )
+
+    def discounted_sum(timeseries):
+        out = 0
+        for i, e in enumerate(timeseries):
+            out += util.calculate_discount(rho, i) * e
+        return out
+
+    emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
+        "emissions",
+        emissions_fa,
+        ngfs_df,
+        analysis_main.SECTOR_INCLUDED,
+        scenario,
+        analysis_main.NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+    )
+
+    fa_by_subsector = {
+        subsector: total_production_fa.xs(subsector, level="subsector")
+        for subsector in util.SUBSECTORS
+    }
+
+    def func(row):
+        if row.subsector == "Other":
+            return 0
+
+        profit_projection_subsector = profit_ngfs_projection[row.subsector]
+        maturity = get_maturity(row)
+        maturity_index = maturity - analysis_main.NGFS_PEG_YEAR
+        profit_per_fa = (
+            discounted_sum(profit_projection_subsector[: maturity_index + 1])
+            / fa_by_subsector[row.subsector]
+        )
+        # Division by 1e9 converts to trillion USD
+        opportunity_cost = (
+            row.activity
+            * get_activity_unit_multiplier(row)
+            * profit_per_fa[row.asset_country]
+        ) / 1e9
+        if opportunity_cost <= 0:
+            return 0
+
+        cumulative_emissions_projection = sum(
+            emissions_with_ngfs_projection[: maturity_index + 1]
+        )
+        intersection = cumulative_emissions_projection.index.intersection(
+            emissions_fa.index
+        )
+        emissions_per_emissions_fa = (
+            cumulative_emissions_projection[intersection] / emissions_fa[intersection]
+        )
+
+        # The division of emissions by 1e3 converts MtCO2 to GtCO2.
+        avoided_emissions = (
+            row[util.EMISSIONS_COLNAME]
+            / 1e3
+            * emissions_per_emissions_fa[(row.asset_country, row.subsector)]
+        )
+        # The unit is GtCO2 * USD/CO2 / billionUSD
+        return avoided_emissions * util.social_cost_of_carbon / opportunity_cost
+
+    df["emissions/OC_maturity"] = df.apply(func, axis=1)
+
+
 def prepare_by_maturity(df):
     def func(row):
-        maturity = maturity_dict.get(row.uniqueforwardassetid, 0)
-        if maturity < 1000:
-            maturity = 3000
-        return -maturity
+        return -get_maturity(row)
 
     df["minus_maturity"] = df.apply(func, axis=1)
 
 
-calculate_power_plant_phaseout_order("emission_factor", df_sector, "emission_factor")
+if 1:
+    calculate_power_plant_phaseout_order(
+        "emission_factor", df_sector, "emission_factor"
+    )
 
-prepare_by_emissions_per_oc(df_sector)
+    prepare_by_emissions_per_oc(df_sector)
+    calculate_power_plant_phaseout_order(
+        "emissions_per_opportunity_cost_projection", df_sector, "emissions/OC"
+    )
+
+    prepare_by_maturity(df_sector)
+    calculate_power_plant_phaseout_order("maturity", df_sector, "minus_maturity")
+
+prepare_by_emissions_per_oc_with_maturity(df_sector)
 calculate_power_plant_phaseout_order(
-    "emissions_per_opportunity_cost_projection", df_sector, "emissions/OC"
+    "emissions_per_OC_maturity", df_sector, "emissions/OC_maturity"
 )
-
-prepare_by_maturity(df_sector)
-calculate_power_plant_phaseout_order("maturity", df_sector, "minus_maturity")
