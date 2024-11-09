@@ -1771,9 +1771,11 @@ def make_battery_unit_ic_plot():
     }
 
     a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
-    for country in "WORLD IN ID DE US TR VN".split():
+    for country in "WORLD EMDE IN ID DE US TR VN PL KZ".split():
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
-        title = a2_to_full_name[country] if country != "WORLD" else "World"
+        title = (
+            a2_to_full_name[country] if country not in ["WORLD", "EMDE"] else country
+        )
         run_table1(to_csv=False, do_round=False, plot_yearly=False)
         fig, axs = plt.subplots(1, 2, figsize=(8, 5))
 
