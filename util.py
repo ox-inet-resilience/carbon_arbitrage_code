@@ -60,6 +60,7 @@ CARBON_BUDGET_CONSISTENT = False
 un_leveraged_beta = 0.9132710997126332
 beta = un_leveraged_beta
 SUBSECTORS = ["Coal", "Oil", "Gas"]
+ENABLE_AI = False
 
 
 def read_json(filename):
@@ -322,6 +323,7 @@ def read_ngfs():
     return {
         "production": pd.read_csv("data/2-GCAM6-filtered-prim-and-secon-energy.csv.gz"),
         "emissions": pd.read_csv("data/3-GCAM6-emissions.csv.gz"),
+        "emissions_ai": pd.read_csv("data/7.1.3 - emissions - by country - cpfaai - low.csv.gz")
     }
 
 
@@ -354,7 +356,10 @@ def calculate_ngfs_projection(
     assert sector == "Power"
     ngfs = ngfs_df[production_or_emissions]
     ngfs = ngfs[ngfs.Scenario == scenario]
-    if scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
+    if scenario == "Current Policies" and ENABLE_AI:
+        ngfs = ngfs_df["emissions_ai"]
+        ngfs = ngfs[ngfs.Scenario == scenario]
+    elif scenario == "Net Zero 2050" and CARBON_BUDGET_CONSISTENT:
         ngfs = read_carbon_budget_consistent(CARBON_BUDGET_CONSISTENT)
 
     if sector == "Coal":

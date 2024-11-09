@@ -98,7 +98,8 @@ def get_info_investment(info_name, last_year, included_countries=None):
     return get_info(info_name, last_year, included_countries)
 
 
-def run_table2_3_scenarios(name, included_countries):
+def run_table2_3_scenarios(name, included_countries, enable_ai):
+    util.ENABLE_AI = enable_ai
     dfs = []
     for param, _name in [(False, "baseline"), ("15-50", "15-50"), ("15-67", "15-67")]:
         util.CARBON_BUDGET_CONSISTENT = param
@@ -108,9 +109,10 @@ def run_table2_3_scenarios(name, included_countries):
     out = pd.concat(dfs, axis=1)
 
     uid = util.get_unique_id(include_date=False)
-    out.to_csv(f"plots/table2_3scen_{name}_{uid}.csv")
+    out.to_csv(f"plots/table2_3scen_{name}_{uid}_ai_{enable_ai}.csv")
     # Reset
     util.CARBON_BUDGET_CONSISTENT = False
+    util.ENABLE_AI = False
     return out
 
 
@@ -744,16 +746,17 @@ if __name__ == "__main__":
     # plot_table2_3scen(out, "Poland")
 
     emde = get_emde()
-    # run_table2_3_scenarios("EMDE", emde)
-    # run_table2_3_scenarios("EMDE-CN", [c for c in emde if c != "CN"])
-    run_table2_3_scenarios("CN", ["CN"])
-    # run_table2_3_scenarios("KZ", ["KZ"])
-    # run_table2_3_scenarios("PL", ["PL"])
-    exit()
-    run_table2_3_scenarios("world", None)
-    six = "IN US VN ID TR DE".split()
-    for a2 in six:
-        run_table2_3_scenarios(a2, [a2])
+    emde6 = "IN ID VN TR PL KZ".split()
+    for enable_ai in [True, False]:
+        run_table2_3_scenarios("world", None, enable_ai)
+        # run_table2_3_scenarios("EMDE", emde)
+        # run_table2_3_scenarios("EMDE-CN", [c for c in emde if c != "CN"])
+        # run_table2_3_scenarios("CN", ["CN"])
+        for a2 in emde6:
+            run_table2_3_scenarios(a2, [a2], enable_ai)
+        # six = "IN US VN ID TR DE".split()
+        # for a2 in six:
+        #     run_table2_3_scenarios(a2, [a2])
     exit()
     if 0:
         for info_name in [
