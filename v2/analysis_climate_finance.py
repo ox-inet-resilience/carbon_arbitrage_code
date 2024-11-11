@@ -149,11 +149,11 @@ def plot_table2_3scen(df, name):
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     fig.legend(
-       by_label.values(),
-       by_label.keys(),
-       loc="upper center",
-       bbox_to_anchor=(0.5, 0),
-       ncol=3,
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
+        ncol=3,
     )
     plt.tight_layout()
     uid = util.get_unique_id(include_date=False)
@@ -740,10 +740,37 @@ def get_emde():
     return emerging_country_shortnames + developING_country_shortnames
 
 
+def get_cop29():
+    _df = pd.read_csv("data/COP29 Policy Brief_isocodes.csv")
+    developing = _df[_df.group == "Developing Recipients"].asset_location.to_list()
+    return developing
+
+
 if __name__ == "__main__":
     # run_table2_region()
     # out = run_table2_3_scenarios("PL", ["PL"])
     # plot_table2_3scen(out, "Poland")
+
+    run_table2_3_scenarios("NZ", ["NZ"], False)
+    exit()
+    developing_cop29 = get_cop29()
+    run_table2_3_scenarios("developing_cop29", developing_cop29, False)
+    run_table2_3_scenarios(
+        "developing_cop29_min_cn", [c for c in developing_cop29 if c != "CN"], False
+    )
+    petrol_states = "CN KR RU AE SA QA BH BN KW".split()
+    run_table2_3_scenarios(
+        "developing_cop29_min_petrol",
+        [c for c in developing_cop29 if c not in petrol_states],
+        False,
+    )
+    developing_cop29_exclude_top10 = "QA SG AE IL KW BS BN KR".split()
+    run_table2_3_scenarios(
+        "developing_cop29_min_top10",
+        [c for c in developing_cop29 if c not in developing_cop29_exclude_top10],
+        False,
+    )
+    exit()
 
     emde = get_emde()
     emde6 = "IN ID VN TR PL KZ".split()
