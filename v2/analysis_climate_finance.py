@@ -751,25 +751,38 @@ if __name__ == "__main__":
     # out = run_table2_3_scenarios("PL", ["PL"])
     # plot_table2_3scen(out, "Poland")
 
-    run_table2_3_scenarios("NZ", ["NZ"], False)
-    exit()
     developing_cop29 = get_cop29()
-    run_table2_3_scenarios("developing_cop29", developing_cop29, False)
+    if 0:
+        run_table2_3_scenarios("developing_cop29", developing_cop29, False)
+        run_table2_3_scenarios(
+            "developing_cop29_min_cn", [c for c in developing_cop29 if c != "CN"], False
+        )
+        petrol_states = "CN KR RU AE SA QA BH BN KW".split()
+        run_table2_3_scenarios(
+            "developing_cop29_min_petrol",
+            [c for c in developing_cop29 if c not in petrol_states],
+            False,
+        )
+        # this is GDP/capita
+        top10_gdp_per_capita = "QA SG AE IL KW BS BN KR".split()
+        run_table2_3_scenarios(
+            "developing_cop29_min_top10",
+            [c for c in developing_cop29 if c not in top10_gdp_per_capita],
+            False,
+        )
+        top10_historical_emissions = "CN IN BR MX ID IR ZA".split()
+        run_table2_3_scenarios(
+            "developing_cop29_min_top10_historical_emissions",
+            [c for c in developing_cop29 if c not in top10_historical_emissions],
+            False,
+        )
+    top10_combo_emissions_gdppc = "BN TT KZ PW BB".split()
     run_table2_3_scenarios(
-        "developing_cop29_min_cn", [c for c in developing_cop29 if c != "CN"], False
-    )
-    petrol_states = "CN KR RU AE SA QA BH BN KW".split()
-    run_table2_3_scenarios(
-        "developing_cop29_min_petrol",
-        [c for c in developing_cop29 if c not in petrol_states],
+        "developing_cop29_min_top10_emissions_gdppc_combo",
+        [c for c in developing_cop29 if c not in top10_combo_emissions_gdppc],
         False,
     )
-    developing_cop29_exclude_top10 = "QA SG AE IL KW BS BN KR".split()
-    run_table2_3_scenarios(
-        "developing_cop29_min_top10",
-        [c for c in developing_cop29 if c not in developing_cop29_exclude_top10],
-        False,
-    )
+
     exit()
 
     emde = get_emde()
@@ -800,5 +813,3 @@ if __name__ == "__main__":
         exit()
     # make_climate_financing_SCATTER_plot()
     make_yearly_climate_financing_plot()
-    exit()
-    make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS()
