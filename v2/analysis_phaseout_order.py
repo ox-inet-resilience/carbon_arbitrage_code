@@ -27,6 +27,9 @@ maturity_dict = (
 )
 rho = util.calculate_rho(util.beta, rho_mode=analysis_main.RHO_MODE)
 emde6 = "IN ID VN TR PL KZ".split()
+countries_included = emde6
+# Bangladesh
+countries_included = ["BD"]
 
 
 def get_emissions_projection(scenario):
@@ -77,7 +80,7 @@ years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
 
 
 def calculate_power_plant_phaseout_order(method_name, df, measure):
-    for country in emde6:
+    for country in countries_included:
         ep_by_country = [ep.loc[country, :] for ep in emissions_projection_NZ2050]
         df_country = df[df.asset_country == country].sort_values(
             measure, ascending=False
