@@ -478,7 +478,7 @@ def calculate_table1_info(
             continue
         data[k] = maybe_round6(do_round, v)
     # TODO included worker
-    out_yearly_info = None
+    # out_yearly_info = None
     return data, out_yearly_info
 
 
@@ -1745,6 +1745,35 @@ def get_yearly_by_country():
         df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{suffix}.csv")
 
 
+def get_yearly_by_country_power():
+    out = run_table1(to_csv=False, do_round=True, return_yearly=True)
+    nz2050 = out[f"{NGFS_PEG_YEAR}-{LAST_YEAR} FA + Net Zero 2050 Scenario"]
+    series = defaultdict(list)
+    ignore = [
+        "avoided_emissions_including_residual_emissions",
+        "country_benefit_country_reduction",
+        "global_benefit_country_reduction",
+        "residual_benefit",
+    ]
+    for i in range(LAST_YEAR - NGFS_PEG_YEAR + 1):
+        # Trillions
+        for key, value in nz2050.items():
+            if key in ignore:
+                continue
+            if isinstance(value[i], pd.Series):
+                element = value[i].rename(NGFS_PEG_YEAR + i)
+            else:
+                element = pd.Series(
+                    value[i],
+                    name=(NGFS_PEG_YEAR + i),
+                )
+            series[key].append(element)
+    git_branch = util.get_git_branch()
+    for key, value in series.items():
+        df = pd.concat(value, axis=1)
+        df.to_csv(f"plots/bruegel/yearly_by_country_{key}_{git_branch}.csv")
+
+
 def make_battery_unit_ic_plot():
     global MEASURE_GLOBAL_VARS
     MEASURE_GLOBAL_VARS = True
@@ -1936,8 +1965,9 @@ def make_battery_unit_ic_plot():
 
 
 if __name__ == "__main__":
-    if 0:
-        get_yearly_by_country()
+    if 1:
+        get_yearly_by_country_power()
+        # get_yearly_by_country()
         exit()
 
     if 0:
