@@ -1804,11 +1804,13 @@ def make_battery_unit_ic_plot(scenario):
 
     a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
     # for country in "WORLD EMDE IN ID DE US TR VN PL KZ".split():
-    for country in "WORLD Developed Developing EG IN ID ZA MX VN IR TH".split():
+    for (
+        country
+    ) in "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split():
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         title = (
             a2_to_full_name[country]
-            if country not in ["WORLD", "EMDE", "Developed", "Developing"]
+            if country not in ["WORLD", "EMDE", "Developed_UNFCCC", "Developing_UNFCCC"]
             else country
         )
         run_table1(to_csv=False, do_round=False, plot_yearly=False)

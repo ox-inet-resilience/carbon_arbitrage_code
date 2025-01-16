@@ -617,6 +617,13 @@ def get_developing_countries():
     return developing_shortnames
 
 
+def get_countries_unfccc():
+    df = pd.read_csv("./data/unfcc_classification_countries.csv")
+    developed = df[df.classification == "All Developed"].asset_location.tolist()
+    developing = df[df.classification == "Developing"].asset_location.tolist()
+    return developed, developing
+
+
 def get_emerging_countries():
     # From IMF data as of 2021. Table A page 76
     emerging_shortnames = read_csv_1d_list("data/emerging_shortnames.csv")

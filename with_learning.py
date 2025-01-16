@@ -49,7 +49,7 @@ def get_emde_developing_developed():
     )
 
 
-EMDE, DEVELOPING, DEVELOPED = get_emde_developing_developed()
+EMDE, DEVELOPING_UNFCCC, DEVELOPED_UNFCCC = get_emde_developing_developed()
 
 
 def prepare_fa_capacity_factor_data():
@@ -528,15 +528,15 @@ class InvestmentCostWithLearning:
                                 self.stocks_kW_battery_pe[tech][year].get(c, 0)
                                 for c in EMDE
                             )
-                        case "Developing":
+                        case "Developing_UNFCCC":
                             stock_battery_pe = sum(
                                 self.stocks_kW_battery_pe[tech][year].get(c, 0)
-                                for c in DEVELOPING
+                                for c in DEVELOPING_UNFCCC
                             )
-                        case "Developed":
+                        case "Developed_UNFCCC":
                             stock_battery_pe = sum(
                                 self.stocks_kW_battery_pe[tech][year].get(c, 0)
-                                for c in DEVELOPED
+                                for c in DEVELOPED_UNFCCC
                             )
                         case _:
                             stock_battery_pe = self.stocks_kW_battery_pe[tech][
@@ -555,10 +555,10 @@ class InvestmentCostWithLearning:
                             stock = sum(stock.values())
                         case "EMDE":
                             stock = sum(stock.get(c, 0) for c in EMDE)
-                        case "Developing":
-                            stock = sum(stock.get(c, 0) for c in DEVELOPING)
-                        case "Developed":
-                            stock = sum(stock.get(c, 0) for c in DEVELOPED)
+                        case "Developing_UNFCCC":
+                            stock = sum(stock.get(c, 0) for c in DEVELOPING_UNFCCC)
+                        case "Developed_UNFCCC":
+                            stock = sum(stock.get(c, 0) for c in DEVELOPED_UNFCCC)
                         case _:
                             stock = stock.get(VERBOSE_ANALYSIS_COUNTRY, 0)
                 else:
@@ -584,17 +584,17 @@ class InvestmentCostWithLearning:
                                 for c in DeltaP.keys()
                                 if c in EMDE
                             )
-                        case "Developing":
+                        case "Developing_UNFCCC":
                             stock_battery_pe = sum(
                                 self.get_stock_battery_pe(c, tech, year)
                                 for c in DeltaP.keys()
-                                if c in DEVELOPING
+                                if c in DEVELOPING_UNFCCC
                             )
-                        case "Developed":
+                        case "Developed_UNFCCC":
                             stock_battery_pe = sum(
                                 self.get_stock_battery_pe(c, tech, year)
                                 for c in DeltaP.keys()
-                                if c in DEVELOPED
+                                if c in DEVELOPED_UNFCCC
                             )
                         case _:
                             stock_battery_pe = self.get_stock_battery_pe(
@@ -618,14 +618,14 @@ class InvestmentCostWithLearning:
                             sum(_fn(c, year) for c in DeltaP.keys() if c in EMDE)
                             + stock_battery_pe
                         )
-                    case "Developing":
+                    case "Developing_UNFCCC":
                         self.cached_stock[tech][year] = (
-                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPING)
+                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPING_UNFCCC)
                             + stock_battery_pe
                         )
-                    case "Developed":
+                    case "Developed_UNFCCC":
                         self.cached_stock[tech][year] = (
-                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPED)
+                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPED_UNFCCC)
                             + stock_battery_pe
                         )
                     case _:
