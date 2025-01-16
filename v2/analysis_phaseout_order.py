@@ -30,6 +30,8 @@ emde6 = "IN ID VN TR PL KZ".split()
 countries_included = emde6
 # Bangladesh
 countries_included = ["BD"]
+top8_unfccc_developing = "EG IN ID ZA MX VN IR TH".split()
+countries_included = top8_unfccc_developing
 
 
 def get_emissions_projection(scenario):
@@ -156,6 +158,8 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                         [power_plant_order, order], ignore_index=True
                     )
                 # For sanity check
+                if len(power_plant_order) == 0:
+                    continue
                 actual = (
                     power_plant_order.amount_mtco2.sum() / 1e3
                     + after

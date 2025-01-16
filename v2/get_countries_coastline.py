@@ -10,6 +10,11 @@ def get_alpha2(country_name):
     try:
         return pycountry.countries.lookup(country_name).alpha_2
     except LookupError:
+        match country_name:
+            case "Kosovo":
+                return "XK"
+            case "Vatican City":
+                return "VA"
         return None  # Handle cases where the name isn't matched
 
 

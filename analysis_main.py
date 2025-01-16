@@ -22,6 +22,7 @@ sns.set_theme(style="ticks")
 # TODO these globals could be removed.
 global_cost_with_learning = None
 MEASURE_GLOBAL_VARS = False
+MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
 
 
 # Ensure that plots directory exists
@@ -551,7 +552,7 @@ def get_cost_including_ngfs_renewable(
         last_year + residual_benefits_years_offset,
         weighted_emissions_factor_by_country_peg_year,
     )
-    if MEASURE_GLOBAL_VARS and scenario == "Net Zero 2050":
+    if MEASURE_GLOBAL_VARS and scenario == MEASURE_GLOBAL_VARS_SCENARIO:
         global global_cost_with_learning
         global_cost_with_learning = temp_cost_with_learning
     return (
@@ -1774,8 +1775,10 @@ def get_yearly_by_country_power():
         df.to_csv(f"plots/bruegel/yearly_by_country_{key}_{git_branch}.csv")
 
 
-def make_battery_unit_ic_plot():
+def make_battery_unit_ic_plot(scenario):
     global MEASURE_GLOBAL_VARS
+    global MEASURE_GLOBAL_VARS_SCENARIO
+    MEASURE_GLOBAL_VARS_SCENARIO = scenario
     MEASURE_GLOBAL_VARS = True
     with_learning.VERBOSE_ANALYSIS = True
     util.CARBON_BUDGET_CONSISTENT = "15-50"
@@ -1800,10 +1803,13 @@ def make_battery_unit_ic_plot():
     }
 
     a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
-    for country in "WORLD EMDE IN ID DE US TR VN PL KZ".split():
+    # for country in "WORLD EMDE IN ID DE US TR VN PL KZ".split():
+    for country in "WORLD Developed Developing EG IN ID ZA MX VN IR TH".split():
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         title = (
-            a2_to_full_name[country] if country not in ["WORLD", "EMDE"] else country
+            a2_to_full_name[country]
+            if country not in ["WORLD", "EMDE", "Developed", "Developing"]
+            else country
         )
         run_table1(to_csv=False, do_round=False, plot_yearly=False)
         fig, axs = plt.subplots(1, 2, figsize=(8, 5))
@@ -1894,7 +1900,10 @@ def make_battery_unit_ic_plot():
             ncol=5,
         )
         plt.tight_layout()
-        plt.savefig(f"plots/battery_unit_ic_{country}.png", bbox_inches="tight")
+        plt.savefig(
+            f"plots/battery_unit_ic_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
+            bbox_inches="tight",
+        )
         plt.close()
 
         # 2nd file
@@ -1933,17 +1942,17 @@ def make_battery_unit_ic_plot():
         )
         plt.tight_layout()
         plt.savefig(
-            f"plots/battery_yearly_installed_capacity_{country}.png",
+            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
             bbox_inches="tight",
         )
         plt.close()
         util.write_small_json(
             dict(global_cost_with_learning.cached_stock_without_degradation),
-            f"plots/battery_yearly_installed_capacity_{country}.json",
+            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
         util.write_small_json(
             dict(global_cost_with_learning.cached_stock),
-            f"plots/battery_yearly_available_capacity_{country}.json",
+            f"plots/battery_yearly_available_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
 
         # 3rd file
@@ -1953,19 +1962,26 @@ def make_battery_unit_ic_plot():
             np.array(list(d.values()))
             for d in global_cost_with_learning.cached_stock_without_degradation.values()
         )
-        plt.plot(years, kW2GW(y))
+        y_cumsum = np.cumsum(y)
+
+        plt.plot(years, kW2GW(y), label="Annual")
+        plt.plot(years, kW2GW(y_cumsum), label="Cumulative")
+        plt.legend()
         plt.xlabel("Time")
         plt.ylabel("Annual installed capacity (GW)")
-        plt.savefig(f"plots/battery_yearly_installed_capacity_{country}_summed.png")
+        plt.savefig(
+            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}_summed.png"
+        )
         plt.close()
 
     MEASURE_GLOBAL_VARS = False
+    MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
     with_learning.VERBOSE_ANALYSIS = False
     util.CARBON_BUDGET_CONSISTENT = False
 
 
 if __name__ == "__main__":
-    if 1:
+    if 0:
         get_yearly_by_country_power()
         # get_yearly_by_country()
         exit()
@@ -1989,7 +2005,8 @@ if __name__ == "__main__":
         # Battery yearly
         # do_cf_battery_yearly()
         # make_battery_plot()
-        make_battery_unit_ic_plot()
+        make_battery_unit_ic_plot("Net Zero 2050")
+        make_battery_unit_ic_plot("Current Policies")
         exit()
     if 0:
         run_3_level_scc()

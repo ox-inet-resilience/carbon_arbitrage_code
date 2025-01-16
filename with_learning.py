@@ -32,13 +32,24 @@ if RENEWABLE_WEIGHT_SOURCE == "GCA1":
 irena = util.read_json("data/irena.json")
 
 
-def get_emde():
+def get_emde_developing_developed():
     emerging_country_shortnames = util.get_emerging_countries()
     developING_country_shortnames = util.get_developing_countries()
-    return emerging_country_shortnames + developING_country_shortnames
+    (
+        _,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    return (
+        emerging_country_shortnames + developING_country_shortnames,
+        developING_country_shortnames,
+        developed_country_shortnames,
+    )
 
 
-EMDE = get_emde()
+EMDE, DEVELOPING, DEVELOPED = get_emde_developing_developed()
 
 
 def prepare_fa_capacity_factor_data():
@@ -517,6 +528,16 @@ class InvestmentCostWithLearning:
                                 self.stocks_kW_battery_pe[tech][year].get(c, 0)
                                 for c in EMDE
                             )
+                        case "Developing":
+                            stock_battery_pe = sum(
+                                self.stocks_kW_battery_pe[tech][year].get(c, 0)
+                                for c in DEVELOPING
+                            )
+                        case "Developed":
+                            stock_battery_pe = sum(
+                                self.stocks_kW_battery_pe[tech][year].get(c, 0)
+                                for c in DEVELOPED
+                            )
                         case _:
                             stock_battery_pe = self.stocks_kW_battery_pe[tech][
                                 year
@@ -534,6 +555,10 @@ class InvestmentCostWithLearning:
                             stock = sum(stock.values())
                         case "EMDE":
                             stock = sum(stock.get(c, 0) for c in EMDE)
+                        case "Developing":
+                            stock = sum(stock.get(c, 0) for c in DEVELOPING)
+                        case "Developed":
+                            stock = sum(stock.get(c, 0) for c in DEVELOPED)
                         case _:
                             stock = stock.get(VERBOSE_ANALYSIS_COUNTRY, 0)
                 else:
@@ -559,6 +584,18 @@ class InvestmentCostWithLearning:
                                 for c in DeltaP.keys()
                                 if c in EMDE
                             )
+                        case "Developing":
+                            stock_battery_pe = sum(
+                                self.get_stock_battery_pe(c, tech, year)
+                                for c in DeltaP.keys()
+                                if c in DEVELOPING
+                            )
+                        case "Developed":
+                            stock_battery_pe = sum(
+                                self.get_stock_battery_pe(c, tech, year)
+                                for c in DeltaP.keys()
+                                if c in DEVELOPED
+                            )
                         case _:
                             stock_battery_pe = self.get_stock_battery_pe(
                                 VERBOSE_ANALYSIS_COUNTRY, tech, year
@@ -579,6 +616,16 @@ class InvestmentCostWithLearning:
                     case "EMDE":
                         self.cached_stock[tech][year] = (
                             sum(_fn(c, year) for c in DeltaP.keys() if c in EMDE)
+                            + stock_battery_pe
+                        )
+                    case "Developing":
+                        self.cached_stock[tech][year] = (
+                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPING)
+                            + stock_battery_pe
+                        )
+                    case "Developed":
+                        self.cached_stock[tech][year] = (
+                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPED)
                             + stock_battery_pe
                         )
                     case _:
