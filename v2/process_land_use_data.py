@@ -23,6 +23,14 @@ import with_learning  # noqa
 # Data source: https://www.fao.org/faostat/en/#data/LC (picked year 2022)
 df_land_use = pd.read_csv("./data/FAOSTAT_data_en_11-4-2024.csv.gz", compression="gzip")
 
+# territorial_area = df_land_use.groupby("Area")["Value"].sum() * 1e3 * 1e4
+# Taken from https://data.worldbank.org/indicator/AG.LND.TOTL.K2
+# Last Updated Date 2024-12-16
+# In km^2
+territorial_area = pd.read_csv("./data/API_AG.LND.TOTL.K2_DS2_en_csv_v2_1036.csv", usecols=["Country Code", "2022"]).set_index("Country Code")["2022"].to_dict()
+iso3166_df = util.read_iso3166()
+alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
+
 coastlines = (
     pd.read_csv("./plots/country_coastlines_dedup.csv")
     .set_index("alpha2")
@@ -57,8 +65,8 @@ def get_capacity_factor(tech, alpha2):
     return with_learning.get_capacity_factor(tech, alpha2)
 
 
-world_power_density_mwh = {
-    k: v * get_capacity_factor(k, "US")
+world_power_density_mw = {
+    k: v * get_capacity_factor(k, "US") * hours_in_1year
     for k, v in us_power_density_mwh.items()
 }
 
@@ -75,7 +83,7 @@ print(landlocked_countries_alpha2)
 #         print("???", a2, "is supposed to be landlocked")
 # exit()
 
-energy_types = list(world_power_density_mwh.keys())
+energy_types = list(world_power_density_mw.keys())
 
 alpha2s = "DE ID IN KZ PL TR US VN".split()
 alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
@@ -85,6 +93,8 @@ for alpha2 in alpha2s:
         # This is the name from FAOSTAT data
         country_name = "Iran (Islamic Republic of)"
     df_land_use_country = df_land_use[df_land_use.Area == country_name]
+    # In m^2
+    territorial_area_country = territorial_area[alpha2_to_alpha3[alpha2]] * 1e6
     if alpha2 == "IR":
         # The name provided by FAOSTAT is too long.
         country_name = "Iran"
@@ -138,7 +148,8 @@ for alpha2 in alpha2s:
         f"./plots/battery_yearly_available_capacity_Net Zero 2050_{alpha2}.json"
     )
     country_power_density_mwh = {
-        k: v / get_capacity_factor(k, alpha2) for k, v in world_power_density_mwh.items()
+        k: v / (get_capacity_factor(k, alpha2) * hours_in_1year)
+        for k, v in world_power_density_mw.items()
     }
     land_use_yearly_all_energies = defaultdict(list)
     land_use_yearly_all_energies_adjusted = defaultdict(lambda: defaultdict(float))
@@ -147,14 +158,16 @@ for alpha2 in alpha2s:
         for energy_type in energy_types:
             installed_capacity_kw = yearly_installed_capacity[energy_type][str(year)]
             installed_capacity_mw = installed_capacity_kw / 1e3
-            country_pd_mw = country_power_density_mwh[energy_type] * hours_in_1year
-            land_use = installed_capacity_mw * country_pd_mw
+            country_pd_mwh = country_power_density_mwh[energy_type]
+            cf = get_capacity_factor(energy_type, alpha2)
+            land_use = installed_capacity_mw * world_power_density_mw[energy_type]
             land_use_adjusted = land_use
             if energy_type == "hydropower":
                 if land_use > available_land[energy_type]:
                     excess_capacity_mw = (
                         land_use - available_land[energy_type]
-                    ) / country_pd_mw
+                    ) / world_power_density_mw
+                    excess_capacity_mwh = excess_capacity_mw * hours_in_1year * cf
                     # Truncate actual land use to not exceed available land
                     land_use_adjusted = available_land[energy_type]
                     installed_capacity_all_other = sum(
@@ -168,13 +181,23 @@ for alpha2 in alpha2s:
                         installed_capacity_other = yearly_installed_capacity[et_other][
                             str(year)
                         ]
-                        land_use_extra = (
-                            (installed_capacity_other / installed_capacity_all_other)
-                            * excess_capacity_mw
-                            * country_power_density_mwh[et_other] * hours_in_1year
+                        cf_other = get_capacity_factor(et_other, alpha2)
+                        fraction_other = (
+                            with_learning.get_renewable_weight(et_other, alpha2)
+                            / (
+                                1
+                                - with_learning.get_renewable_weight(
+                                    "hydropower", alpha2
+                                )
+                            )
+                        ) * (excess_capacity_mwh / (hours_in_1year * cf_other))
+                        land_use_reallocation = (
+                            fraction_other
+                            * country_power_density_mwh[et_other]
+                            * hours_in_1year
                         )
                         land_use_yearly_all_energies_adjusted[et_other][year] += (
-                            land_use_extra
+                            land_use_reallocation
                         )
             land_use_yearly_all_energies[energy_type].append(land_use)
             land_use_yearly_all_energies_adjusted[energy_type][year] += (
@@ -182,7 +205,9 @@ for alpha2 in alpha2s:
             )
 
     def _adjusted_array(energy_type):
-        return np.array(list(land_use_yearly_all_energies_adjusted[energy_type].values()))
+        return np.array(
+            list(land_use_yearly_all_energies_adjusted[energy_type].values())
+        )
 
     plt.figure()
     # solar and onshore wind
@@ -219,10 +244,7 @@ for alpha2 in alpha2s:
         color="tab:orange",
     )
     plt.plot(
-        years,
-        _adjusted_array("hydropower"),
-        color="tab:orange",
-        linestyle="dashdot"
+        years, _adjusted_array("hydropower"), color="tab:orange", linestyle="dashdot"
     )
     plt.axhline(
         available_land["hydropower"],
@@ -248,13 +270,25 @@ for alpha2 in alpha2s:
         color="tab:red",
     )
 
-    print(
-        "???",
-        alpha2,
-        coastline_area,
-        available_land["hydropower"],
-        land_use_yearly_all_energies["offshore_wind"][-1],
+    # Add dual y axis
+    def percentage2area(y):
+        return y / 100 * territorial_area_country
+
+    def area2percentage(y):
+        return y / territorial_area_country * 100
+
+    ax2 = plt.gca().secondary_yaxis(
+        "right", functions=(area2percentage, percentage2area)
     )
+    ax2.set_ylabel("Cumulative land use/Total land (%)")
+
+    # print(
+    #     "???",
+    #     alpha2,
+    #     coastline_area,
+    #     available_land["hydropower"],
+    #     land_use_yearly_all_energies["offshore_wind"][-1],
+    # )
     # for energy_type, land_use in land_use_yearly_all_energies.items():
     #     plt.plot(years, np.cumsum(land_use), label=energy_type)
     # available_land_summed = sum(available_land.values())

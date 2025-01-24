@@ -3,6 +3,7 @@ import geopandas as gpd
 import polars as pl
 import pycountry
 from shapely import to_wkb
+import pandas as pd
 
 
 # Create a mapping of country names to alpha-2 codes
@@ -95,8 +96,16 @@ for country in country_boundaries_df.iter_rows(named=True):
         }
     )
 
-# Convert results to a Polars DataFrame
-coastline_lengths_df = pl.DataFrame(coastline_lengths)
+# Convert results to a pandas DataFrame
+coastline_lengths_df = pd.DataFrame(coastline_lengths)
 
 # Save the results to a CSV file
-coastline_lengths_df.write_csv("plots/country_coastlines.csv")
+coastline_lengths_df.to_csv("plots/country_coastlines.csv")
+
+# Save dedup version to a CSV file
+coastline_lengths_df = (
+    coastline_lengths_df.groupby("alpha2")["coastline_length_km"]
+    .sum()
+    .sort_values(ascending=False)
+)
+coastline_lengths_df.to_csv("plots/country_coastlines_dedup.csv")
