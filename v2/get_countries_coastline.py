@@ -20,7 +20,9 @@ def get_alpha2(country_name):
 
 
 # Load the country boundaries and water bodies data (replace file paths with actual data)
+# Source: https://marineregions.org/downloads.php
 country_boundaries_gdf = gpd.read_file("./data/World_24NM_v4_20231025/eez_24nm_v4.shp")
+# Source: https://osmdata.openstreetmap.de/data/water-polygons.html
 water_bodies_gdf = gpd.read_file(
     "./data/simplified-water-polygons-split-3857/simplified_water_polygons.shp"
 )
