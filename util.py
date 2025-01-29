@@ -39,8 +39,8 @@ social_cost_of_carbon_imf = 80
 scc_biden_administration = 190
 # Bilal, Adrien, and Diego R. Känzig. The Macroeconomic Impact of Climate Change: Global vs. Local Temperature. No. w32450. National Bureau of Economic Research, 2024.
 scc_bilal = 1056
-social_cost_of_carbon = social_cost_of_carbon_imf
-# social_cost_of_carbon = social_cost_of_carbon_biden_administration
+# social_cost_of_carbon = social_cost_of_carbon_imf
+social_cost_of_carbon = scc_biden_administration
 # social_cost_of_carbon = scc_bilal
 # Taken from https://data.worldbank.org/indicator/NY.GDP.MKTP.CD
 world_gdp_2023 = 105.44  # trillion dolars
