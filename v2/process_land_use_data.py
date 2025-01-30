@@ -3,6 +3,7 @@ import pathlib
 import sys
 from collections import defaultdict
 
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -27,15 +28,16 @@ df_land_use = pd.read_csv("./data/FAOSTAT_data_en_11-4-2024.csv.gz", compression
 # Taken from https://data.worldbank.org/indicator/AG.LND.TOTL.K2
 # Last Updated Date 2024-12-16
 # In km^2
-territorial_area = pd.read_csv("./data/API_AG.LND.TOTL.K2_DS2_en_csv_v2_1036.csv", usecols=["Country Code", "2022"]).set_index("Country Code")["2022"].to_dict()
+territorial_area = (
+    pd.read_csv(
+        "./data/API_AG.LND.TOTL.K2_DS2_en_csv_v2_1036.csv",
+        usecols=["Country Code", "2022"],
+    )
+    .set_index("Country Code")["2022"]
+    .to_dict()
+)
 iso3166_df = util.read_iso3166()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
-
-coastlines = (
-    pd.read_csv("./plots/country_coastlines_dedup.csv")
-    .set_index("alpha2")
-    .coastline_length_km.to_dict()
-)
 
 # m^2 / MWh
 us_power_density_mwh = {
@@ -65,6 +67,61 @@ def get_capacity_factor(tech, alpha2):
     return with_learning.get_capacity_factor(tech, alpha2)
 
 
+# Load the country EEZ data
+if 0:
+    # Source: https://marineregions.org/downloads.php
+    eez_gdf = gpd.read_file("./data/World_24NM_v4_20231025/eez_24nm_v4.shp")
+    eez_gdf["alpha2"] = eez_gdf["SOVEREIGN1"].apply(get_alpha2)
+    # Merge all the polygons of each country into 1
+    eez_dissolved = eez_gdf.dissolve(by="SOVEREIGN1").reset_index()
+    # Project the EEZs to an equal-area projection
+    eez_truncated_projected = eez_dissolved.to_crs(epsg=6933)
+    eez_truncated_projected["area_km2"] = eez_truncated_projected.geometry.area / 1e6
+    eez = eez_truncated_projected.set_index("alpha2")["area_km2"]
+    eez.to_csv("./plots/eez_area.csv")
+    exit()
+eez = pd.read_csv("./plots/eez_area.csv").set_index("alpha2")["area_km2"].to_dict()
+
+
+def make_4_panel_plot(land_use):
+    fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(8, 15), sharex=True)
+
+    # Panel 1: "Total renewable space"
+    land_use_all = sum(land_use.values())
+    axes[0].plot(land_use_all, y_data_total_renewable)
+    axes[0].set_title("Total renewable space")
+    axes[0].set_ylabel("% of country's land")
+    axes[0].set_xscale("log")  # log scale for x-axis
+    # Note: x-axis label could be omitted here if you're sharing x-axis across subplots
+    # but let's put the main x-axis label on the bottom-most subplot
+
+    # Panel 2: "Solar space"
+    axes[1].plot(x_data, y_data_solar)
+    axes[1].set_title("Solar space")
+    axes[1].set_ylabel("% of country's land")
+    axes[1].set_xscale("log")
+
+    # Panel 3: "Wind onshore space"
+    axes[2].plot(x_data, y_data_wind_onshore)
+    axes[2].set_title("Wind onshore space")
+    axes[2].set_ylabel("% of country's land")
+    axes[2].set_xscale("log")
+
+    # Panel 5: "Wind offshore space"
+    # (Normally you'd list this as panel 4, but following the given numbering)
+    axes[3].plot(x_data, y_data_wind_offshore)
+    axes[3].set_title("Wind offshore space")
+    axes[3].set_ylabel("% of country's land")
+    axes[3].set_xscale("log")
+
+    # Panel 4: "Hydro space"
+    axes[4].plot(x_data, y_data_hydro)
+    axes[4].set_title("Hydro space")
+    axes[4].set_xlabel("Country's land (m^2) [log scale]")
+    axes[4].set_ylabel("% of country's land")
+    axes[4].set_xscale("log")
+
+
 world_power_density_mw = {
     k: v * get_capacity_factor(k, "US") * hours_in_1year
     for k, v in us_power_density_mwh.items()
@@ -74,19 +131,13 @@ landlocked_countries = pd.read_csv(
     "./data/landlocked_countries_wikipedia.csv", header=None
 )
 landlocked_countries_alpha2 = landlocked_countries[0].apply(get_alpha2).tolist()
-df_countries_coastlines = pd.read_csv("./plots/country_coastlines.csv")
 print(landlocked_countries_alpha2)
-# Sanity check
-# for i, row in df_countries_coastlines.iterrows():
-#     a2 = row["alpha2"]
-#     if a2 in landlocked_countries_alpha2:
-#         print("???", a2, "is supposed to be landlocked")
-# exit()
 
 energy_types = list(world_power_density_mw.keys())
+land_use_all_countries = {}
 
 alpha2s = "DE ID IN KZ PL TR US VN".split()
-alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
+alpha2s = "EG IN ID ZA MX VN IR TH TR BD NL".split()
 for alpha2 in alpha2s:
     country_name = pycountry.countries.get(alpha_2=alpha2).name
     if alpha2 == "IR":
@@ -131,17 +182,7 @@ for alpha2 in alpha2s:
     # Wind off shore 43.40503846 (Zalk & Beheren)
     # m2/MW
     # 102731.9131278972
-    # The number 25 MW comes from offshore wind power rating in
-    # https://www.statista.com/statistics/1488800/offshore-wind-turbines-average-power-rating-worldwide
-    length_1_wind_turbine = math.sqrt(102731.9131278972 * 25)  # m
-    coastline_country = coastlines.get(alpha2, 0) * 1e3  # m
-    # We assume 10 rows of offshore wind turbine
-    coastline_area = 10 * coastline_country * length_1_wind_turbine  # m^2
-
-    # Second method is to consider the thickness of the coastline stripe as a
-    # country's average territorial sea, 12 nautical miles, i.e. 22224 meters.
-    # https://www.un.org/depts/los/convention_agreements/texts/unclos/unclos_e.pdf
-    coastline_area = 22224 * coastline_country  # m^2
+    eez_area = eez.get(alpha2, 0) * 1e6  # m^2
 
     # in kW
     yearly_installed_capacity = util.read_json(
@@ -204,31 +245,27 @@ for alpha2 in alpha2s:
                 land_use_adjusted
             )
 
-    def _adjusted_array(energy_type):
-        return np.array(
-            list(land_use_yearly_all_energies_adjusted[energy_type].values())
-        )
+    # Convert values to NumPy arrays
+    for k, v in land_use_yearly_all_energies.items():
+        land_use_yearly_all_energies[k] = np.array(v)
+    for k, v in land_use_yearly_all_energies_adjusted.items():
+        land_use_yearly_all_energies_adjusted[k] = np.array(list(v.values()))
 
     plt.figure()
     # solar and onshore wind
     plt.plot(
         years,
-        np.array(land_use_yearly_all_energies["solar"])
-        + np.array(land_use_yearly_all_energies["onshore_wind"]),
+        land_use_yearly_all_energies["solar"]
+        + land_use_yearly_all_energies["onshore_wind"],
         label="Solar & wind onshore",
         color="tab:blue",
     )
     plt.plot(
         years,
-        _adjusted_array("solar") + _adjusted_array("onshore_wind"),
+        land_use_yearly_all_energies_adjusted["solar"]
+        + land_use_yearly_all_energies_adjusted["onshore_wind"],
         color="tab:blue",
         linestyle="dashdot",
-    )
-    plt.axhline(
-        available_land["solar"] + available_land["solar_and_onshore_wind"],
-        # label="Available solar & wind onshore",
-        linestyle="dotted",
-        color="tab:blue",
     )
     plt.axhline(
         available_land_two_ticks["onshore_wind"]
@@ -239,12 +276,15 @@ for alpha2 in alpha2s:
 
     plt.plot(
         years,
-        np.array(land_use_yearly_all_energies["hydropower"]),
+        land_use_yearly_all_energies["hydropower"],
         label="Hydropower",
         color="tab:orange",
     )
     plt.plot(
-        years, _adjusted_array("hydropower"), color="tab:orange", linestyle="dashdot"
+        years,
+        land_use_yearly_all_energies_adjusted["hydropower"],
+        color="tab:orange",
+        linestyle="dashdot",
     )
     plt.axhline(
         available_land["hydropower"],
@@ -254,18 +294,18 @@ for alpha2 in alpha2s:
 
     plt.plot(
         years,
-        np.array(land_use_yearly_all_energies["offshore_wind"]),
+        land_use_yearly_all_energies["offshore_wind"],
         label="Wind Offshore",
         color="tab:red",
     )
     plt.plot(
         years,
-        _adjusted_array("offshore_wind"),
+        land_use_yearly_all_energies_adjusted["offshore_wind"],
         color="tab:red",
         linestyle="dashdot",
     )
     plt.axhline(
-        coastline_area,
+        eez_area,
         linestyle="dotted",
         color="tab:red",
     )
@@ -285,7 +325,7 @@ for alpha2 in alpha2s:
     # print(
     #     "???",
     #     alpha2,
-    #     coastline_area,
+    #     eez_area,
     #     available_land["hydropower"],
     #     land_use_yearly_all_energies["offshore_wind"][-1],
     # )
@@ -301,3 +341,5 @@ for alpha2 in alpha2s:
 
     # plt.gca().set_yscale("log")
     plt.savefig(f"plots/land_use_{alpha2}.png")
+    land_use_all_countries[alpha2] = land_use_yearly_all_energies
+# make_4_panel_plot(land_use_all_countries)
