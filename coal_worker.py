@@ -193,6 +193,23 @@ def calculate(
     return out
 
 
+def calculate_for_phaseout_order(subsector):
+    subsector_column = subsector_column_map[subsector]
+    wage_usd_dict = (
+        df_coal_worker[f"Average Annual Salary {subsector_column} USD"]
+        .replace(r"^\s*$", np.nan, regex=True)
+        .astype(float)
+        .to_dict()
+    )
+    num_coal_workers_dict = df_coal_worker[f"{subsector_column}_workers"].to_dict()
+    oc_by_country = {}
+    for country in countries:
+        wage = wage_usd_dict.get(country, 0)
+        oc_by_country[country] = num_coal_workers_dict.get(country, 0) * wage * (5 + ic_usa / wage_usd_dict["US"])
+    # In USD
+    return oc_by_country
+
+
 if __name__ == "__main__":
     for last_year in [2035, 2050]:
         for subsector in subsector_column_map:

@@ -9,6 +9,7 @@ sys.path.append(parent_dir)
 
 import util  # noqa
 import analysis_main  # noqa
+import coal_worker  # noqa
 
 last_year = 2050
 util.CARBON_BUDGET_CONSISTENT = "15-50"
@@ -237,16 +238,31 @@ def prepare_by_emissions_per_oc(df):
         cumulative_emissions_projection[intersection] / emissions_fa[intersection]
     )
 
+    opportunity_cost_worker = {
+        ss: coal_worker.calculate_for_phaseout_order(ss) for ss in util.SUBSECTORS
+    }
+
+    # Used for power plant fraction for opportunity cost worker
+    capacity_subsector_country = df.groupby(["subsector", "asset_country"])[
+        "capacity"
+    ].sum()
+
     def func(row):
         if row.subsector == "Other":
             return 0
 
-        # Division by 1e9 converts to trillion USD
         opportunity_cost = (
             row.activity
             * get_activity_unit_multiplier(row)
             * profit_projection_per_production_fa[row.subsector][row.asset_country]
-        ) / 1e9
+        )
+        opportunity_cost += (
+            row.capacity
+            / capacity_subsector_country.loc[(row.subsector, row.asset_country)]
+            * opportunity_cost_worker[row.subsector][row.asset_country]
+        )
+        # Division by 1e12 converts to trillion USD
+        opportunity_cost /= 1e12
         if opportunity_cost <= 0:
             return 0
         # The division of emissions by 1e3 converts MtCO2 to GtCO2.
@@ -307,6 +323,15 @@ def prepare_by_emissions_per_oc_with_maturity(df):
         for subsector in util.SUBSECTORS
     }
 
+    opportunity_cost_worker = {
+        ss: coal_worker.calculate_for_phaseout_order(ss) for ss in util.SUBSECTORS
+    }
+
+    # Used for power plant fraction for opportunity cost worker
+    capacity_subsector_country = df.groupby(["subsector", "asset_country"])[
+        "capacity"
+    ].sum()
+
     def func(row):
         if row.subsector == "Other":
             return 0
@@ -318,18 +343,29 @@ def prepare_by_emissions_per_oc_with_maturity(df):
             discounted_sum(profit_projection_subsector[: maturity_index + 1])
             / fa_by_subsector[row.subsector]
         )
-        # Division by 1e9 converts to trillion USD
+        # Division by 1e12 converts to trillion USD
         opportunity_cost = (
             row.activity
             * get_activity_unit_multiplier(row)
             * profit_per_fa[row.asset_country]
-        ) / 1e9
+        )
+        opportunity_cost += (
+            row.capacity
+            / capacity_subsector_country.loc[(row.subsector, row.asset_country)]
+            * opportunity_cost_worker[row.subsector][row.asset_country]
+        )
+        opportunity_cost /= 1e12
         if opportunity_cost <= 0:
             return 0
 
         cumulative_emissions_projection = sum(
             emissions_with_ngfs_projection[: maturity_index + 1]
         )
+        if (
+            isinstance(cumulative_emissions_projection, int)
+            and cumulative_emissions_projection == 0
+        ):
+            return 0
         intersection = cumulative_emissions_projection.index.intersection(
             emissions_fa.index
         )

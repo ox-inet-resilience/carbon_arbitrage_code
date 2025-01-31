@@ -323,7 +323,9 @@ def read_ngfs():
     return {
         "production": pd.read_csv("data/2-GCAM6-filtered-prim-and-secon-energy.csv.gz"),
         "emissions": pd.read_csv("data/3-GCAM6-emissions.csv.gz"),
-        "emissions_ai": pd.read_csv("data/7.1.3 - emissions - by country - cpfaai - low.csv.gz")
+        "emissions_ai": pd.read_csv(
+            "data/7.1.3 - emissions - by country - cpfaai - low.csv.gz"
+        ),
     }
 
 
@@ -335,6 +337,7 @@ def read_carbon_budget_consistent(carbon_budget_consistent):
         "16-67": "8.1-NZ-16-67-v2-Secondary-annual.csv",
     }[carbon_budget_consistent]
     return pd.read_csv(f"./data_private/{fname}")
+
 
 def calculate_ngfs_projection(
     production_or_emissions,
@@ -452,7 +455,12 @@ def calculate_ngfs_projection(
         for subsector in subsectors:
             for i in range(len(years_interpolated)):
                 final_out_profit[subsector].append(
-                    pd.Series({country: value[i] for country, value in out_profit[subsector].items()})
+                    pd.Series(
+                        {
+                            country: value[i]
+                            for country, value in out_profit[subsector].items()
+                        }
+                    )
                 )
     if production_or_emissions == "production":
         for i in range(len(years_interpolated)):
