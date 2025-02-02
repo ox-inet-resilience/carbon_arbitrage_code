@@ -1,4 +1,3 @@
-import math
 import pathlib
 import sys
 from collections import defaultdict
@@ -8,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pycountry
+from adjustText import adjust_text
 
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
@@ -83,43 +83,79 @@ if 0:
 eez = pd.read_csv("./plots/eez_area.csv").set_index("alpha2")["area_km2"].to_dict()
 
 
-def make_4_panel_plot(land_use):
+def make_4_panel_plot(
+    land_use, percent_land_use, country_names, exclude_from_annotation
+):
     fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(8, 15), sharex=True)
+    # Only use the last year value
+    for a2, v in land_use.items():
+        for energy_type, vv in v.items():
+            land_use[a2][energy_type] = vv[-1]
 
     # Panel 1: "Total renewable space"
-    land_use_all = sum(land_use.values())
-    axes[0].plot(land_use_all, y_data_total_renewable)
-    axes[0].set_title("Total renewable space")
-    axes[0].set_ylabel("% of country's land")
-    axes[0].set_xscale("log")  # log scale for x-axis
+    land_use_all = [
+        sum(v for k, v in d.items() if k != "wind_offshore") for d in land_use.values()
+    ]
+    percent_land_use_all = [
+        sum(v for k, v in d.items() if k != "wind_offshore")
+        for d in percent_land_use.values()
+    ]
+    axes[0].scatter(land_use_all, percent_land_use_all)
+    axes[0].set_title("Total renewable space  (excl. offshore wind)")
+    plt.sca(axes[0])
+    # annotate with alpha2's
+    texts = []
+    for x, y, s in zip(land_use_all, percent_land_use_all, country_names):
+        if s in exclude_from_annotation:
+            # No need to annotate the developing countries
+            continue
+        texts.append(plt.text(x, y, s))
+    adjust_text(
+        texts,
+        only_move={"points": "y", "texts": "y"},
+        arrowprops=dict(arrowstyle="->", color="r", lw=0.5),
+    )
+    # for i, txt in enumerate(country_names):
+    #     axes[0].annotate(txt, (land_use_all[i], percent_land_use_all[i]))
+
     # Note: x-axis label could be omitted here if you're sharing x-axis across subplots
     # but let's put the main x-axis label on the bottom-most subplot
 
-    # Panel 2: "Solar space"
-    axes[1].plot(x_data, y_data_solar)
-    axes[1].set_title("Solar space")
-    axes[1].set_ylabel("% of country's land")
-    axes[1].set_xscale("log")
+    def _do_plot(energy_type, title, ax):
+        land_use_energy_type = [d[energy_type] for d in land_use.values()]
+        percent_land_use_energy_type = [
+            d[energy_type] for d in percent_land_use.values()
+        ]
+        ax.scatter(land_use_energy_type, percent_land_use_energy_type)
+        plt.sca(ax)
+        # annotate with alpha2's
+        texts = []
+        for x, y, s in zip(
+            land_use_energy_type, percent_land_use_energy_type, country_names
+        ):
+            if s in exclude_from_annotation:
+                # No need to annotate the developing countries
+                continue
+            texts.append(plt.text(x, y, s))
+        adjust_text(
+            texts,
+            only_move={"points": "y", "texts": "y"},
+            arrowprops=dict(arrowstyle="->", color="r", lw=0.5),
+        )
+        # for i, txt in enumerate(country_names):
+        #     ax.annotate(txt, (land_use_energy_type[i], percent_land_use_energy_type[i]))
+        ax.set_title(title)
 
-    # Panel 3: "Wind onshore space"
-    axes[2].plot(x_data, y_data_wind_onshore)
-    axes[2].set_title("Wind onshore space")
-    axes[2].set_ylabel("% of country's land")
-    axes[2].set_xscale("log")
+    _do_plot("solar", "Solar space", axes[1])
+    _do_plot("onshore_wind", "Wind onshore space", axes[2])
+    _do_plot("hydropower", "Hydro space", axes[3])
+    _do_plot("offshore_wind", "Wind offshore space", axes[4])
 
-    # Panel 5: "Wind offshore space"
-    # (Normally you'd list this as panel 4, but following the given numbering)
-    axes[3].plot(x_data, y_data_wind_offshore)
-    axes[3].set_title("Wind offshore space")
-    axes[3].set_ylabel("% of country's land")
-    axes[3].set_xscale("log")
-
-    # Panel 4: "Hydro space"
-    axes[4].plot(x_data, y_data_hydro)
-    axes[4].set_title("Hydro space")
-    axes[4].set_xlabel("Country's land (m^2) [log scale]")
-    axes[4].set_ylabel("% of country's land")
-    axes[4].set_xscale("log")
+    for i in range(5):
+        axes[i].set_ylabel("% of country's land")
+        # axes[i].set_xscale("log")
+    axes[4].set_xlabel("Country's land use ($m^2$)")
+    plt.savefig("plots/land_use_combined.png")
 
 
 world_power_density_mw = {
@@ -127,54 +163,68 @@ world_power_density_mw = {
     for k, v in us_power_density_mwh.items()
 }
 
-landlocked_countries = pd.read_csv(
-    "./data/landlocked_countries_wikipedia.csv", header=None
-)
-landlocked_countries_alpha2 = landlocked_countries[0].apply(get_alpha2).tolist()
-print(landlocked_countries_alpha2)
+# landlocked_countries = pd.read_csv(
+#     "./data/landlocked_countries_wikipedia.csv", header=None
+# )
+# landlocked_countries_alpha2 = landlocked_countries[0].apply(get_alpha2).tolist()
 
 energy_types = list(world_power_density_mw.keys())
 land_use_all_countries = {}
+percent_land_use_all_countries = {}
+country_names = []
 
 alpha2s = "DE ID IN KZ PL TR US VN".split()
-alpha2s = "EG IN ID ZA MX VN IR TH TR BD NL".split()
+alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
+alpha2s += with_learning.DEVELOPING_UNFCCC
+exclude_from_annotation = []
 for alpha2 in alpha2s:
+    if alpha2 in "CI ET GN CD HT MW NP SD BT BI KM GM GW LS LR ST PS".split():
+        # Forward analytics doesn't have these countries
+        continue
+    if alpha2 in ["EH"]:
+        # Excluded because it causes error when saving the figure
+        continue
     country_name = pycountry.countries.get(alpha_2=alpha2).name
     if alpha2 == "IR":
         # This is the name from FAOSTAT data
         country_name = "Iran (Islamic Republic of)"
     df_land_use_country = df_land_use[df_land_use.Area == country_name]
     # In m^2
-    territorial_area_country = territorial_area[alpha2_to_alpha3[alpha2]] * 1e6
+    territorial_area_country = territorial_area.get(alpha2_to_alpha3[alpha2], 0) * 1e6
     if alpha2 == "IR":
         # The name provided by FAOSTAT is too long.
         country_name = "Iran"
+
+    if alpha2 in with_learning.DEVELOPING_UNFCCC:
+        exclude_from_annotation.append(country_name)
+
     available_land = defaultdict(float)
     available_land_two_ticks = defaultdict(float)
     for i, row in df_land_use_country.iterrows():
         assert row["Unit"] == "1000 ha"
         value = row["Value"] * 1e3 * 1e4
-        match row["Item"]:
-            case "Woody crops":
-                # In m^2
-                # 1 ha is 1e4 m^2
-                available_land["solar"] += value
-            case (
-                "Herbaceous crops"
-                | "Grassland"
-                | "Shrub-covered areas"
-                | "Sparsely natural vegetated areas"
-                | "Terrestrial barren land"
-            ):
-                available_land["solar_and_onshore_wind"] += value
-            case "Inland water bodies":
-                available_land["hydropower"] += value
+        # Disable 1 tick for now
+        # match row["Item"]:
+        #     case "Woody crops":
+        #         # In m^2
+        #         # 1 ha is 1e4 m^2
+        #         available_land["solar"] += value
+        #     case (
+        #         "Herbaceous crops"
+        #         | "Grassland"
+        #         | "Shrub-covered areas"
+        #         | "Sparsely natural vegetated areas"
+        #         | "Terrestrial barren land"
+        #     ):
+        #         available_land["solar_and_onshore_wind"] += value
+        #     case "Inland water bodies":
+        #         available_land["hydropower"] += value
 
         match row["Item"]:
             case "Herbaceous crops" | "Grassland" | "Sparsely natural vegetated areas":
                 available_land_two_ticks["onshore_wind"] += value
             case "Terrestrial barren land":
-                available_land_two_ticks["solar_and_onshore_wind"] += value
+                available_land_two_ticks["solar"] += value
             case "Inland water bodies":
                 available_land_two_ticks["hydropower"] += value
 
@@ -203,43 +253,44 @@ for alpha2 in alpha2s:
             cf = get_capacity_factor(energy_type, alpha2)
             land_use = installed_capacity_mw * world_power_density_mw[energy_type]
             land_use_adjusted = land_use
-            if energy_type == "hydropower":
-                if land_use > available_land[energy_type]:
-                    excess_capacity_mw = (
-                        land_use - available_land[energy_type]
-                    ) / world_power_density_mw
-                    excess_capacity_mwh = excess_capacity_mw * hours_in_1year * cf
-                    # Truncate actual land use to not exceed available land
-                    land_use_adjusted = available_land[energy_type]
-                    installed_capacity_all_other = sum(
-                        yearly_installed_capacity[energy_type][str(year)]
-                        for energy_type in energy_types
-                        if energy_type != "hydropower"
-                    )
-                    for et_other in energy_types:
-                        if et_other == "hydropower":
-                            continue
-                        installed_capacity_other = yearly_installed_capacity[et_other][
-                            str(year)
-                        ]
-                        cf_other = get_capacity_factor(et_other, alpha2)
-                        fraction_other = (
-                            with_learning.get_renewable_weight(et_other, alpha2)
-                            / (
-                                1
-                                - with_learning.get_renewable_weight(
-                                    "hydropower", alpha2
-                                )
-                            )
-                        ) * (excess_capacity_mwh / (hours_in_1year * cf_other))
-                        land_use_reallocation = (
-                            fraction_other
-                            * country_power_density_mwh[et_other]
-                            * hours_in_1year
-                        )
-                        land_use_yearly_all_energies_adjusted[et_other][year] += (
-                            land_use_reallocation
-                        )
+            # Don't reallocate for now
+            # if energy_type == "hydropower":
+            #     if land_use > available_land_two_ticks[energy_type]:
+            #         excess_capacity_mw = (
+            #             land_use - available_land_two_ticks[energy_type]
+            #         ) / world_power_density_mw[energy_type]
+            #         excess_capacity_mwh = excess_capacity_mw * hours_in_1year * cf
+            #         # Truncate actual land use to not exceed available land
+            #         land_use_adjusted = available_land_two_ticks[energy_type]
+            #         installed_capacity_all_other = sum(
+            #             yearly_installed_capacity[energy_type][str(year)]
+            #             for energy_type in energy_types
+            #             if energy_type != "hydropower"
+            #         )
+            #         for et_other in energy_types:
+            #             if et_other == "hydropower":
+            #                 continue
+            #             installed_capacity_other = yearly_installed_capacity[et_other][
+            #                 str(year)
+            #             ]
+            #             cf_other = get_capacity_factor(et_other, alpha2)
+            #             fraction_other = (
+            #                 with_learning.get_renewable_weight(et_other, alpha2)
+            #                 / (
+            #                     1
+            #                     - with_learning.get_renewable_weight(
+            #                         "hydropower", alpha2
+            #                     )
+            #                 )
+            #             ) * (excess_capacity_mwh / (hours_in_1year * cf_other))
+            #             land_use_reallocation = (
+            #                 fraction_other
+            #                 * country_power_density_mwh[et_other]
+            #                 * hours_in_1year
+            #             )
+            #             land_use_yearly_all_energies_adjusted[et_other][year] += (
+            #                 land_use_reallocation
+            #             )
             land_use_yearly_all_energies[energy_type].append(land_use)
             land_use_yearly_all_energies_adjusted[energy_type][year] += (
                 land_use_adjusted
@@ -251,95 +302,69 @@ for alpha2 in alpha2s:
     for k, v in land_use_yearly_all_energies_adjusted.items():
         land_use_yearly_all_energies_adjusted[k] = np.array(list(v.values()))
 
+    percent_land_use_all_countries[alpha2] = {}
     plt.figure()
-    # solar and onshore wind
-    plt.plot(
-        years,
-        land_use_yearly_all_energies["solar"]
-        + land_use_yearly_all_energies["onshore_wind"],
-        label="Solar & wind onshore",
-        color="tab:blue",
-    )
-    plt.plot(
-        years,
-        land_use_yearly_all_energies_adjusted["solar"]
-        + land_use_yearly_all_energies_adjusted["onshore_wind"],
-        color="tab:blue",
-        linestyle="dashdot",
-    )
-    plt.axhline(
-        available_land_two_ticks["onshore_wind"]
-        + available_land_two_ticks["solar_and_onshore_wind"],
-        linestyle="dotted",
-        color="tab:blue",
-    )
 
-    plt.plot(
-        years,
-        land_use_yearly_all_energies["hydropower"],
-        label="Hydropower",
-        color="tab:orange",
-    )
-    plt.plot(
-        years,
-        land_use_yearly_all_energies_adjusted["hydropower"],
-        color="tab:orange",
-        linestyle="dashdot",
-    )
-    plt.axhline(
-        available_land["hydropower"],
-        linestyle="dotted",
-        color="tab:orange",
-    )
-
-    plt.plot(
-        years,
-        land_use_yearly_all_energies["offshore_wind"],
-        label="Wind Offshore",
-        color="tab:red",
-    )
-    plt.plot(
-        years,
-        land_use_yearly_all_energies_adjusted["offshore_wind"],
-        color="tab:red",
-        linestyle="dashdot",
-    )
-    plt.axhline(
-        eez_area,
-        linestyle="dotted",
-        color="tab:red",
-    )
-
-    # Add dual y axis
+    # For dual y axis
     def percentage2area(y):
         return y / 100 * territorial_area_country
 
     def area2percentage(y):
-        return y / territorial_area_country * 100
+        return y / territorial_area_country * 100 if territorial_area_country > 0 else 0
 
+    for energy_type, color, label in [
+        ("solar", "tab:blue", "Solar"),
+        ("onshore_wind", "tab:orange", "Wind onshore"),
+        ("hydropower", "tab:red", "Hydropower"),
+        ("offshore_wind", "tab:green", "Wind offshore"),
+    ]:
+        plt.plot(
+            years,
+            land_use_yearly_all_energies[energy_type],
+            label=label,
+            color=color,
+        )
+        plt.plot(
+            years,
+            land_use_yearly_all_energies_adjusted[energy_type],
+            color=color,
+            linestyle="dashdot",
+        )
+        if energy_type == "offshore_wind":
+            available = eez_area
+        else:
+            available = available_land_two_ticks[energy_type]
+        plt.axhline(
+            available,
+            linestyle="dotted",
+            color=color,
+        )
+        percent_land_use_all_countries[alpha2][energy_type] = area2percentage(available)
+
+    # Add dual y axis
     ax2 = plt.gca().secondary_yaxis(
         "right", functions=(area2percentage, percentage2area)
     )
     ax2.set_ylabel("Cumulative land use/Total land (%)")
 
-    # print(
-    #     "???",
-    #     alpha2,
-    #     eez_area,
-    #     available_land["hydropower"],
-    #     land_use_yearly_all_energies["offshore_wind"][-1],
-    # )
-    # for energy_type, land_use in land_use_yearly_all_energies.items():
-    #     plt.plot(years, np.cumsum(land_use), label=energy_type)
-    # available_land_summed = sum(available_land.values())
-    # plt.axhline(available_land_summed, color="black", label="Available land")
     plt.xlabel("Time (years)")
     plt.ylabel("Cumulative land use ($m^2$)")
     if alpha2 == "BD":
         plt.legend()
     plt.title(country_name)
 
-    # plt.gca().set_yscale("log")
-    plt.savefig(f"plots/land_use_{alpha2}.png")
-    land_use_all_countries[alpha2] = land_use_yearly_all_energies
-# make_4_panel_plot(land_use_all_countries)
+    plt.gca().set_yscale("log")
+    try:
+        plt.savefig(f"plots/land_use_{alpha2}.png")
+    except Exception as e:
+        print("Not possible to save", alpha2, e)
+    plt.close()
+    land_use_all_countries[alpha2] = land_use_yearly_all_energies_adjusted
+    country_names.append(country_name)
+
+make_4_panel_plot(
+    land_use_all_countries,
+    percent_land_use_all_countries,
+    country_names,
+    exclude_from_annotation,
+)
