@@ -1807,13 +1807,19 @@ def make_battery_unit_ic_plot(scenario):
     for (
         country
     ) in "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split():
+    # ) in with_learning.DEVELOPING_UNFCCC:
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         title = (
             a2_to_full_name[country]
             if country not in ["WORLD", "EMDE", "Developed_UNFCCC", "Developing_UNFCCC"]
             else country
         )
-        run_table1(to_csv=False, do_round=False, plot_yearly=False)
+        print(title)
+        try:
+            run_table1(to_csv=False, do_round=False, plot_yearly=False)
+        except Exception as e:
+            print("FA doesn't have this country's data:", e)
+            continue
         fig, axs = plt.subplots(1, 2, figsize=(8, 5))
 
         plt.sca(axs[0])
