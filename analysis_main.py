@@ -1829,10 +1829,17 @@ def make_battery_unit_ic_plot(scenario):
                 global_cost_with_learning.cached_investment_costs[name].values(),
                 label=label,
             )
-        # Need to convert $/GJ to $/kWh
+        # Need to convert $/GJ to $/kWh, then to $/kW, by multiplying by number of seconds in 1 day
+        # This is because the short term battery is fully discharged by each day.
         plt.plot(
             years,
-            per_GJ2per_kWh(global_cost_with_learning.battery_unit_ic["short"].values()),
+            np.array(
+                per_GJ2per_kWh(
+                    global_cost_with_learning.battery_unit_ic["short"].values()
+                )
+            )
+            * 24
+            * 3600,
             label="Short",
         )
         plt.plot(
@@ -2014,7 +2021,8 @@ if __name__ == "__main__":
         # do_cf_battery_yearly()
         # make_battery_plot()
         make_battery_unit_ic_plot("Net Zero 2050")
-        make_battery_unit_ic_plot("Current Policies")
+        # Halt to coal production
+        # make_battery_unit_ic_plot("Current Policies")
         exit()
     if 0:
         run_3_level_scc()

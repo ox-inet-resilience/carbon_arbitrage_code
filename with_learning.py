@@ -603,7 +603,7 @@ class InvestmentCostWithLearning:
 
                 match tech:
                     case "short":
-                        _fn = lambda c, y: self.get_stock_battery_short(y, c)  # noqa
+                        _fn = lambda c, y: self.GJ2kW(self.get_stock_battery_short(y, c))  # noqa
                     case "long":
                         _fn = lambda c, y: self.get_stock_battery_long(y, c)  # noqa
                     case _:
