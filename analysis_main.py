@@ -1807,7 +1807,7 @@ def make_battery_unit_ic_plot(scenario):
     for (
         country
     ) in "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split():
-    # ) in with_learning.DEVELOPING_UNFCCC:
+        # ) in with_learning.DEVELOPING_UNFCCC:
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         title = (
             a2_to_full_name[country]
@@ -1950,17 +1950,17 @@ def make_battery_unit_ic_plot(scenario):
         )
         plt.tight_layout()
         plt.savefig(
-            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
+            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
             bbox_inches="tight",
         )
         plt.close()
         util.write_small_json(
             dict(global_cost_with_learning.cached_stock_without_degradation),
-            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
+            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
         util.write_small_json(
             dict(global_cost_with_learning.cached_stock),
-            f"plots/battery_yearly_available_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
+            f"plots/phase_in/battery_yearly_available_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
 
         # 3rd file
@@ -1978,7 +1978,7 @@ def make_battery_unit_ic_plot(scenario):
         plt.xlabel("Time")
         plt.ylabel("Annual installed capacity (GW)")
         plt.savefig(
-            f"plots/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}_summed.png"
+            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}_summed.png"
         )
         plt.close()
 
