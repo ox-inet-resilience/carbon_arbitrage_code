@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pycountry
 from adjustText import adjust_text
+from matplotlib.lines import Line2D
 
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
@@ -177,13 +178,15 @@ alpha2s = "DE ID IN KZ PL TR US VN".split()
 alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
 alpha2s += with_learning.DEVELOPING_UNFCCC
 exclude_from_annotation = []
-for alpha2 in alpha2s:
+
+
+def process_1_country(alpha2, ax, ylabel=None):
     if alpha2 in "CI ET GN CD HT MW NP SD BT BI KM GM GW LS LR ST PS".split():
         # Forward analytics doesn't have these countries
-        continue
+        return
     if alpha2 in ["EH"]:
         # Excluded because it causes error when saving the figure
-        continue
+        return
     country_name = pycountry.countries.get(alpha_2=alpha2).name
     if alpha2 == "IR":
         # This is the name from FAOSTAT data
@@ -236,7 +239,7 @@ for alpha2 in alpha2s:
 
     # in kW
     yearly_installed_capacity = util.read_json(
-        f"./plots/battery_yearly_available_capacity_Net Zero 2050_{alpha2}.json"
+        f"./plots/phase_in/battery_yearly_available_capacity_Net Zero 2050_{alpha2}.json"
     )
     country_power_density_mwh = {
         k: v / (get_capacity_factor(k, alpha2) * hours_in_1year)
@@ -303,7 +306,7 @@ for alpha2 in alpha2s:
         land_use_yearly_all_energies_adjusted[k] = np.array(list(v.values()))
 
     percent_land_use_all_countries[alpha2] = {}
-    plt.figure()
+    plt.sca(ax)
 
     # For dual y axis
     def percentage2area(y):
@@ -345,26 +348,63 @@ for alpha2 in alpha2s:
     ax2 = plt.gca().secondary_yaxis(
         "right", functions=(area2percentage, percentage2area)
     )
-    ax2.set_ylabel("Cumulative land use/Total land (%)")
+    if ylabel == "left":
+        ax.set_ylabel("Cumulative land use ($m^2$)")
+    elif ylabel == "right":
+        ax2.set_ylabel("Cumulative land\nuse/Total land (%)")
 
-    plt.xlabel("Time (years)")
-    plt.ylabel("Cumulative land use ($m^2$)")
+    # plt.xlabel("Time (years)")
     if alpha2 == "BD":
         plt.legend()
     plt.title(country_name)
 
-    plt.gca().set_yscale("log")
+    ax.set_yscale("log")
     try:
         plt.savefig(f"plots/land_use_{alpha2}.png")
     except Exception as e:
         print("Not possible to save", alpha2, e)
-    plt.close()
+    # plt.close()
     land_use_all_countries[alpha2] = land_use_yearly_all_energies_adjusted
     country_names.append(country_name)
 
-make_4_panel_plot(
-    land_use_all_countries,
-    percent_land_use_all_countries,
-    country_names,
-    exclude_from_annotation,
-)
+
+if 1:
+    fig = plt.figure(figsize=(12, 6))  # Adjusted figure size for grid layout
+    gs = fig.add_gridspec(2, 4, height_ratios=[1, 1], width_ratios=[1, 1, 1, 1])
+
+    process_1_country("IN", fig.add_subplot(gs[0, 0]), ylabel="left")
+    process_1_country("ID", fig.add_subplot(gs[0, 1]))
+    process_1_country("ZA", fig.add_subplot(gs[0, 2]))
+    process_1_country("MX", fig.add_subplot(gs[0, 3]), ylabel="right")
+    process_1_country("VN", fig.add_subplot(gs[1, 0]), ylabel="left")
+    process_1_country("IR", fig.add_subplot(gs[1, 1]))
+    process_1_country("TH", fig.add_subplot(gs[1, 2]))
+    process_1_country("EG", fig.add_subplot(gs[1, 3]), ylabel="right")
+    plt.tight_layout()
+    fig.legend(
+        [
+            Line2D([0], [0], color=c, lw=2, linestyle="-")
+            for c in ["tab:blue", "tab:orange", "tab:red", "tab:green"]
+        ],
+        ["Solar", "Wind onshore", "Hydropower", "Wind offshore"],
+        loc="upper center",
+        ncol=4,
+        bbox_to_anchor=(0.5, -0.2),
+        fontsize=10,
+        frameon=False,
+    )
+    plt.subplots_adjust(bottom=0.001, hspace=0.4, wspace=0.6)
+    plt.savefig("plots/land_use_combined.png", bbox_inches="tight")
+
+# for alpha2 in alpha2s:
+#     plt.figure()
+#     ax = plt.gca()
+#     process_1_country(alpha2, ax)
+#     plt.close()
+#
+# make_4_panel_plot(
+#     land_use_all_countries,
+#     percent_land_use_all_countries,
+#     country_names,
+#     exclude_from_annotation,
+# )
