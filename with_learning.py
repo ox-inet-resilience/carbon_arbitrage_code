@@ -235,7 +235,7 @@ class InvestmentCostWithLearning:
         self.cost_non_discounted_battery_long_by_country = []
         self.cost_non_discounted_battery_pe_by_country = []
         self.cost_non_discounted_battery_grid_by_country = []
-        self.energy_produced_by_country = []
+        self.green_energy_produced_by_country = []
 
         self.battery_unit_ic = {
             "short": {},
@@ -491,7 +491,7 @@ class InvestmentCostWithLearning:
             ic_battery_grid
         )
         if VERBOSE_ANALYSIS:
-            self.energy_produced_by_country[-1][country_name] = {
+            self.green_energy_produced_by_country[-1][country_name] = {
                 tech: self._calculate_R(country_name, tech, year) for tech in TECHS
             }
 
@@ -504,7 +504,7 @@ class InvestmentCostWithLearning:
         self.cost_non_discounted_battery_long_by_country.append({})
         self.cost_non_discounted_battery_pe_by_country.append({})
         self.cost_non_discounted_battery_grid_by_country.append({})
-        self.energy_produced_by_country.append({})
+        self.green_energy_produced_by_country.append({})
         if isinstance(DeltaP, float):
             assert math.isclose(DeltaP, 0)
             self.cost_non_discounted.append(0.0)
@@ -638,6 +638,7 @@ class InvestmentCostWithLearning:
         if len(self.stocks_kW[tech]) == 0:
             return out
         for stock_year, stock_amount in self.stocks_kW[tech].items():
+            # This means the current year is also excluded
             if stock_year >= year:
                 break
             age = year - stock_year
@@ -658,6 +659,7 @@ class InvestmentCostWithLearning:
         if len(self.stocks_GJ_battery_short) == 0:
             return out
         for stock_year, stock_amount in self.stocks_GJ_battery_short.items():
+            # This means the current year is also excluded
             if stock_year >= year:
                 break
             age = year - stock_year
@@ -677,6 +679,7 @@ class InvestmentCostWithLearning:
         if len(self.stocks_kW_battery_long) == 0:
             return out
         for stock_year, stock_amount in self.stocks_kW_battery_long.items():
+            # This means the current year is also excluded
             if stock_year >= year:
                 break
             age = year - stock_year
@@ -697,6 +700,7 @@ class InvestmentCostWithLearning:
         if len(self.stocks_kW_battery_pe[tech]) == 0:
             return out
         for stock_year, stock_amount in self.stocks_kW_battery_pe[tech].items():
+            # This means the current year is also excluded
             if stock_year >= year:
                 break
             age = year - stock_year
