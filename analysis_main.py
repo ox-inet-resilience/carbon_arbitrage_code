@@ -1890,7 +1890,7 @@ def make_battery_unit_ic_plot(scenario):
                 tech: e[country_name][tech] if country_name in e else 0
                 for tech in with_learning.TECHS
             }
-            for e in global_cost_with_learning.energy_produced_by_country
+            for e in global_cost_with_learning.green_energy_produced_by_country
         ]
         for tech, label in name_labels.items():
             plt.plot(
