@@ -32,10 +32,9 @@ countries_included = emde6
 # Bangladesh
 countries_included = ["BD"]
 top8_unfccc_developing = "EG IN ID ZA MX VN IR TH".split()
-countries_included = top8_unfccc_developing
 # All of FA countries
 # countries_included = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
-countries_included = ["BA"]
+countries_included = top8_unfccc_developing
 
 
 def get_emissions_projection(scenario):
