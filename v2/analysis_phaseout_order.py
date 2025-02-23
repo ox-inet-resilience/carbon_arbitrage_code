@@ -33,6 +33,9 @@ countries_included = emde6
 countries_included = ["BD"]
 top8_unfccc_developing = "EG IN ID ZA MX VN IR TH".split()
 countries_included = top8_unfccc_developing
+# All of FA countries
+# countries_included = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
+countries_included = ["BA"]
 
 
 def get_emissions_projection(scenario):
@@ -118,9 +121,17 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                     phaseout -= undo_emissions
                     imaginary_power_plant_emissions -= undo_emissions
                 while phaseout > 0:
+                    if phaseout < 1e-16:
+                        # Too small. ignore
+                        continue
                     try:
                         row = df_country_mutated.iloc[power_plant_index]
                     except IndexError:
+                        # if (power_plant_index + 1) > len(df_country_mutated):
+                        #     # There are just not enough power plants
+                        #     print("Not enough power plants. Remainder", phaseout)
+                        #     continue
+                        # else:
                         raise Exception("Should not happen")
                     # The division by 1e3 converts MtCO2 to GtCO2.
                     e = row[util.EMISSIONS_COLNAME] / 1e3
