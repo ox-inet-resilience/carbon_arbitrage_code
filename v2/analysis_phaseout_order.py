@@ -122,6 +122,7 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
                 while phaseout > 0:
                     if phaseout < 1e-16:
                         # Too small. ignore
+                        phaseout = 0
                         continue
                     try:
                         row = df_country_mutated.iloc[power_plant_index]
