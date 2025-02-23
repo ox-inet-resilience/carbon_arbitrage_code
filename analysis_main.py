@@ -22,6 +22,8 @@ sns.set_theme(style="ticks")
 # TODO these globals could be removed.
 global_cost_with_learning = None
 MEASURE_GLOBAL_VARS = False
+# Only change this to current policies if you want to see the result
+# for halt to fossil fuel production scenario
 MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
 
 
@@ -1879,9 +1881,6 @@ def make_battery_unit_ic_plot(scenario):
                 markersize=markersize,
                 linewidth=0.8,
             )
-        # Need to convert GJ to GW
-        # plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
-        # plt.plot(years, GJ2TW(global_cumulative_G["long"].values()), label="Long")
 
         # Reset color cycler
         axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
