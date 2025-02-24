@@ -13,6 +13,7 @@ from matplotlib.lines import Line2D
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
 
+import analysis_main  # noqa
 import util  # noqa
 import with_learning  # noqa
 
@@ -39,6 +40,7 @@ territorial_area = (
 )
 iso3166_df = util.read_iso3166()
 alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
+alpha2_to_alpha3["XK"] = "XKK"
 
 # m^2 / MWh
 us_power_density_mwh = {
@@ -174,9 +176,6 @@ land_use_all_countries = {}
 percent_land_use_all_countries = {}
 country_names = []
 
-alpha2s = "DE ID IN KZ PL TR US VN".split()
-alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
-alpha2s += with_learning.DEVELOPING_UNFCCC
 exclude_from_annotation = []
 
 
@@ -187,7 +186,10 @@ def process_1_country(alpha2, ax, ylabel=None):
     if alpha2 in ["EH"]:
         # Excluded because it causes error when saving the figure
         return
-    country_name = pycountry.countries.get(alpha_2=alpha2).name
+    if alpha2 == "XK":
+        country_name = "Kosovo"
+    else:
+        country_name = pycountry.countries.get(alpha_2=alpha2).name
     if alpha2 == "IR":
         # This is the name from FAOSTAT data
         country_name = "Iran (Islamic Republic of)"
@@ -356,11 +358,13 @@ def process_1_country(alpha2, ax, ylabel=None):
     # plt.xlabel("Time (years)")
     if alpha2 == "BD":
         plt.legend()
+
+    #plt.title(f"$\\mathbf{{{country_name} abc}}$")
     plt.title(country_name)
 
     ax.set_yscale("log")
     try:
-        plt.savefig(f"plots/land_use_{alpha2}.png")
+        plt.savefig(f"plots/land_use/land_use_{alpha2}.png")
     except Exception as e:
         print("Not possible to save", alpha2, e)
     # plt.close()
@@ -368,7 +372,7 @@ def process_1_country(alpha2, ax, ylabel=None):
     country_names.append(country_name)
 
 
-if 1:
+if 0:
     fig = plt.figure(figsize=(12, 6))  # Adjusted figure size for grid layout
     gs = fig.add_gridspec(2, 4, height_ratios=[1, 1], width_ratios=[1, 1, 1, 1])
 
@@ -396,11 +400,17 @@ if 1:
     plt.subplots_adjust(bottom=0.001, hspace=0.4, wspace=0.6)
     plt.savefig("plots/land_use_combined.png", bbox_inches="tight")
 
-# for alpha2 in alpha2s:
-#     plt.figure()
-#     ax = plt.gca()
-#     process_1_country(alpha2, ax)
-#     plt.close()
+alpha2s = "DE ID IN KZ PL TR US VN".split()
+alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
+alpha2s += with_learning.DEVELOPING_UNFCCC
+# All of FA countries
+alpha2s = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
+
+for alpha2 in alpha2s:
+    plt.figure()
+    ax = plt.gca()
+    process_1_country(alpha2, ax)
+    plt.close()
 #
 # make_4_panel_plot(
 #     land_use_all_countries,
