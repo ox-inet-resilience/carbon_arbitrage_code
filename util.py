@@ -22,7 +22,8 @@ font_path = os.path.dirname(__file__) + "/data_private/Arial.ttf"
 font_manager.fontManager.addfont(font_path)
 prop = font_manager.FontProperties(fname=font_path)
 plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.sans-serif"] = prop.get_name()
+plt.rcParams["font.sans-serif"] = [prop.get_name()] + plt.rcParams["font.sans-serif"]
+plt.rcParams["axes.titleweight"] = "bold"
 plt.rc("font", size=13)
 plt.rc("legend", fontsize=11, title_fontsize=11)
 # End font
