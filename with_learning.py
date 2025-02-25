@@ -217,7 +217,7 @@ class InvestmentCostWithLearning:
             self.G_battery_long**-self.gamma_battery_long
         )
         self.sigma_battery_long = 1 / 12
-        self.stocks_kW = {tech: {} for tech in TECHS}
+        self.stocks_kW = {tech: defaultdict(dict) for tech in TECHS}
         self.stocks_GJ_battery_short = defaultdict(dict)
         self.stocks_kW_battery_long = defaultdict(dict)
         self.stocks_kW_battery_pe = {
@@ -411,10 +411,7 @@ class InvestmentCostWithLearning:
             self.cost_non_discounted[-1][country_name] = 0.0
             self.cost_discounted[-1][country_name] = 0.0
             for tech in TECHS:
-                if year in self.stocks_kW[tech]:
-                    self.stocks_kW[tech][year][country_name] = 0.0
-                else:
-                    self.stocks_kW[tech][year] = {country_name: 0.0}
+                self.stocks_kW[tech][year][country_name] = 0.0
             self.stocks_GJ_battery_short[year][country_name] = 0.0
             self.stocks_kW_battery_long[year][country_name] = 0.0
             for tech in TECHS_WITH_LEARNING:
@@ -433,10 +430,7 @@ class InvestmentCostWithLearning:
                 tech, year
             )
             investment_cost += G * installed_cost
-            if year in self.stocks_kW[tech]:
-                self.stocks_kW[tech][year][country_name] = G
-            else:
-                self.stocks_kW[tech][year] = {country_name: G}
+            self.stocks_kW[tech][year][country_name] = G
         if ENABLE_BATTERY_SHORT:
             investment_cost_battery_short = self.calculate_ic_1country_battery_short(
                 year, country_name, total_R
@@ -748,20 +742,6 @@ class InvestmentCostWithLearning:
                 )
             out += sum(stock_amount.values()) + stock_battery_pe
         return out
-
-    def zero_out_costs_and_stocks(self, peg_year):
-        raise Exception("Don't use this!")
-        # We zero out the values up to peg_year.
-        peg_year_index = peg_year - 2022
-        for i in range(peg_year_index + 1):
-            self.cost_non_discounted[i] = 0.0
-            self.cost_discounted[i] = 0.0
-        for tech in TECHS:
-            # Zero out all the stocks up to peg_year.
-            self.stocks_kW[tech] = {
-                y: (0.0 if y <= peg_year else v)
-                for y, v in self.stocks_kW[tech].items()
-            }
 
     def calculate_residual_one_year(self, year, weighted_emissions_factor_by_country):
         equivalent_emissions = {}
