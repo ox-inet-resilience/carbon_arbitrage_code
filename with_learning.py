@@ -226,10 +226,6 @@ class InvestmentCostWithLearning:
         # To be used in the full table1 calculation
         self.cost_non_discounted = []
         self.cost_discounted = []
-        self.cost_non_discounted_battery_short = []
-        self.cost_non_discounted_battery_long = []
-        self.cost_non_discounted_battery_pe = []
-        self.cost_non_discounted_battery_grid = []
         self.cost_non_discounted_battery_short_by_country = []
         self.cost_non_discounted_battery_long_by_country = []
         self.cost_non_discounted_battery_pe_by_country = []
@@ -470,10 +466,6 @@ class InvestmentCostWithLearning:
             ic_battery_grid = 0
         self.cost_non_discounted[-1][country_name] = investment_cost
         self.cost_discounted[-1][country_name] = investment_cost * discount
-        self.cost_non_discounted_battery_short[-1] += investment_cost_battery_short
-        self.cost_non_discounted_battery_long[-1] += investment_cost_battery_long
-        self.cost_non_discounted_battery_pe[-1] += ic_battery_pe
-        self.cost_non_discounted_battery_grid[-1] += ic_battery_grid
         self.cost_non_discounted_battery_short_by_country[-1][country_name] = (
             investment_cost_battery_short
         )
@@ -612,10 +604,6 @@ class InvestmentCostWithLearning:
                     )
 
     def calculate_investment_cost(self, DeltaP, year, discount):
-        self.cost_non_discounted_battery_short.append(0.0)
-        self.cost_non_discounted_battery_long.append(0.0)
-        self.cost_non_discounted_battery_pe.append(0.0)
-        self.cost_non_discounted_battery_grid.append(0.0)
         self.cost_non_discounted_battery_short_by_country.append({})
         self.cost_non_discounted_battery_long_by_country.append({})
         self.cost_non_discounted_battery_pe_by_country.append({})
