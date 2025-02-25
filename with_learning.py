@@ -272,6 +272,8 @@ class InvestmentCostWithLearning:
     def _calculate_R(self, country_name, tech, year):
         S = self.get_stock(country_name, tech, year)
         R = self.kW2GJ(S) * get_capacity_factor(tech, country_name)
+        # Sanity check that it must be non-negative
+        assert R >= 0, (R, country_name, tech, year)
         return R
 
     def calculate_total_R(self, country_name, year):
@@ -603,7 +605,9 @@ class InvestmentCostWithLearning:
 
                 match tech:
                     case "short":
-                        _fn = lambda c, y: self.GJ2kW(self.get_stock_battery_short(y, c))  # noqa
+                        _fn = lambda c, y: self.GJ2kW(
+                            self.get_stock_battery_short(y, c)
+                        )  # noqa
                     case "long":
                         _fn = lambda c, y: self.get_stock_battery_long(y, c)  # noqa
                     case _:
@@ -620,12 +624,20 @@ class InvestmentCostWithLearning:
                         )
                     case "Developing_UNFCCC":
                         self.cached_stock[tech][year] = (
-                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPING_UNFCCC)
+                            sum(
+                                _fn(c, year)
+                                for c in DeltaP.keys()
+                                if c in DEVELOPING_UNFCCC
+                            )
                             + stock_battery_pe
                         )
                     case "Developed_UNFCCC":
                         self.cached_stock[tech][year] = (
-                            sum(_fn(c, year) for c in DeltaP.keys() if c in DEVELOPED_UNFCCC)
+                            sum(
+                                _fn(c, year)
+                                for c in DeltaP.keys()
+                                if c in DEVELOPED_UNFCCC
+                            )
                             + stock_battery_pe
                         )
                     case _:
