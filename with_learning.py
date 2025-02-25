@@ -342,7 +342,7 @@ class InvestmentCostWithLearning:
         psi = 0.7
         fe = 0.5
         # kW
-        S_battery_long = self.get_stock_battery_long(year, country_name)
+        S_battery_long = self.get_stock(country_name, "long", year)
         # kW
         G_long = max(
             0, self.GJ2kW(total_R) * self.sigma_battery_long / psi / fe - S_battery_long
@@ -578,8 +578,6 @@ class InvestmentCostWithLearning:
             match tech:
                 case "short":
                     _fn = lambda c, y: self.GJ2kW(self.get_stock_battery_short(y, c))  # noqa
-                case "long":
-                    _fn = lambda c, y: self.get_stock_battery_long(y, c)  # noqa
                 case _:
                     _fn = lambda c, y: self.get_stock(c, tech, y)  # noqa
             match VERBOSE_ANALYSIS_COUNTRY:
@@ -635,6 +633,9 @@ class InvestmentCostWithLearning:
         self.initialize_verbose_analysis(DeltaP, year)
 
     def get_stock(self, country_name, tech, year):
+        lifespan = RENEWABLE_LIFESPAN
+        if tech == "long":
+            lifespan = BATTERY_LONG_LIFESPAN
         out = 0.0
         if len(self.stocks_kW[tech]) == 0:
             return out
@@ -648,7 +649,7 @@ class InvestmentCostWithLearning:
                 s *= (1 - self.degradation_rate[tech]) ** age
 
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
-                if age <= RENEWABLE_LIFESPAN:
+                if age <= lifespan:
                     out += s
             else:
                 # No lifespan checking is needed.
@@ -670,26 +671,6 @@ class InvestmentCostWithLearning:
 
             if ENABLE_RENEWABLE_30Y_LIFESPAN:
                 if age <= BATTERY_SHORT_LIFESPAN:
-                    out += s
-            else:
-                out += s
-        return out
-
-    def get_stock_battery_long(self, year, country_name):
-        out = 0.0
-        if len(self.stocks_kW["long"]) == 0:
-            return out
-        for stock_year, stock_amount in self.stocks_kW["long"].items():
-            # This means the current year is also excluded
-            if stock_year >= year:
-                break
-            age = year - stock_year
-            s = stock_amount[country_name]
-            if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
-                s *= (1 - self.degradation_rate["long"]) ** age
-
-            if ENABLE_RENEWABLE_30Y_LIFESPAN:
-                if age <= BATTERY_LONG_LIFESPAN:
                     out += s
             else:
                 out += s
