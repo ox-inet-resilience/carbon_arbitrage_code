@@ -217,9 +217,8 @@ class InvestmentCostWithLearning:
             self.G_battery_long**-self.gamma_battery_long
         )
         self.sigma_battery_long = 1 / 12
-        self.stocks_kW = {tech: defaultdict(dict) for tech in TECHS}
+        self.stocks_kW = {tech: defaultdict(dict) for tech in TECHS + ["long"]}
         self.stocks_GJ_battery_short = defaultdict(dict)
-        self.stocks_kW_battery_long = defaultdict(dict)
         self.stocks_kW_battery_pe = {
             tech: defaultdict(dict) for tech in TECHS_WITH_LEARNING
         }
@@ -351,7 +350,7 @@ class InvestmentCostWithLearning:
 
         # Calculating unit_ic
         stock_without_degradation = 0.0
-        for stock_year, stock_amount in self.stocks_kW_battery_long.items():
+        for stock_year, stock_amount in self.stocks_kW["long"].items():
             if stock_year >= year:
                 break
             stock_without_degradation += sum(stock_amount.values())
@@ -367,7 +366,7 @@ class InvestmentCostWithLearning:
         self.cached_cumulative_G["long"][year] = cumulative_G
 
         investment_cost_battery_long = G_long * unit_ic
-        self.stocks_kW_battery_long[year][country_name] = G_long
+        self.stocks_kW["long"][year][country_name] = G_long
         return investment_cost_battery_long
 
     def calculate_ic_1country_battery_pe(self, year, country_name, total_R):
@@ -410,10 +409,9 @@ class InvestmentCostWithLearning:
         if math.isclose(D, 0):
             self.cost_non_discounted[-1][country_name] = 0.0
             self.cost_discounted[-1][country_name] = 0.0
-            for tech in TECHS:
+            for tech in TECHS + ["long"]:
                 self.stocks_kW[tech][year][country_name] = 0.0
             self.stocks_GJ_battery_short[year][country_name] = 0.0
-            self.stocks_kW_battery_long[year][country_name] = 0.0
             for tech in TECHS_WITH_LEARNING:
                 self.stocks_kW_battery_pe[tech][year][country_name] = 0.0
             return
@@ -519,13 +517,11 @@ class InvestmentCostWithLearning:
                             for c in DEVELOPED_UNFCCC
                         )
                     case _:
-                        stock_battery_pe = self.stocks_kW_battery_pe[tech][
-                            year
-                        ].get(VERBOSE_ANALYSIS_COUNTRY, 0)
+                        stock_battery_pe = self.stocks_kW_battery_pe[tech][year].get(
+                            VERBOSE_ANALYSIS_COUNTRY, 0
+                        )
             if tech == "short":
                 _stocks = self.stocks_GJ_battery_short
-            elif tech == "long":
-                _stocks = self.stocks_kW_battery_long
             else:
                 _stocks = self.stocks_kW[tech]
             stock = _stocks.get(year, 0)
@@ -545,9 +541,7 @@ class InvestmentCostWithLearning:
                 stock = 0
             if tech == "short":
                 stock = self.GJ2kW(stock)
-            self.cached_stock_without_degradation[tech][year] = (
-                stock + stock_battery_pe
-            )
+            self.cached_stock_without_degradation[tech][year] = stock + stock_battery_pe
 
             # With degradation
             stock_battery_pe = 0
@@ -583,9 +577,7 @@ class InvestmentCostWithLearning:
 
             match tech:
                 case "short":
-                    _fn = lambda c, y: self.GJ2kW(
-                        self.get_stock_battery_short(y, c)
-                    )  # noqa
+                    _fn = lambda c, y: self.GJ2kW(self.get_stock_battery_short(y, c))  # noqa
                 case "long":
                     _fn = lambda c, y: self.get_stock_battery_long(y, c)  # noqa
                 case _:
@@ -612,9 +604,7 @@ class InvestmentCostWithLearning:
                 case "Developed_UNFCCC":
                     self.cached_stock[tech][year] = (
                         sum(
-                            _fn(c, year)
-                            for c in DeltaP.keys()
-                            if c in DEVELOPED_UNFCCC
+                            _fn(c, year) for c in DeltaP.keys() if c in DEVELOPED_UNFCCC
                         )
                         + stock_battery_pe
                     )
@@ -687,9 +677,9 @@ class InvestmentCostWithLearning:
 
     def get_stock_battery_long(self, year, country_name):
         out = 0.0
-        if len(self.stocks_kW_battery_long) == 0:
+        if len(self.stocks_kW["long"]) == 0:
             return out
-        for stock_year, stock_amount in self.stocks_kW_battery_long.items():
+        for stock_year, stock_amount in self.stocks_kW["long"].items():
             # This means the current year is also excluded
             if stock_year >= year:
                 break
