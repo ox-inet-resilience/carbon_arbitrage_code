@@ -953,8 +953,8 @@ def run_table2(name="", included_countries=None):
             table["Costs of power sector decarbonization (in trillion dollars)"][i]
             * 1e12
             / ae
-        )
-        table["Costs per avoided tCO2e ($/tCO2e)"].append(cost_per_ae if ae > 0 else 0)
+        ) if ae > 0 else 0
+        table["Costs per avoided tCO2e ($/tCO2e)"].append(cost_per_ae)
         arbitrage_period = y - NGFS_PEG_YEAR
         for scc in sccs:
             scc_scale = scc / scc_default
