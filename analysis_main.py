@@ -29,6 +29,7 @@ MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
 
 # Ensure that plots directory exists
 os.makedirs("plots", exist_ok=True)
+os.makedirs("plots/table2", exist_ok=True)
 
 # Params that can be modified
 lcoe_mode = "solar+wind"
@@ -1026,7 +1027,7 @@ def run_table2(name="", included_countries=None):
     table["scc_share (%)"] = scc_share_percent
     uid = util.get_unique_id(include_date=False)
     df = pd.DataFrame(table).round(6).T
-    df.to_csv(f"plots/table2_{name}_{uid}.csv")
+    df.to_csv(f"plots/table2/table2_{name}_{uid}.csv")
     return df
 
 
