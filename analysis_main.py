@@ -1518,6 +1518,9 @@ def run_3_level_scc():
 
 
 def get_yearly_by_country():
+    # Ensure plot output dir exists
+    os.makedirs("plots/bruegel", exist_ok=True)
+
     global ENABLE_COAL_EXPORT
     for enable in [False, True]:
         ENABLE_COAL_EXPORT = enable
@@ -1596,6 +1599,9 @@ def get_yearly_by_country_power():
 
 
 def make_battery_unit_ic_plot(scenario):
+    # Ensure plot output dir exists
+    os.makedirs("plots/phase_in", exist_ok=True)
+
     global MEASURE_GLOBAL_VARS
     global MEASURE_GLOBAL_VARS_SCENARIO
     MEASURE_GLOBAL_VARS_SCENARIO = scenario
