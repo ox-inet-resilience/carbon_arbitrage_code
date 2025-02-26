@@ -50,8 +50,8 @@ gdp_per_capita_path = "data/all_countries_gdp_per_capita_2023.json"
 EMISSIONS_COLNAME = "Emissions (CO2e 20 years)"
 # EMISSIONS_COLNAME = "Emissions (CO2e 100 years)"
 EMISSIONS_COLNAME = "annualco2tyear"
-CARBON_BUDGET_CONSISTENT = False
-# CARBON_BUDGET_CONSISTENT = "15-50"
+# CARBON_BUDGET_CONSISTENT = False
+CARBON_BUDGET_CONSISTENT = "15-50"
 # CARBON_BUDGET_CONSISTENT = "15-67"
 # CARBON_BUDGET_CONSISTENT = "16-67"
 
