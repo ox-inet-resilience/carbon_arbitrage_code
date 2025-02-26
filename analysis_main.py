@@ -1736,7 +1736,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         plt.tight_layout()
         plt.savefig(
-            f"plots/battery_unit_ic_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
+            f"plots/phase_in/battery_unit_ic_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
             bbox_inches="tight",
         )
         plt.close()
@@ -1844,6 +1844,7 @@ if __name__ == "__main__":
         countries = (
             "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split()
         )
+        countries = ["CA"]
         # countries = sorted(list(set(df_sector.asset_country.tolist())))
         make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production
