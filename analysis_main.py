@@ -1598,7 +1598,7 @@ def get_yearly_by_country_power():
         df.to_csv(f"plots/bruegel/yearly_by_country_{key}_{git_branch}.csv")
 
 
-def make_battery_unit_ic_plot(scenario):
+def make_battery_unit_ic_plot(scenario, countries_included):
     # Ensure plot output dir exists
     os.makedirs("plots/phase_in", exist_ok=True)
 
@@ -1630,10 +1630,7 @@ def make_battery_unit_ic_plot(scenario):
 
     a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
     # for country in "WORLD EMDE IN ID DE US TR VN PL KZ".split():
-    for (
-        country
-    ) in "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split():
-        # ) in with_learning.DEVELOPING_UNFCCC:
+    for country in countries_included:
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         title = (
             a2_to_full_name[country]
@@ -1843,9 +1840,14 @@ if __name__ == "__main__":
         # Battery yearly
         # do_cf_battery_yearly()
         # make_battery_plot()
-        make_battery_unit_ic_plot("Net Zero 2050")
+        countries = with_learning.DEVELOPING_UNFCCC
+        countries = (
+            "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split()
+        )
+        # countries = sorted(list(set(df_sector.asset_country.tolist())))
+        make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production
-        # make_battery_unit_ic_plot("Current Policies")
+        # make_battery_unit_ic_plot("Current Policies", countries)
         exit()
     if 0:
         run_3_level_scc()
