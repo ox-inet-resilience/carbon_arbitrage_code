@@ -950,10 +950,14 @@ def run_table2(name="", included_countries=None):
     for i, y in enumerate(last_years):
         ae = table["Avoided emissions (GtCO2e)"][i] * 1e9
         cost_per_ae = (
-            table["Costs of power sector decarbonization (in trillion dollars)"][i]
-            * 1e12
-            / ae
-        ) if ae > 0 else 0
+            (
+                table["Costs of power sector decarbonization (in trillion dollars)"][i]
+                * 1e12
+                / ae
+            )
+            if ae > 0
+            else 0
+        )
         table["Costs per avoided tCO2e ($/tCO2e)"].append(cost_per_ae)
         arbitrage_period = y - NGFS_PEG_YEAR
         for scc in sccs:
@@ -966,16 +970,17 @@ def run_table2(name="", included_countries=None):
             )
 
             table[f"scc {scc} GC benefit per avoided tCO2e ($/tCO2e)"].append(
-                result[y][gc_benefit_old_name][_s(y)]
-                * scc_scale
-                * 1e12
-                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+                result[y][gc_benefit_old_name][_s(y)] * scc_scale * 1e12 / ae
+                if ae > 0
+                else 0
             )
             table[f"scc {scc} CC benefit per avoided tCO2e ($/tCO2e)"].append(
                 result[y]["country_benefit_country_reduction"][_s(y)]
                 * scc_scale
                 * 1e12
-                / (table["Avoided emissions (GtCO2e)"][i] * 1e9)
+                / ae
+                if ae > 0
+                else 0
             )
 
             table[f"scc {scc} GC net benefit (in trillion dollars)"].append(
