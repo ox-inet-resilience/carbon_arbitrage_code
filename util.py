@@ -414,6 +414,10 @@ def calculate_ngfs_projection(
             across_years = [
                 ngfs_country_subsector[str(year)] for year in years_interpolated
             ]
+            # Uncomment this if you want to replace NZ2050 with a flat line
+            # (i.e. no phaseout in brown energy, but no increase either)
+            # if scenario == "Net Zero 2050" :
+            #     across_years = [across_years[0] for _ in range(len(across_years))]
             if across_years[0] == 0:
                 # NGFS has countries that start from 0 value
                 ngfs_country_subsector = ngfs_country_wo_iea_stats[
