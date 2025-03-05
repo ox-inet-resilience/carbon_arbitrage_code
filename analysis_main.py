@@ -1004,14 +1004,14 @@ def run_table2(name="", included_countries=None):
             )
 
             table[f"scc {scc} GC Net benefit per avoided tCO2e ($/tCO2e)"].append(
-                table[f"scc {scc} GC net benefit (in trillion dollars)"][i]
-                * 1e12
-                / ae if ae > 0 else 0
+                table[f"scc {scc} GC net benefit (in trillion dollars)"][i] * 1e12 / ae
+                if ae > 0
+                else 0
             )
             table[f"scc {scc} CC Net benefit per avoided tCO2e ($/tCO2e)"].append(
-                table[f"scc {scc} CC net benefit (in trillion dollars)"][i]
-                * 1e12
-                / ae if ae > 0 else 0
+                table[f"scc {scc} CC net benefit (in trillion dollars)"][i] * 1e12 / ae
+                if ae > 0
+                else 0
             )
         table["GDP over time period (in trillion dollars)"].append(
             gdp_2023 * arbitrage_period
@@ -1748,6 +1748,13 @@ def make_battery_unit_ic_plot(scenario, countries_included):
             bbox_inches="tight",
         )
         plt.close()
+        util.write_small_json(
+            {
+                **global_cost_with_learning.cached_investment_costs,
+                **global_cost_with_learning.battery_unit_ic,
+            },
+            f"plots/phase_in/battery_unit_ic_{country}.json",
+        )
 
         # 2nd file
         fig = plt.figure()
