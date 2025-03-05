@@ -155,9 +155,9 @@ def plot_electricity_generation(ax, region_name, ylabel=False):
 
     # for tech in with_learning.TECHS:
     #     plt.plot(years, energy_produced_by_country_group[tech], label=tech)
-    y_green = np.array(sum(green_energy_produced_by_country_group.values()))
-    plt.plot(years, gj2xwh(y_green), label="Green")
-    plt.plot(years, gj2xwh(y_green + ys["Net Zero 2050"]), label="Green + Brown")
+    # y_green = np.array(sum(green_energy_produced_by_country_group.values()))
+    # plt.plot(years, gj2xwh(y_green), label="Green")
+    # plt.plot(years, gj2xwh(y_green + ys["Net Zero 2050"]), label="Green + Brown")
     if ylabel:
         plt.ylabel("Energy (TWh)")
     analysis_main.MEASURE_GLOBAL_VARS = False
