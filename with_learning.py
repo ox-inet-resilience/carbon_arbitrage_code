@@ -155,6 +155,11 @@ def get_renewable_weight(tech, country_name):
     return weight
 
 
+def per_GJ2per_kWh(x):
+    # Convert from $/GJ to $/kWh
+    return x / (util.GJ2MWh(1) * 1e3)
+
+
 class InvestmentCostWithLearning:
     # Mentioned in the carbon arbitrage paper page 21, which is from Staffell
     # and Green 2014.
@@ -327,7 +332,9 @@ class InvestmentCostWithLearning:
         else:
             unit_ic = self.alpha_short_per_GJ
         # End of calculating unit_ic
-        self.battery_unit_ic["short"][year] = unit_ic
+        # Need to convert $/GJ to $/kWh, then to $/kW, by multiplying by number of hours in 1 day
+        # This is because the short term battery is fully discharged by each day.
+        self.battery_unit_ic["short"][year] = per_GJ2per_kWh(unit_ic) * 24
         self.cached_cumulative_G["short"][year] = cumulative_G
 
         investment_cost_battery_short = D_battery_short * unit_ic

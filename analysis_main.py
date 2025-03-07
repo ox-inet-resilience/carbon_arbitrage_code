@@ -1618,10 +1618,6 @@ def make_battery_unit_ic_plot(scenario, countries_included):
     util.CARBON_BUDGET_CONSISTENT = "15-50"
     years = range(2024, 2050 + 1)
 
-    def per_GJ2per_kWh(arr):
-        # Convert from $/GJ to $/kWh
-        return [i / (util.GJ2MWh(1) * 1e3) for i in arr]
-
     def kW2GW(arr):
         return [i / 1e6 for i in arr]
 
@@ -1660,17 +1656,10 @@ def make_battery_unit_ic_plot(scenario, countries_included):
                 global_cost_with_learning.cached_investment_costs[name].values(),
                 label=label,
             )
-        # Need to convert $/GJ to $/kWh, then to $/kW, by multiplying by number of seconds in 1 day
-        # This is because the short term battery is fully discharged by each day.
+
         plt.plot(
             years,
-            np.array(
-                per_GJ2per_kWh(
-                    global_cost_with_learning.battery_unit_ic["short"].values()
-                )
-            )
-            * 24
-            * 3600,
+            global_cost_with_learning.battery_unit_ic["short"].values(),
             label="Short",
         )
         plt.plot(
@@ -1688,7 +1677,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         markersize = 2
         axs[1].set_prop_cycle(cycler(color=colors) + cycler(marker=markers))
         country_name = with_learning.VERBOSE_ANALYSIS_COUNTRY
-        plt.title(title)
+        plt.suptitle(title)
         for tech, label in {
             **name_labels,
             "short": "Battery short",
