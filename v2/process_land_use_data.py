@@ -354,15 +354,19 @@ def process_1_country(alpha2, ax, ylabel=None):
         ax.set_ylabel("Cumulative land use ($m^2$)")
     elif ylabel == "right":
         ax2.set_ylabel("Cumulative land\nuse/Total land (%)")
+    elif ylabel == "both":
+        ax.set_ylabel("Cumulative land use ($m^2$)")
+        ax2.set_ylabel("Cumulative land\nuse/Total land (%)")
 
     # plt.xlabel("Time (years)")
     if alpha2 == "BD":
         plt.legend()
 
-    #plt.title(f"$\\mathbf{{{country_name} abc}}$")
     plt.title(country_name)
 
     ax.set_yscale("log")
+    if ylabel == "both":
+        plt.tight_layout()
     try:
         plt.savefig(f"plots/land_use/land_use_{alpha2}.png")
     except Exception as e:
@@ -403,13 +407,15 @@ if 0:
 alpha2s = "DE ID IN KZ PL TR US VN".split()
 alpha2s = "EG IN ID ZA MX VN IR TH TR BD".split()
 alpha2s += with_learning.DEVELOPING_UNFCCC
+# 15 African countries
+alpha2s = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
 # All of FA countries
 alpha2s = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
 
 for alpha2 in alpha2s:
-    plt.figure()
+    plt.figure(figsize=(7, 4.8))
     ax = plt.gca()
-    process_1_country(alpha2, ax)
+    process_1_country(alpha2, ax, ylabel="both")
     plt.close()
 #
 # make_4_panel_plot(
