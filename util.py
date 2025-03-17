@@ -54,6 +54,7 @@ EMISSIONS_COLNAME = "annualco2tyear"
 CARBON_BUDGET_CONSISTENT = "15-50"
 # CARBON_BUDGET_CONSISTENT = "15-67"
 # CARBON_BUDGET_CONSISTENT = "16-67"
+# CARBON_BUDGET_CONSISTENT = "strictly_declining"
 
 # We set the beta to be constant, based on the MM beta of aggregate_beta.py
 # We simplify the model because the beta data is not good.
@@ -336,6 +337,7 @@ def read_carbon_budget_consistent(carbon_budget_consistent):
         "15-50": "6.1-NZ-15-50-v2-Secondary-annual.csv",
         "15-67": "7.1-NZ-15-67-v2-Secondary-annual.csv",
         "16-67": "8.1-NZ-16-67-v2-Secondary-annual.csv",
+        "strictly_declining": "10.1 - NZ-15-50 - v3 - Secondary - annual_emissions.csv",
     }[carbon_budget_consistent]
     return pd.read_csv(f"./data_private/{fname}")
 

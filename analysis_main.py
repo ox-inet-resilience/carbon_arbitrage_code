@@ -1616,6 +1616,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
     MEASURE_GLOBAL_VARS = True
     with_learning.VERBOSE_ANALYSIS = True
     util.CARBON_BUDGET_CONSISTENT = "15-50"
+    # util.CARBON_BUDGET_CONSISTENT = "strictly_declining"
     years = range(2024, 2050 + 1)
 
     def kW2GW(arr):
@@ -1849,6 +1850,8 @@ if __name__ == "__main__":
             "WORLD Developed_UNFCCC Developing_UNFCCC EG IN ID ZA MX VN IR TH".split()
         )
         countries = ["CA"]
+        # 15 Africa countries
+        countries = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
         # countries = sorted(list(set(df_sector.asset_country.tolist())))
         make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production
