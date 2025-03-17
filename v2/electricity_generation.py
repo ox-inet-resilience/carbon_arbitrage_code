@@ -13,10 +13,12 @@ import util  # noqa
 import with_learning  # noqa
 
 
-def plot_electricity_generation(ax, region_name, ylabel=False):
+def plot_electricity_generation(
+    ax, region_name, ylabel=False, carbon_budget_consistent="15-50"
+):
     analysis_main.MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
     analysis_main.MEASURE_GLOBAL_VARS = True
-    util.CARBON_BUDGET_CONSISTENT = "15-50"
+    util.CARBON_BUDGET_CONSISTENT = carbon_budget_consistent
     years = range(2024, 2050 + 1)
 
     region_key = region_name
@@ -163,7 +165,28 @@ def plot_electricity_generation(ax, region_name, ylabel=False):
     analysis_main.MEASURE_GLOBAL_VARS = False
     analysis_main.MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
     with_learning.VERBOSE_ANALYSIS = False
-    util.CARBON_BUDGET_CONSISTENT = False
+
+
+if 1:
+    # 15 African countries
+    for a2 in "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split():
+        plt.figure()
+        name = pycountry.countries.get(alpha_2=a2).name
+        try:
+            plot_electricity_generation(
+                plt.gca(),
+                name,
+                ylabel=True,
+                carbon_budget_consistent="strictly_declining",
+            )
+        except KeyError as e:
+            print(a2, e)
+            continue
+        plt.savefig(
+            f"plots/phase_in/electricity_generation_{util.CARBON_BUDGET_CONSISTENT}_{a2}.png"
+        )
+        plt.close()
+    exit()
 
 
 if 1:
