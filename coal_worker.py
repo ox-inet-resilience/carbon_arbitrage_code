@@ -1,4 +1,5 @@
 import math
+import os
 
 import numpy as np
 import pandas as pd
@@ -156,27 +157,12 @@ def calculate(
         sum(opportunity_cost_by_country.values()),
     )
 
-    compensation_series = wage_lost_series * 5
-    # retraining_cost_series = wage_lost_series * ic_usa / wage_usd_dict["US"]
-
     if return_summed:
         return pv_compensation, retraining_cost
 
-    if do_plot:
-        print("PV opportunity cost", pv_compensation, "billion dollars")
-        print(
-            "IC retraining USA",
-            ic_usa,
-            "Retraining cost",
-            retraining_cost,
-            "billion dollars",
-        )
-
-        plt.figure()
-        plt.plot(years, compensation_series)
-        plt.xlabel("Time")
-        plt.ylabel("Compensation for lost wage (billion dollars)")
-        plt.savefig("plots/coal_worker_compensation.png")
+    df_wage_lost = pd.DataFrame(wage_lost_series_by_country)
+    df_compensation = df_wage_lost.multiply(5)
+    df_retraining_cost = df_wage_lost.multiply(ic_usa / wage_usd_dict["US"])
 
     out = {
         "compensation workers for lost wages": reduce_precision(
@@ -189,7 +175,8 @@ def calculate(
     # This is used in the battery branch for yearly climate financing.
     if full_version:
         out["wage_lost_series"] = wage_lost_series
-        out["compensation_series"] = compensation_series
+        out["df_compensation"] = df_compensation
+        out["df_retraining_cost"] = df_retraining_cost
     return out
 
 
@@ -205,16 +192,30 @@ def calculate_for_phaseout_order(subsector):
     oc_by_country = {}
     for country in countries:
         wage = wage_usd_dict.get(country, 0)
-        oc_by_country[country] = num_coal_workers_dict.get(country, 0) * wage * (5 + ic_usa / wage_usd_dict["US"])
+        oc_by_country[country] = (
+            num_coal_workers_dict.get(country, 0)
+            * wage
+            * (5 + ic_usa / wage_usd_dict["US"])
+        )
     # In USD
     return oc_by_country
 
 
 if __name__ == "__main__":
-    for last_year in [2035, 2050]:
-        for subsector in subsector_column_map:
-            print("Subsector", subsector, last_year)
-            calculate("default", subsector, last_year, do_plot=True)
+    os.makedirs("plots/phase_out", exist_ok=True)
+    last_year = 2050
+    for subsector in subsector_column_map:
+        print("Subsector", subsector, last_year)
+        out = calculate("default", subsector, last_year, full_version=True)
+        # By country, yearly
+        out["df_compensation"].to_csv(
+            f"./plots/phase_out/coal_worker_compensation_{NGFS_PEG_YEAR}-{last_year}_{subsector}.csv",
+            index=False,
+        )
+        out["df_retraining_cost"].to_csv(
+            f"./plots/phase_out/coal_worker_retraining_cost_{NGFS_PEG_YEAR}-{last_year}_{subsector}.csv",
+            index=False,
+        )
     exit()
 
     # To be used in greatcarbonarbitrage.com
