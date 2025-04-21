@@ -27,7 +27,11 @@ def plot_electricity_generation(
             region_key = "WORLD"
         case "Developed Countries":
             region_key = "Developed_UNFCCC"
+        case "Developed Countries\n(incl. China, South Korea\n& petro states)":
+            region_key = "Developed_UNFCCC"
         case "Developing Countries":
+            region_key = "Developing_UNFCCC"
+        case "Developing Countries\n(excl. China, South Korea\n& petro states)":
             region_key = "Developing_UNFCCC"
         case _:
             region_key = pycountry.countries.lookup(region_name).alpha_2
@@ -68,24 +72,27 @@ def plot_electricity_generation(
 
     # green energy production
     def get_arr(x):
-        if region_key == "WORLD":
-            return np.array([GtCoal2GJ(e.sum()) for e in x])
-        elif region_key == "Developing_UNFCCC":
-            return np.array(
-                [
-                    GtCoal2GJ(e.filter(items=with_learning.DEVELOPING_UNFCCC).sum())
-                    for e in x
-                ]
-            )
-        elif region_key == "Developed_UNFCCC":
-            return np.array(
-                [
-                    GtCoal2GJ(e.filter(items=with_learning.DEVELOPED_UNFCCC).sum())
-                    for e in x
-                ]
-            )
-        else:
-            return np.array([GtCoal2GJ(e.filter(items=[region_key]).sum()) for e in x])
+        match region_key:
+            case "WORLD":
+                return np.array([GtCoal2GJ(e.sum()) for e in x])
+            case "Developing_UNFCCC":
+                return np.array(
+                    [
+                        GtCoal2GJ(e.filter(items=with_learning.DEVELOPING_UNFCCC).sum())
+                        for e in x
+                    ]
+                )
+            case "Developed_UNFCCC":
+                return np.array(
+                    [
+                        GtCoal2GJ(e.filter(items=with_learning.DEVELOPED_UNFCCC).sum())
+                        for e in x
+                    ]
+                )
+            case _:
+                return np.array(
+                    [GtCoal2GJ(e.filter(items=[region_key]).sum()) for e in x]
+                )
 
     y_deltap = get_arr(DeltaP)
     with_learning.VERBOSE_ANALYSIS = True
@@ -167,7 +174,7 @@ def plot_electricity_generation(
     with_learning.VERBOSE_ANALYSIS = False
 
 
-if 1:
+if 0:
     # 15 African countries
     for a2 in "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split():
         plt.figure()
@@ -192,8 +199,10 @@ if 1:
 if 1:
     fig, axes = plt.subplots(1, 3, figsize=(12, 5))
     plot_electricity_generation(axes[0], "Global", ylabel=True)
-    plot_electricity_generation(axes[1], "Developed Countries")
-    plot_electricity_generation(axes[2], "Developing Countries")
+    developed = "Developed Countries\n(incl. China, South Korea\n& petro states)"
+    plot_electricity_generation(axes[1], developed)
+    developing = "Developing Countries\n(excl. China, South Korea\n& petro states)"
+    plot_electricity_generation(axes[2], developing)
 
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
@@ -212,7 +221,6 @@ if 1:
     )
     plt.close()
 
-    # plt.savefig("plots/electricity_generation.png")
     exit()
 
 if 1:

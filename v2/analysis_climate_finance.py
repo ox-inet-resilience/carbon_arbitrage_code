@@ -757,10 +757,10 @@ if __name__ == "__main__":
         run_table2_3_scenarios(
             "developing_cop29_min_cn", [c for c in developing_cop29 if c != "CN"], False
         )
-        petrol_states = "CN KR RU AE SA QA BH BN KW".split()
+        petro_states = "CN KR RU AE SA QA BH BN KW".split()
         run_table2_3_scenarios(
             "developing_cop29_min_petrol",
-            [c for c in developing_cop29 if c not in petrol_states],
+            [c for c in developing_cop29 if c not in petro_states],
             False,
         )
         # this is GDP/capita
