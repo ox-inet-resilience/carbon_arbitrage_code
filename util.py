@@ -635,7 +635,7 @@ def get_developing_countries():
 def get_countries_unfccc():
     df = pd.read_csv("./data/unfcc_classification_countries.csv")
     developed = df[df.classification == "All Developed"].asset_location.tolist()
-    developing = df[df.classification == "Developing"].asset_location.tolist()
+    developing = df[df.classification == "Developing"].asset_location.replace(pd.NA, "NA").tolist()
     return developed, developing
 
 

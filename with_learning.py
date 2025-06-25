@@ -185,6 +185,7 @@ class InvestmentCostWithLearning:
 
     # Source: Table H.1. IRENA (2023), Renewable power generation costs in 2022
     # Same as investment cost
+    # $/kW
     installed_costs = {
         "solar": 876,
         "onshore_wind": 1274,
