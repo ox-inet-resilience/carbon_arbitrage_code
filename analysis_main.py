@@ -1852,6 +1852,7 @@ if __name__ == "__main__":
         countries = ["CA"]
         # 15 Africa countries
         countries = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
+        countries = "ID IN VN ZA".split()
         # countries = sorted(list(set(df_sector.asset_country.tolist())))
         make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production

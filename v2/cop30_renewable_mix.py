@@ -133,6 +133,7 @@ plt.close()
 
 # 3
 plt.figure(figsize=(30, 9))
+values_summed = np.zeros(len(developing))
 for k, label in tech_names.items():
     values = []
     for country in developing:
@@ -149,20 +150,24 @@ for k, label in tech_names.items():
             em = em.iloc[0]
         em = float(em)
 
-        values.append(cf * em)
-    plt.scatter(xs, values, label=label)
+        value = cf * em
+        if np.isnan(value):
+            value = 0
+        values.append(value)
+    values_summed += values
+plt.scatter(xs, values_summed)
 ax = plt.gca()
 plt.xticks(xs, rotation=45, ha="right")
 ax.set_xticklabels([a2_to_full_name[d] for d in developing])
 for label in ax.get_xticklabels():
     label.set_visible(True)
-plt.legend()
 plt.tight_layout()
 plt.savefig("plots/cop30/capacity_factorxenergy_mix.png")
 plt.close()
 
 # 4
 plt.figure(figsize=(30, 9))
+values_summed = np.zeros(len(developing))
 for k, label in tech_names.items():
     values = []
     for country in developing:
@@ -179,14 +184,17 @@ for k, label in tech_names.items():
             em = em.iloc[0]
         em = float(em)
 
-        values.append(cf * em * df_unit_ic.iloc[0][k])
-    plt.scatter(xs, values, label=label)
+        value = cf * em * df_unit_ic.iloc[0][k]
+        if np.isnan(value):
+            value = 0
+        values.append(value)
+    values_summed += values
+plt.scatter(xs, values_summed)
 ax = plt.gca()
 plt.xticks(xs, rotation=45, ha="right")
 ax.set_xticklabels([a2_to_full_name[d] for d in developing])
 for label in ax.get_xticklabels():
     label.set_visible(True)
-plt.legend()
 plt.ylabel("Weighted investment costs ($/kW)")
 plt.tight_layout()
 plt.savefig("plots/cop30/capacity_factorxenergy_mixxinvestment_cost.png")
