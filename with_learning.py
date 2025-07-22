@@ -585,36 +585,21 @@ class InvestmentCostWithLearning:
                     _fn = lambda c, y: self.GJ2kW(self.get_stock_battery_short(y, c))  # noqa
                 case _:
                     _fn = lambda c, y: self.get_stock(c, tech, y)  # noqa
-            match VERBOSE_ANALYSIS_COUNTRY:
-                case "WORLD":
-                    self.cached_stock[tech][year] = (
-                        sum(_fn(c, year) for c in DeltaP.keys()) + stock_battery_pe
-                    )
-                case "EMDE":
-                    self.cached_stock[tech][year] = (
-                        sum(_fn(c, year) for c in DeltaP.keys() if c in EMDE)
-                        + stock_battery_pe
-                    )
-                case "Developing_UNFCCC":
-                    self.cached_stock[tech][year] = (
-                        sum(
-                            _fn(c, year)
-                            for c in DeltaP.keys()
-                            if c in DEVELOPING_UNFCCC
-                        )
-                        + stock_battery_pe
-                    )
-                case "Developed_UNFCCC":
-                    self.cached_stock[tech][year] = (
-                        sum(
-                            _fn(c, year) for c in DeltaP.keys() if c in DEVELOPED_UNFCCC
-                        )
-                        + stock_battery_pe
-                    )
-                case _:
-                    self.cached_stock[tech][year] = (
-                        _fn(VERBOSE_ANALYSIS_COUNTRY, year) + stock_battery_pe
-                    )
+            cs = {
+                "WORLD": None,
+                "EMDE": EMDE,
+                "Developing_UNFCCC": DEVELOPING_UNFCCC,
+                "Developed_UNFCCC": DEVELOPED_UNFCCC,
+            }.get(VERBOSE_ANALYSIS_COUNTRY, VERBOSE_ANALYSIS_COUNTRY)
+            if cs == VERBOSE_ANALYSIS_COUNTRY:
+                self.cached_stock[tech][year] = (
+                    _fn(VERBOSE_ANALYSIS_COUNTRY, year) + stock_battery_pe
+                )
+            else:
+                self.cached_stock[tech][year] = (
+                    sum(_fn(c, year) for c in DeltaP.keys() if cs is None or c in cs)
+                    + stock_battery_pe
+                )
 
     def calculate_investment_cost(self, DeltaP, year, discount):
         self.cost_non_discounted_battery_short_by_country.append({})
