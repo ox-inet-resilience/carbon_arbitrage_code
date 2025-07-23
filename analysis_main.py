@@ -543,6 +543,14 @@ def get_cost_including_ngfs_renewable(
         temp_cost_with_learning.calculate_investment_cost(
             dp, NGFS_PEG_YEAR + i, discount
         )
+    if with_learning.VERBOSE_ANALYSIS:
+        # This is to calculate available capacity beyond LAST_YEAR
+        for year in range(
+            LAST_YEAR + 1, LAST_YEAR + 1 + with_learning.RENEWABLE_LIFESPAN
+        ):
+            temp_cost_with_learning.initialize_verbose_analysis(
+                {c: 0 for c in DeltaP[0].keys()}, year
+            )
 
     out_non_discounted = list(temp_cost_with_learning.cost_non_discounted)
     out_discounted = list(temp_cost_with_learning.cost_discounted)
@@ -1617,7 +1625,10 @@ def make_battery_unit_ic_plot(scenario, countries_included):
     with_learning.VERBOSE_ANALYSIS = True
     util.CARBON_BUDGET_CONSISTENT = "15-50"
     # util.CARBON_BUDGET_CONSISTENT = "strictly_declining"
-    years = range(2024, 2050 + 1)
+    years = list(range(2024, 2050 + 1))
+    years_plus_renewable_lifetime = years + list(
+        range(2050 + 1, 2050 + 1 + with_learning.RENEWABLE_LIFESPAN)
+    )
 
     def kW2GW(arr):
         return [i / 1e6 for i in arr]
@@ -1694,7 +1705,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
                 )
             )
             plt.plot(
-                years,
+                years_plus_renewable_lifetime,
                 y,
                 label=label,
                 markersize=markersize,
@@ -1762,7 +1773,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
                 )
             )
             plt.plot(
-                years,
+                years_plus_renewable_lifetime,
                 y,
                 label=label,
                 markersize=markersize,
@@ -1804,8 +1815,8 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         y_cumsum = np.cumsum(y)
 
-        plt.plot(years, kW2GW(y), label="Annual")
-        plt.plot(years, kW2GW(y_cumsum), label="Cumulative")
+        plt.plot(years_plus_renewable_lifetime, kW2GW(y), label="Annual")
+        plt.plot(years_plus_renewable_lifetime, kW2GW(y_cumsum), label="Cumulative")
         plt.legend()
         plt.xlabel("Time")
         plt.ylabel("Annual installed capacity (GW)")
@@ -1853,7 +1864,7 @@ if __name__ == "__main__":
         # 15 Africa countries
         countries = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
         countries = "ID IN VN ZA".split()
-        # countries = sorted(list(set(df_sector.asset_country.tolist())))
+        countries = sorted(list(set(df_sector.asset_country.tolist())))
         make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production
         # make_battery_unit_ic_plot("Current Policies", countries)
