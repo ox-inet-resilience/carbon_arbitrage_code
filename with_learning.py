@@ -630,7 +630,7 @@ class InvestmentCostWithLearning:
             if stock_year >= year:
                 break
             age = year - stock_year
-            s = stock_amount[country_name]
+            s = stock_amount.get(country_name, 0.0)
             if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
                 s *= (1 - self.degradation_rate[tech]) ** age
 
@@ -651,7 +651,7 @@ class InvestmentCostWithLearning:
             if stock_year >= year:
                 break
             age = year - stock_year
-            s = stock_amount[country_name]
+            s = stock_amount.get(country_name, 0.0)
             if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
                 s *= (1 - self.degradation_rate["short"]) ** age
 
@@ -672,7 +672,7 @@ class InvestmentCostWithLearning:
             if stock_year >= year:
                 break
             age = year - stock_year
-            s = stock_amount[country_name]
+            s = stock_amount.get(country_name, 0.0)
             if ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
                 s *= (1 - self.degradation_rate[tech]) ** age
 
