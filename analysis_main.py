@@ -575,23 +575,11 @@ def get_cost_including_ngfs_renewable(
     )
 
 
-def generate_table1_output(
-    rho,
-    do_round,
-    _df_nonpower,
-    included_countries=None,
-):
-    out = {}
-    out_yearly = {}
-
-    # Production
-    # Giga tonnes of coal
+def _prepare_table1_base_data(_df_nonpower):
+    """Prepare base production and emissions data for table1 analysis."""
     total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
-
-    # Emissions
     emissions_fa = util.get_emissions_by_country(df_sector)
 
-    current_policies = None
     production_2019 = (
         _df_nonpower.groupby("asset_country")._2019.sum()
         if ENABLE_COAL_EXPORT
@@ -602,67 +590,234 @@ def generate_table1_output(
         calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower)
     )
 
+    return (
+        total_production_fa,
+        emissions_fa,
+        production_2019,
+        weighted_emissions_factor_by_country_peg_year,
+    )
+
+
+def _process_table1_scenario(
+    scenario,
+    total_production_fa,
+    emissions_fa,
+    production_with_ngfs_projection_CPS,
+    profit_ngfs_projection_CPS,
+):
+    """Process a single scenario for table1 analysis."""
+    last_year = LAST_YEAR
+
+    # Calculate NGFS projections
+    (
+        production_with_ngfs_projection,
+        gigatonnes_coal_production,
+        profit_ngfs_projection,
+    ) = util.calculate_ngfs_projection(
+        "production",
+        total_production_fa,
+        ngfs_df,
+        SECTOR_INCLUDED,
+        scenario,
+        NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+        unit_profit_df=unit_profit_df,
+    )
+
+    emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
+        "emissions",
+        emissions_fa,
+        ngfs_df,
+        SECTOR_INCLUDED,
+        scenario,
+        NGFS_PEG_YEAR,
+        last_year,
+        alpha2_to_alpha3,
+    )
+
+    # Store Current Policies data for Net Zero 2050 comparison
+    if scenario == "Current Policies":
+        production_with_ngfs_projection_CPS = production_with_ngfs_projection.copy()
+        profit_ngfs_projection_CPS = profit_ngfs_projection.copy()
+
+    scenario_formatted = f"FA + {scenario} Scenario"
+    array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
+
+    # Calculate delta production and profit
+    if scenario == "Net Zero 2050":
+        DeltaP = util.subtract_array(
+            production_with_ngfs_projection_CPS, production_with_ngfs_projection
+        )
+        delta_profit = {
+            subsector: util.subtract_array(
+                profit_ngfs_projection_CPS[subsector],
+                profit_ngfs_projection[subsector],
+            )
+            for subsector in util.SUBSECTORS
+        }
+    else:
+        DeltaP = production_with_ngfs_projection_CPS
+        delta_profit = profit_ngfs_projection_CPS
+
+    # Convert Giga tonnes of coal to GJ
+    DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
+
+    scenario_results = (
+        gigatonnes_coal_production,
+        array_of_total_emissions_non_discounted,
+        DeltaP,
+        scenario_formatted,
+        delta_profit,
+        production_with_ngfs_projection,
+    )
+
+    return (
+        scenario_results,
+        production_with_ngfs_projection_CPS,
+        profit_ngfs_projection_CPS,
+    )
+
+
+def _apply_table1_country_filter(
+    included_countries,
+    production_with_ngfs_projection,
+    gigatonnes_coal_production,
+    array_of_total_emissions_non_discounted,
+    cost_non_discounted_owner,
+    cost_discounted_owner,
+    cost_non_discounted_investment,
+    cost_discounted_investment,
+    residual_emissions,
+    residual_production,
+    final_cost_with_learning,
+):
+    """Apply country filtering to table1 data."""
+
+    def _filter(e, is_multiindex=False):
+        if isinstance(e, dict):
+            e = pd.Series(e)
+        if is_multiindex:
+            return e[e.index.get_level_values(0).isin(included_countries)]
+        return e[e.index.isin(included_countries)]
+
+    def _filter_arr(arr, is_multiindex=False):
+        return [_filter(e, is_multiindex) for e in arr]
+
+    # Filter production data
+    gigatonnes_coal_production = _filter(sum(production_with_ngfs_projection)).sum()
+
+    # Filter emissions data
+    array_of_total_emissions_non_discounted = _filter_arr(
+        array_of_total_emissions_non_discounted, is_multiindex=True
+    )
+
+    # Filter cost data
+    cost_non_discounted_owner = {
+        subsector: _filter_arr(cost_non_discounted_owner[subsector])
+        for subsector in util.SUBSECTORS
+    }
+    cost_discounted_owner = {
+        subsector: _filter_arr(cost_discounted_owner[subsector])
+        for subsector in util.SUBSECTORS
+    }
+    cost_non_discounted_investment = _filter_arr(cost_non_discounted_investment)
+    cost_discounted_investment = _filter_arr(cost_discounted_investment)
+
+    # Filter residual data
+    residual_emissions = _filter(residual_emissions)
+    residual_production = _filter(residual_production)
+
+    # Filter battery cost data
+    final_cost_with_learning.cost_non_discounted_battery_short_by_country = _filter_arr(
+        final_cost_with_learning.cost_non_discounted_battery_short_by_country
+    )
+    final_cost_with_learning.cost_non_discounted_battery_long_by_country = _filter_arr(
+        final_cost_with_learning.cost_non_discounted_battery_long_by_country
+    )
+    final_cost_with_learning.cost_non_discounted_battery_pe_by_country = _filter_arr(
+        final_cost_with_learning.cost_non_discounted_battery_pe_by_country
+    )
+    final_cost_with_learning.cost_non_discounted_battery_grid_by_country = _filter_arr(
+        final_cost_with_learning.cost_non_discounted_battery_grid_by_country
+    )
+
+    return (
+        gigatonnes_coal_production,
+        array_of_total_emissions_non_discounted,
+        cost_non_discounted_owner,
+        cost_discounted_owner,
+        cost_non_discounted_investment,
+        cost_discounted_investment,
+        residual_emissions,
+        residual_production,
+        final_cost_with_learning,
+    )
+
+
+def generate_table1_output(
+    rho,
+    do_round,
+    _df_nonpower,
+    included_countries=None,
+):
+    """Generate table 1 output for carbon arbitrage analysis.
+
+    This function calculates the costs and benefits of carbon arbitrage under
+    two scenarios: Current Policies and Net Zero 2050. It processes production,
+    emissions, and cost data for both scenarios and returns comprehensive results.
+
+    Args:
+        rho: Discount rate for present value calculations
+        do_round: Whether to round numerical results
+        _df_nonpower: Non-power sector dataframe with asset data
+        included_countries: Optional list of country codes to include in analysis
+
+    Returns:
+        Tuple of (results_dataframe, yearly_info_dict):
+            - results_dataframe: Summary results by scenario
+            - yearly_info_dict: Detailed yearly breakdown by scenario
+    """
+    out = {}
+    out_yearly = {}
+
+    # Prepare base production and emissions data
+    (
+        total_production_fa,
+        emissions_fa,
+        production_2019,
+        weighted_emissions_factor_by_country_peg_year,
+    ) = _prepare_table1_base_data(_df_nonpower)
+
+    # Initialize scenario tracking variables
+    current_policies = None
     production_with_ngfs_projection_CPS = None
     profit_ngfs_projection_CPS = None
+
+    # Process both scenarios: Current Policies provides baseline, Net Zero 2050 shows intervention
     for scenario in ["Current Policies", "Net Zero 2050"]:
-        # NGFS_PEG_YEAR
-        cost_new_method = with_learning.InvestmentCostWithLearning()
-
-        last_year = LAST_YEAR
-        # Giga tonnes of coal
         (
-            production_with_ngfs_projection,
-            gigatonnes_coal_production,
-            profit_ngfs_projection,
-        ) = util.calculate_ngfs_projection(
-            "production",
+            scenario_results,
+            production_with_ngfs_projection_CPS,
+            profit_ngfs_projection_CPS,
+        ) = _process_table1_scenario(
+            scenario,
             total_production_fa,
-            ngfs_df,
-            SECTOR_INCLUDED,
-            scenario,
-            NGFS_PEG_YEAR,
-            last_year,
-            alpha2_to_alpha3,
-            unit_profit_df=unit_profit_df,
-        )
-        emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
-            "emissions",
             emissions_fa,
-            ngfs_df,
-            SECTOR_INCLUDED,
-            scenario,
-            NGFS_PEG_YEAR,
-            last_year,
-            alpha2_to_alpha3,
+            production_with_ngfs_projection_CPS,
+            profit_ngfs_projection_CPS,
         )
 
-        if scenario == "Current Policies":
-            # To prepare for the s2-s1 for NZ2050
-            production_with_ngfs_projection_CPS = production_with_ngfs_projection.copy()
-            profit_ngfs_projection_CPS = profit_ngfs_projection.copy()
+        (
+            gigatonnes_coal_production,
+            array_of_total_emissions_non_discounted,
+            DeltaP,
+            scenario_formatted,
+            delta_profit,
+            production_with_ngfs_projection,
+        ) = scenario_results
 
-        scenario_formatted = f"FA + {scenario} Scenario"
-
-        # NGFS_PEG_YEAR-last_year
-        array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
-
-        if scenario == "Net Zero 2050":
-            DeltaP = util.subtract_array(
-                production_with_ngfs_projection_CPS, production_with_ngfs_projection
-            )
-            delta_profit = {
-                subsector: util.subtract_array(
-                    profit_ngfs_projection_CPS[subsector],
-                    profit_ngfs_projection[subsector],
-                )
-                for subsector in util.SUBSECTORS
-            }
-        else:
-            DeltaP = production_with_ngfs_projection_CPS
-            delta_profit = profit_ngfs_projection_CPS
-        # Convert Giga tonnes of coal to GJ
-        DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
-
+        # Calculate opportunity costs
         (
             cost_non_discounted_owner,
             cost_discounted_owner,
@@ -670,8 +825,10 @@ def generate_table1_output(
             rho,
             delta_profit,
             scenario,
-            last_year,
+            LAST_YEAR,
         )
+
+        # Calculate investment costs
         (
             cost_non_discounted_investment,
             cost_discounted_investment,
@@ -684,8 +841,8 @@ def generate_table1_output(
             DeltaP,
             weighted_emissions_factor_by_country_peg_year,
             scenario,
-            last_year,
-            cost_new_method,
+            LAST_YEAR,
+            with_learning.InvestmentCostWithLearning(),
         )
 
         if ENABLE_COAL_EXPORT:
@@ -699,61 +856,37 @@ def generate_table1_output(
             )
 
         if included_countries is not None:
-
-            def _filter(e, is_multiindex=False):
-                if isinstance(e, dict):
-                    e = pd.Series(e)
-                if is_multiindex:
-                    return e[e.index.get_level_values(0).isin(included_countries)]
-                return e[e.index.isin(included_countries)]
-
-            def _filter_arr(arr, is_multiindex=False):
-                return [_filter(e, is_multiindex) for e in arr]
-
-            gigatonnes_coal_production = _filter(
-                sum(production_with_ngfs_projection)
-            ).sum()
-
-            array_of_total_emissions_non_discounted = _filter_arr(
-                array_of_total_emissions_non_discounted, is_multiindex=True
-            )
-            cost_non_discounted_owner = {
-                subsector: _filter_arr(cost_non_discounted_owner[subsector])
-                for subsector in util.SUBSECTORS
-            }
-            cost_discounted_owner = {
-                subsector: _filter_arr(cost_discounted_owner[subsector])
-                for subsector in util.SUBSECTORS
-            }
-            cost_non_discounted_investment = _filter_arr(cost_non_discounted_investment)
-            cost_discounted_investment = _filter_arr(cost_discounted_investment)
-            residual_emissions = _filter(residual_emissions)
-            residual_production = _filter(residual_production)
-            final_cost_with_learning.cost_non_discounted_battery_short_by_country = _filter_arr(
-                final_cost_with_learning.cost_non_discounted_battery_short_by_country
-            )
-            final_cost_with_learning.cost_non_discounted_battery_long_by_country = (
-                _filter_arr(
-                    final_cost_with_learning.cost_non_discounted_battery_long_by_country
-                )
-            )
-            final_cost_with_learning.cost_non_discounted_battery_pe_by_country = (
-                _filter_arr(
-                    final_cost_with_learning.cost_non_discounted_battery_pe_by_country
-                )
-            )
-            final_cost_with_learning.cost_non_discounted_battery_grid_by_country = (
-                _filter_arr(
-                    final_cost_with_learning.cost_non_discounted_battery_grid_by_country
-                )
+            (
+                gigatonnes_coal_production,
+                array_of_total_emissions_non_discounted,
+                cost_non_discounted_owner,
+                cost_discounted_owner,
+                cost_non_discounted_investment,
+                cost_discounted_investment,
+                residual_emissions,
+                residual_production,
+                final_cost_with_learning,
+            ) = _apply_table1_country_filter(
+                included_countries,
+                production_with_ngfs_projection,
+                gigatonnes_coal_production,
+                array_of_total_emissions_non_discounted,
+                cost_non_discounted_owner,
+                cost_discounted_owner,
+                cost_non_discounted_investment,
+                cost_discounted_investment,
+                residual_emissions,
+                residual_production,
+                final_cost_with_learning,
             )
 
-        text = f"{NGFS_PEG_YEAR}-{last_year} {scenario_formatted}"
+        # Generate scenario identifier and calculate table info
+        text = f"{NGFS_PEG_YEAR}-{LAST_YEAR} {scenario_formatted}"
         table1_info, yearly_info = calculate_table1_info(
             do_round,
             scenario,
             scenario_formatted,
-            f"{NGFS_PEG_YEAR}-{last_year}",
+            f"{NGFS_PEG_YEAR}-{LAST_YEAR}",
             gigatonnes_coal_production,
             copy.deepcopy(array_of_total_emissions_non_discounted),
             cost_non_discounted_owner,
@@ -766,8 +899,12 @@ def generate_table1_output(
             final_cost_with_learning=final_cost_with_learning,
             included_countries=included_countries,
         )
+
+        # Store results
         out[text] = table1_info
         out_yearly[text] = yearly_info
+
+        # Store Current Policies baseline for Net Zero 2050 comparison
         if scenario == "Current Policies":
             current_policies = {
                 "emissions_non_discounted": copy.deepcopy(
@@ -776,6 +913,7 @@ def generate_table1_output(
                 "total_production": gigatonnes_coal_production,
             }
 
+    # Convert results to DataFrame and return
     out = pd.DataFrame(out)
     return out, out_yearly
 
