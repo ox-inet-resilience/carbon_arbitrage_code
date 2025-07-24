@@ -38,7 +38,7 @@ if 0:
         print(country)
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         try:
-            analysis_main.run_table1(to_csv=False, do_round=False, plot_yearly=False)
+            analysis_main.run_table1(to_csv=False, do_round=False)
         except Exception:
             print("Skipping", country)
             continue

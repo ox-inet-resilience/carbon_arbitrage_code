@@ -792,46 +792,9 @@ def floatify_array_of_mixed_objs(x):
     return out
 
 
-def do_plot_yearly_table1(yearly_both):
-    full_years_2100 = range(NGFS_PEG_YEAR, 2100 + 1)
-    full_years_midyear = range(NGFS_PEG_YEAR, LAST_YEAR + 1)
-    for condition, value in yearly_both.items():
-        print(condition)
-        plt.figure()
-        x = (
-            full_years_2100
-            if f"{NGFS_PEG_YEAR}-2100" in condition
-            else full_years_midyear
-        )
-        plt.plot(x, floatify_array_of_mixed_objs(value["cost"]), label="Costs")
-        plt.plot(
-            x,
-            floatify_array_of_mixed_objs(value["investment_cost"]),
-            label="Investment costs",
-        )
-        plt.plot(
-            x,
-            floatify_array_of_mixed_objs(value["opportunity_cost"]),
-            label="Opportunity costs",
-        )
-        plt.plot(
-            x,
-            floatify_array_of_mixed_objs(value["benefit_non_discounted"]),
-            label="Benefit",
-        )
-        plt.xlabel("Time")
-        plt.ylabel("Trillion dollars")
-        plt.legend()
-        plt.title(condition)
-        plt.axvline(NGFS_PEG_YEAR)
-        util.savefig(f"yearly_{condition}")
-        plt.close()
-
-
 def run_table1(
     to_csv=False,
     do_round=False,
-    plot_yearly=False,
     return_yearly=False,
     included_countries=None,
 ):
@@ -869,9 +832,6 @@ def run_table1(
             ext += "_wright"
         fname = f"plots/table1_{uid}{ext}_{social_cost_of_carbon}_{LAST_YEAR}.csv"
         pd.DataFrame(both_dict).T.to_csv(fname)
-
-    if plot_yearly:
-        do_plot_yearly_table1(yearly)
 
     if return_yearly:
         return yearly
@@ -1517,7 +1477,7 @@ def run_3_level_scc():
         for sc in scs:
             util.social_cost_of_carbon = sc
             social_cost_of_carbon = sc  # noqa: F811
-            out = run_table1(to_csv=False, do_round=True, plot_yearly=False)
+            out = run_table1(to_csv=False, do_round=True)
             cao = out[cao_name][condition]
             caos.append(f"{cao:.2f}")
             cao_with_residual = out[cao_name_with_residual][condition]
@@ -1655,7 +1615,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         print(title)
         try:
-            run_table1(to_csv=False, do_round=False, plot_yearly=False)
+            run_table1(to_csv=False, do_round=False)
         except Exception as e:
             print("FA doesn't have this country's data:", e)
             continue
@@ -1850,7 +1810,7 @@ if __name__ == "__main__":
         for scc in sccs:
             util.social_cost_of_carbon = scc
             social_cost_of_carbon = scc  # noqa: F811
-            out = run_table1(to_csv=True, do_round=True, plot_yearly=False)
+            out = run_table1(to_csv=True, do_round=True)
         exit()
     if 1:
         # Battery yearly

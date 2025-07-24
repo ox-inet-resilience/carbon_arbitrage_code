@@ -135,7 +135,7 @@ def do_website_sensitivity_analysis():
                                 analysis_main.social_cost_of_carbon = sc  # noqa: F811
                                 setup_battery(battery_mode)
                                 out = analysis_main.run_table1(
-                                    to_csv=False, do_round=True, plot_yearly=False
+                                    to_csv=False, do_round=True
                                 )
 
                                 _scenario = (
