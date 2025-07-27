@@ -263,6 +263,9 @@ class InvestmentCostWithLearning:
             self.cached_cumulative_G[obj] = {}
         self.cached_stock_without_degradation = defaultdict(dict)
         self.cached_stock = defaultdict(dict)
+        self.cached_stock_without_degradation_fast = {}
+        self.cached_total_R = {}
+        self.cached_get_stock = {}
 
     def GJ2kW(self, x):
         # MW
@@ -283,9 +286,17 @@ class InvestmentCostWithLearning:
         return R
 
     def calculate_total_R(self, country_name, year):
+        # Check cache first
+        cache_key = (country_name, year)
+        if cache_key in self.cached_total_R:
+            return self.cached_total_R[cache_key]
+
         total_R = 0.0
         for tech in TECHS:
             total_R += self._calculate_R(country_name, tech, year)
+
+        # Cache the result
+        self.cached_total_R[cache_key] = total_R
         return total_R
 
     def _calculate_wrights_law(self, tech, year, cumulative_G):
@@ -619,11 +630,17 @@ class InvestmentCostWithLearning:
         self.initialize_verbose_analysis(DeltaP, year)
 
     def get_stock(self, country_name, tech, year):
+        # Check cache first
+        cache_key = (country_name, tech, year)
+        if cache_key in self.cached_get_stock:
+            return self.cached_get_stock[cache_key]
+
         lifespan = RENEWABLE_LIFESPAN
         if tech == "long":
             lifespan = BATTERY_LONG_LIFESPAN
         out = 0.0
         if len(self.stocks_kW[tech]) == 0:
+            self.cached_get_stock[cache_key] = out
             return out
         for stock_year, stock_amount in self.stocks_kW[tech].items():
             # This means the current year is also excluded
@@ -640,6 +657,9 @@ class InvestmentCostWithLearning:
             else:
                 # No lifespan checking is needed.
                 out += s
+
+        # Cache the result
+        self.cached_get_stock[cache_key] = out
         return out
 
     def get_stock_battery_short(self, year, country_name):
@@ -685,8 +705,13 @@ class InvestmentCostWithLearning:
         return out
 
     def get_stock_without_degradation(self, tech, year):
+        # Check cache first
+        if (tech, year) in self.cached_stock_without_degradation_fast:
+            return self.cached_stock_without_degradation_fast[(tech, year)]
+
         out = 0.0
         if len(self.stocks_kW[tech]) == 0:
+            self.cached_stock_without_degradation_fast[(tech, year)] = out
             return out
         for stock_year, stock_amount in self.stocks_kW[tech].items():
             if stock_year >= year:
@@ -698,6 +723,9 @@ class InvestmentCostWithLearning:
                     self.stocks_kW_battery_pe[tech][stock_year].values()
                 )
             out += sum(stock_amount.values()) + stock_battery_pe
+
+        # Cache the result
+        self.cached_stock_without_degradation_fast[(tech, year)] = out
         return out
 
     def calculate_residual_one_year(self, year, weighted_emissions_factor_by_country):
