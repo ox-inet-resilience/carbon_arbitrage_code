@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from functools import lru_cache
 
 import pandas as pd
 
@@ -136,6 +137,9 @@ irena_capacity_factor = {
 }
 
 
+# Beware of the LRU cache!! If we modify CAPACITY_FACTOR_SOURCE programmatically,
+# this will cause bugs.
+@lru_cache(maxsize=1024)
 def get_capacity_factor(tech, country_name):
     if CAPACITY_FACTOR_SOURCE == "IRENA":
         return irena_capacity_factor[tech]
@@ -146,6 +150,9 @@ def get_capacity_factor(tech, country_name):
     return cf
 
 
+# Beware of the LRU cache!! If we modify RENEWABLE_WEIGHT_SOURCE programmatically,
+# this will cause bugs.
+@lru_cache(maxsize=1024)
 def get_renewable_weight(tech, country_name):
     if RENEWABLE_WEIGHT_SOURCE == "GCA1":
         return {
@@ -728,22 +735,6 @@ class InvestmentCostWithLearning:
         self.cached_stock_without_degradation_fast[(tech, year)] = out
         return out
 
-    def calculate_residual_one_year(self, year, weighted_emissions_factor_by_country):
-        equivalent_emissions = {}
-        equivalent_production = {}
-        for (
-            country_name,
-            emissions_factor,
-        ) in weighted_emissions_factor_by_country.items():
-            # in GJ
-            total_R = self.calculate_total_R(country_name, year)
-            tonnes_of_coal_equivalent = util.GJ2coal(total_R)
-            equivalent_emissions[country_name] = (
-                tonnes_of_coal_equivalent * emissions_factor
-            )
-            equivalent_production[country_name] = tonnes_of_coal_equivalent
-        return equivalent_emissions, equivalent_production
-
     def calculate_residual(
         self, year_start, year_end, weighted_emissions_factor_by_country
     ):
@@ -751,15 +742,13 @@ class InvestmentCostWithLearning:
             return 0.0, 0.0
         residual_emissions = defaultdict(float)
         residual_production = defaultdict(float)
+        
         for year in range(year_start, year_end + 1):
-            (
-                equivalent_emissions,
-                equivalent_production,
-            ) = self.calculate_residual_one_year(
-                year, weighted_emissions_factor_by_country
-            )
-            for k, v in equivalent_emissions.items():
-                residual_emissions[k] += v
-            for k, v in equivalent_production.items():
-                residual_production[k] += v
+            for country_name, emissions_factor in weighted_emissions_factor_by_country.items():
+                # in GJ
+                total_R = self.calculate_total_R(country_name, year)
+                tonnes_of_coal_equivalent = util.GJ2coal(total_R)
+                residual_emissions[country_name] += tonnes_of_coal_equivalent * emissions_factor
+                residual_production[country_name] += tonnes_of_coal_equivalent
+        
         return pd.Series(residual_emissions), pd.Series(residual_production)
