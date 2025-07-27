@@ -429,9 +429,13 @@ def calculate_ngfs_projection(
                     ngfs_country_subsector[str(year)] for year in years_interpolated
                 ]
             # rescale NGFS part, so that at the first year, it is 1
-            across_years = [
-                value_fa[country][subsector] * e / across_years[0] for e in across_years
-            ]
+            # Major optimization: Vectorize the expensive rescaling calculation
+            across_years_array = np.array(across_years)
+            if across_years_array[0] != 0:
+                scaling_factor = value_fa[country][subsector] / across_years_array[0]
+                across_years = (across_years_array * scaling_factor).tolist()
+            else:
+                across_years = [0.0] * len(across_years)
             unit_profit_country_subsector = (
                 unit_profit_country[f"{subsector}_Av_Profitability_$/MWh"]
                 if isinstance(unit_profit_country, pd.Series)
