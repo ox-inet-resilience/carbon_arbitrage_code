@@ -1,3 +1,4 @@
+import glob
 import math
 import os
 import pathlib
@@ -38,11 +39,6 @@ measures_keys = {
     "investment_costs": "Investment costs (in trillion dollars)",
     "opportunity_costs": "Opportunity costs (in trillion dollars)",
 }
-# file hashes to try, because the output of table2 filenames contain hashes
-hashes = [
-    "10f5db762fcfcd9cfcd6943ab22d029c639373ca",
-    "37c38a58a68b92dc9f6a6da558a9a11ce50f6c5f",
-]
 
 top30 = {}
 for last_year in [2035, 2050]:
@@ -63,22 +59,24 @@ country_map = {
     "top30ae_2050": top30[2050],
 }
 
-for country_group in ["developing", "developed", "combined", "top30ae_2035", "top30ae_2050"]:
+for country_group in [
+    "developing",
+    "developed",
+    "combined",
+    "top30ae_2035",
+    "top30ae_2050",
+]:
     countries = country_map[country_group]
     for measure, key in measures_keys.items():
         for time_period in ["2024-2035", "2024-2050"]:
             out = {}
             for country in countries:
-                for hash in hashes:
-                    try:
-                        df = pd.read_csv(
-                            f"./plots/table2/table2_country_{country}_{hash}.csv",
-                            skiprows=1,
-                            index_col=0,
-                        ).T
-                    except FileNotFoundError:
-                        continue
-                    break
+                # Find the file using glob pattern
+                files = glob.glob(f"./plots/table2/table2_country_{country}_*.csv")
+                if not files:
+                    continue
+                # Use the first (and likely only) match
+                df = pd.read_csv(files[0], skiprows=1, index_col=0).T
                 if measure == "public_costs":
                     value = (
                         0.25
