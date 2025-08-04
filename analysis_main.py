@@ -1723,7 +1723,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
     with_learning.VERBOSE_ANALYSIS = True
     util.CARBON_BUDGET_CONSISTENT = "15-50"
     # util.CARBON_BUDGET_CONSISTENT = "strictly_declining"
-    years = list(range(2024, 2050 + 1))
+    years = list(range(2024, LAST_YEAR + 1))
     years_plus_renewable_lifetime = years + list(
         range(2050 + 1, 2050 + 1 + with_learning.RENEWABLE_LIFESPAN)
     )
