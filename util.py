@@ -285,9 +285,12 @@ def maybe_load_forward_analytics_data(pre_existing_df=None):
                 # "emissions_factor_unit": _str_type,
                 # "unit": _str_type,
             },
+            # Needs this because otherwise NA for Namibia is interpreted as NaN
+            na_filter=False,
         )
+        # Not needed anymore because of the na_filter=False above
         # Put back Namibia's alpha-2
-        df["asset_country"] = df["asset_country"].replace(pd.NA, "NA")
+        # df["asset_country"] = df["asset_country"].replace(pd.NA, "NA")
     else:
         df = pre_existing_df
     return df
@@ -560,7 +563,7 @@ def discount_array(array, rho):
     return [e * calculate_discount(rho, i) for i, e in enumerate(array)]
 
 
-def get_emissions_by_country(nonpower_coal, discounted=False):
+def get_emissions_by_country(nonpower_coal):
     # The division by 1e3 converts MtCO2 to GtCO2.
     emissions = (
         nonpower_coal.groupby(["asset_country", "subsector"])[EMISSIONS_COLNAME].sum()
