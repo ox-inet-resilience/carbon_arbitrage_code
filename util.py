@@ -769,16 +769,22 @@ def prepare_alpha2_to_full_name_concise():
     iso3166_df = read_iso3166()
     iso3166_df_alpha2 = iso3166_df.set_index("alpha-2")
     alpha2_to_full_name = iso3166_df_alpha2["name"].to_dict()
-    alpha2_to_full_name["GB"] = "Great Britain"
-    alpha2_to_full_name["US"] = "USA"
-    alpha2_to_full_name["RU"] = "Russia"
-    alpha2_to_full_name["TW"] = "Taiwan"
-    alpha2_to_full_name["KR"] = "South Korea"
-    alpha2_to_full_name["LA"] = "Laos"
-    alpha2_to_full_name["VE"] = "Venezuela"
-    alpha2_to_full_name["CD"] = "Congo-Kinshasa"
-    alpha2_to_full_name["IR"] = "Iran"
-    alpha2_to_full_name["TZ"] = "Tanzania"
-    alpha2_to_full_name["BA"] = "B&H"
-    alpha2_to_full_name["XK"] = "Kosovo"
+    replacer = {
+        "GB": "Great Britain",
+        "US": "USA",
+        "RU": "Russia",
+        "TW": "Taiwan",
+        "KR": "South Korea",
+        "LA": "Laos",
+        "VE": "Venezuela",
+        "CD": "Congo-Kinshasa",
+        "IR": "Iran",
+        "TZ": "Tanzania",
+        "BA": "B&H",
+        "XK": "Kosovo",
+        "KP": "North Korea",
+        "SY": "Syria",
+        "BO": "Bolivia",
+    }
+    alpha2_to_full_name = {**alpha2_to_full_name, **replacer}
     return alpha2_to_full_name
