@@ -31,7 +31,7 @@ TECHS = TECHS_WITH_LEARNING + TECHS_NO_LEARNING
 if RENEWABLE_WEIGHT_SOURCE == "GCA1":
     TECHS = TECHS_WITH_LEARNING
 irena = util.read_json("data/irena.json")
-petro_states = "CN KR RU AE SA QA BH BN KW".split()
+petrol_states = "CN KR RU AE SA QA BH BN KW".split()
 
 
 def get_emde_developing_developed():
@@ -54,8 +54,8 @@ def get_emde_developing_developed():
 EMDE, DEVELOPING, DEVELOPED = get_emde_developing_developed()
 DEVELOPED_UNFCCC, DEVELOPING_UNFCCC = util.get_countries_unfccc()
 # Modification for COP30
-DEVELOPED_UNFCCC += petro_states
-DEVELOPING_UNFCCC = [e for e in DEVELOPING_UNFCCC if e not in petro_states]
+DEVELOPED_UNFCCC += petrol_states
+DEVELOPING_UNFCCC = [e for e in DEVELOPING_UNFCCC if e not in petrol_states]
 
 
 def prepare_fa_capacity_factor_data():
