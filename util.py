@@ -286,11 +286,12 @@ def maybe_load_forward_analytics_data(pre_existing_df=None):
                 # "unit": _str_type,
             },
             # Needs this because otherwise NA for Namibia is interpreted as NaN
-            na_filter=False,
+            # na_filter=False,
         )
-        # Not needed anymore because of the na_filter=False above
+        # Still needed because the na_filter=False above
+        # causes empty activity value to be interpreted as object
         # Put back Namibia's alpha-2
-        # df["asset_country"] = df["asset_country"].replace(pd.NA, "NA")
+        df["asset_country"] = df["asset_country"].replace(pd.NA, "NA")
     else:
         df = pre_existing_df
     return df
