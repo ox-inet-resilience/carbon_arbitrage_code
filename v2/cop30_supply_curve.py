@@ -195,7 +195,7 @@ def supply_curve_grouped():
             public_costs_per_ae_full.get(c, 0) * ae_dict.get(c, 0) for c in group
         ) / sum(ae_dict.get(c, 0) for c in group)
         val = f"{int(val)},{int(public_val)}"
-        label = f"{name}\n$\\mathbf{{{val} (\\$/tCO_2)}}$"
+        label = f"{name}\n$\\mathbf{{{val}\\,(\\$/tCO_2)}}$"
         labels.append(label)
         public_vals.append(public_val)
 
