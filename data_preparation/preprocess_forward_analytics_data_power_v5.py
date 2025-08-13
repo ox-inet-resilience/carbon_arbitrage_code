@@ -13,17 +13,16 @@ df = df[df["Status"] == "active"]
 df_crosswalk = pd.read_csv("./data_private/power_oil_gas_fuel_crosswalk.csv")
 df_crosswalk = df_crosswalk.drop("Technology", axis=1)
 
-cols = "FA_Unit_ID Asset_Name Sector Technology Country_ISO3 Capacity Capacity_Unit Capacity_Factor Activity Activity_Unit Emissions_Factor_Scope_1 Emissions_Factor_Scope_2 Emissions_Factor_Lifetime Emissions_Factor_Unit Emissions_Unit".split()
+cols = "FA_Unit_ID Asset_Name Sector Technology Country_ISO3 Capacity Capacity_Unit Capacity_Factor Activity Activity_Unit Emissions_Factor_Scope_1 Emissions_Factor_Scope_2 Emissions_Factor_Unit Emissions_Unit".split()
 
 df = df[cols]
 # Merge df and df_crosswalk
-df = pd.merge(df, df_crosswalk, on="FA_Unit_ID")
+df = pd.merge(df, df_crosswalk, on="FA_Unit_ID", how="left")
 
 assert len(df) == len(df[df.Activity.notna()])
 assert len(df) == len(df[df.Sector == "Energy"])
 
 df = df[df.Technology.isin(["Coal", "Oil & Gas"])]
-df = df.drop("Technology", axis=1)
 
 # Renames
 iso3166_df = util.read_iso3166()
@@ -48,6 +47,8 @@ df = df.rename(
     }
 )
 
+df.loc[df["Technology"] == "Coal", "Fuel_Classification"] = "Coal"
+df.loc[df["Fuel_Classification"].isna(), "Fuel_Classification"] = "Multi fuel"
 df = df[df["Fuel_Classification"].notna()]
 df["Fuel_Classification"] = df["Fuel_Classification"].replace(
     {"Oil only": "Oil", "Gas only": "Gas"}
@@ -71,9 +72,10 @@ df = df.rename(
 
 # Unit is MtCO2
 df["annualco2tyear"] = (
-    df["Emissions_Factor_Scope_1"] + df["Emissions_Factor_Scope_2"]
-    #df["Emissions_Factor_Lifetime"]
-) * df.activity / 1e6
+    (df["Emissions_Factor_Scope_1"] + df["Emissions_Factor_Scope_2"])
+    * df.activity
+    / 1e6
+)
 # Not needed since they are all "tonnes of CO2e (100-year)"
 assert len(set(df.emissions_unit)) == 1
 df = df.drop(
@@ -82,7 +84,7 @@ df = df.drop(
         "Emissions_Factor_Unit",
         "Emissions_Factor_Scope_1",
         "Emissions_Factor_Scope_2",
-        "Emissions_Factor_Lifetime",
+        "Technology",
     ],
     axis=1,
 )
