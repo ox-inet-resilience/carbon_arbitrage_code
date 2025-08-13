@@ -263,6 +263,7 @@ def maybe_load_forward_analytics_data(pre_existing_df=None):
     print("Reading from FA")
     filename = "v3_power_Forward_Analytics2024.csv.zip"
     filename = "FA2024_power_only_preprocessed.csv.gz"
+    # filename = "FA_asset_power_v5_preprocessed.csv.gz"
     # filename = "masterdata_ownership_PROCESSED_capacity_factor.csv.gz"
     # encoding = "latin1"
     compression = "gzip" if filename.endswith(".gz") else "zip"
@@ -410,28 +411,39 @@ def calculate_ngfs_projection(
         if len(ngfs_country) == 0:
             ngfs_country = ngfs_country_wo_iea_stats
         value_fa_country = value_fa[country]
+
+        def get_ngfs_timeseries_for_variable(ngfs_data, variable_name, years):
+            """Extract time series data for a specific variable from NGFS data."""
+            filtered_data = ngfs_data[ngfs_data.Variable == variable_name]
+            if len(filtered_data) == 0:
+                return None
+            filtered_data = filtered_data.iloc[0]
+            return [filtered_data[str(year)] for year in years]
+
+        def fallback_to_global_stats(variable_name, years):
+            """Use global statistics when country-specific data is unavailable."""
+            return get_ngfs_timeseries_for_variable(
+                ngfs_country_wo_iea_stats, variable_name, years
+            )
+
         for subsector in subsectors:
             if subsector not in value_fa_country:
                 continue
             variable = f"Secondary Energy|Electricity|{subsector}"
-            ngfs_country_subsector = ngfs_country[
-                ngfs_country.Variable == variable
-            ].iloc[0]
-            across_years = [
-                ngfs_country_subsector[str(year)] for year in years_interpolated
-            ]
+
+            # Try to get country-specific NGFS data
+            across_years = get_ngfs_timeseries_for_variable(
+                ngfs_country, variable, years_interpolated
+            )
+
+            # If no country data or data starts at zero, use global fallback
+            if across_years is None or across_years[0] == 0:
+                across_years = fallback_to_global_stats(variable, years_interpolated)
+
             # Uncomment this if you want to replace NZ2050 with a flat line
             # (i.e. no phaseout in brown energy, but no increase either)
             # if scenario == "Net Zero 2050" :
             #     across_years = [across_years[0] for _ in range(len(across_years))]
-            if across_years[0] == 0:
-                # NGFS has countries that start from 0 value
-                ngfs_country_subsector = ngfs_country_wo_iea_stats[
-                    ngfs_country_wo_iea_stats.Variable == variable
-                ].iloc[0]
-                across_years = [
-                    ngfs_country_subsector[str(year)] for year in years_interpolated
-                ]
             # rescale NGFS part, so that at the first year, it is 1
             # Major optimization: Vectorize the expensive rescaling calculation
             across_years_array = np.array(across_years)
@@ -643,7 +655,11 @@ def get_developing_countries():
 def get_countries_unfccc():
     df = pd.read_csv("./data/unfcc_classification_countries.csv")
     developed = df[df.classification == "All Developed"].asset_location.tolist()
-    developing = df[df.classification == "Developing"].asset_location.replace(pd.NA, "NA").tolist()
+    developing = (
+        df[df.classification == "Developing"]
+        .asset_location.replace(pd.NA, "NA")
+        .tolist()
+    )
     return developed, developing
 
 
