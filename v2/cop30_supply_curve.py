@@ -32,6 +32,9 @@ ae_dict = out_yearly[f"2024-{last_year} FA + Net Zero 2050 Scenario"][
 sorted_ae_dict_top10 = dict(
     sorted(ae_dict.items(), key=lambda item: item[1], reverse=True)[:20]
 )
+sorted_ae_dict_bot50 = dict(
+    sorted(ae_dict.items(), key=lambda item: item[1], reverse=True)[-50:]
+)
 
 
 def common_xticks(xs, labels, remove_marginal_number=True):
@@ -65,11 +68,18 @@ public_costs_per_ae_full = {
     k: v for k, v in public_costs_per_ae_full.items() if k in ae_dict
 }
 
-for mode in ["all", "developing"]:
+PLOT_AVOIDED_EMISSIONS = False
+for mode in ["all", "developing", "developing_without_bot50cn"]:
     match mode:
         case "developing":
             costs_per_ae = {
                 k: v for k, v in costs_per_ae_full.items() if k in developing
+            }
+        case "developing_without_bot50cn":
+            costs_per_ae = {
+                k: v
+                for k, v in costs_per_ae_full.items()
+                if k in developing and k != "CN" and k not in sorted_ae_dict_bot50
             }
         case _:
             costs_per_ae = costs_per_ae_full
@@ -77,32 +87,40 @@ for mode in ["all", "developing"]:
 
     # 1
     plt.figure(figsize=(35, 9))
-    ys = [ae_dict[c] for c in costs_per_ae]
+    if PLOT_AVOIDED_EMISSIONS:
+        ys = [ae_dict[c] for c in costs_per_ae]
+        plt.ylabel("Avoided emissions (GtCO2)")
+    else:
+        ys = [public_costs_per_ae_full.get(c, 0) for c in costs_per_ae]
+        plt.ylabel("Public costs / avoided emissions ($/tCO2)")
     plt.bar(xs, ys)
     labels = []
     for e in costs_per_ae:
         c = str(int(costs_per_ae.get(e, 0)))
-        if mode == "developing":
+        if PLOT_AVOIDED_EMISSIONS and mode in [
+            "developing",
+            "developing_without_bot50cn",
+        ]:
             c += f",{int(public_costs_per_ae_full.get(e, 0))}"
         label = f"{a2_to_full_name[e]};$\\mathbf{{{c}}}$"
         labels.append(label)
     labels[0] = labels[0] + "$\\mathbf{\\$/tCO_2}$"
-    plt.ylabel("Avoided emissions (GtCO2)")
     common_xticks(xs, labels)
 
-    if mode == "developing":
+    if mode in ["developing", "developing_without_bot50cn"]:
         ax2 = plt.gca().twinx()
         financiers = {
             "Developed countries": 47.99,
             "G7+EU (incl. Norway, Switzerland, Australia, South Korea excl. USA)": 21.0,
             "G7+EU (incl. China, Norway, Switzerland, Australia, South Korea excl. USA)": 32.19,
         }
+        colors = iter(["navy", "tab:orange", "tab:green"])
         for financier, scc_share in financiers.items():
             global_sccs = [
                 public_costs_per_ae_full.get(c, 0) / (scc_share / 100)
                 for c in costs_per_ae
             ]
-            plt.scatter(xs, global_sccs, label=financier)
+            plt.scatter(xs, global_sccs, label=financier, color=next(colors))
         plt.ylabel(r"Global SCC ($/tCO2)")
         plt.legend()
 
@@ -114,6 +132,10 @@ for mode in ["all", "developing"]:
     # 2. cumulative sum
     fig = plt.figure(figsize=(35, 9))
     cumsum_costs = np.cumsum([v * ae_dict[k] for k, v in costs_per_ae.items()]) / 1e3
+    cumsum_public_costs = (
+        np.cumsum([public_costs_per_ae_full[k] * ae_dict[k] for k in costs_per_ae])
+        / 1e3
+    )
     plt.plot(
         xs,
         cumsum_costs,
@@ -138,30 +160,34 @@ for mode in ["all", "developing"]:
     plt.close()
 
     # yet another cumulative sum
-    plt.figure()
-    plt.plot(cumsum_ae, cumsum_costs, linestyle="dashed")
-    color = ["green" if c in developed else "black" for c in costs_per_ae]
-    plt.scatter(cumsum_ae, cumsum_costs, color=color, facecolor="none")
-    plt.xlabel(r"Avoided emissions ($GtCO_2$)")
-    plt.ylabel("Costs (trillion dollars)")
-    countries = list(costs_per_ae)
-    ax = plt.gca()
-    texts = []
-    for i in range(len(cumsum_ae)):
-        c = countries[i]
-        if c in sorted_ae_dict_top10:
-            texts.append(
-                plt.text(
-                    cumsum_ae[i],
-                    cumsum_costs[i],
-                    a2_to_full_name[c],
-                    color="green" if c in developed else "black",
-                    fontsize=10,
+    for name, measure in {
+        "public costs": cumsum_public_costs,
+        "costs": cumsum_costs,
+    }.items():
+        plt.figure()
+        plt.plot(cumsum_ae, measure, linestyle="dashed")
+        color = ["green" if c in developed else "black" for c in costs_per_ae]
+        plt.scatter(cumsum_ae, measure, color=color, facecolor="none")
+        plt.xlabel(r"Cumulative avoided emissions ($GtCO_2$)")
+        plt.ylabel(f"Cumulative {name} (trillion dollars)")
+        countries = list(costs_per_ae)
+        ax = plt.gca()
+        texts = []
+        for i in range(len(cumsum_ae)):
+            c = countries[i]
+            if c in sorted_ae_dict_top10:
+                texts.append(
+                    plt.text(
+                        cumsum_ae[i],
+                        measure[i],
+                        a2_to_full_name[c],
+                        color="green" if c in developed else "black",
+                        fontsize=10,
+                    )
                 )
-            )
-    adjust_text(texts, arrowprops=dict(arrowstyle="->", color="black"))
-    plt.savefig(f"plots/cop30/supply_curve_costsvsae_{mode}_{last_year}.png")
-    plt.close()
+        adjust_text(texts, arrowprops=dict(arrowstyle="->", color="black"))
+        plt.savefig(f"plots/cop30/supply_curve_costsvsae_{mode}_{last_year}_{name}.png")
+        plt.close()
 
 
 # Supply curve but for developing altogether grouped
