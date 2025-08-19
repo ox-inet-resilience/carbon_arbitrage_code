@@ -37,6 +37,22 @@ sorted_ae_dict_bot50 = dict(
 )
 
 
+def filter_n_elements(dictionary, n, last=False):
+    """
+    Filters the first/last 'n' key-value pairs from a dictionary.
+
+    Args:
+        dictionary (dict): The input dictionary.
+        n (int): The number of elements to retrieve from the beginning.
+
+    Returns:
+        dict: A new dictionary containing the first 'n' elements.
+    """
+    if last:
+        return dict(list(dictionary.items())[-n:])
+    return dict(list(dictionary.items())[:n])
+
+
 def common_xticks(xs, labels, remove_marginal_number=True):
     plt.xticks(
         xs,
@@ -68,7 +84,8 @@ public_costs_per_ae_full = {
     k: v for k, v in public_costs_per_ae_full.items() if k in ae_dict
 }
 
-PLOT_AVOIDED_EMISSIONS = False
+PLOT_AVOIDED_EMISSIONS = True
+ENABLE_TWINX = False
 for mode in ["all", "developing", "developing_without_bot50cn"]:
     match mode:
         case "developing":
@@ -83,6 +100,10 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
             }
         case _:
             costs_per_ae = costs_per_ae_full
+    # Filter at breakpoint: South Sudan
+    # costs_per_ae = filter_n_elements(costs_per_ae, 33)
+    # costs_per_ae = filter_n_elements(costs_per_ae, len(costs_per_ae) - 33, last=True)
+
     xs = list(range(len(costs_per_ae)))
 
     # 1
@@ -93,7 +114,9 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
     else:
         ys = [public_costs_per_ae_full.get(c, 0) for c in costs_per_ae]
         plt.ylabel("Public costs / avoided emissions ($/tCO2)")
-    plt.bar(xs, ys)
+    plt.bar(
+        xs, ys, color="#CBD5E1" if ENABLE_TWINX else "tab:blue"
+    )  # color is slate-300
     labels = []
     for e in costs_per_ae:
         c = str(int(costs_per_ae.get(e, 0)))
@@ -107,24 +130,25 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
     labels[0] = labels[0] + "$\\mathbf{\\$/tCO_2}$"
     common_xticks(xs, labels)
 
-    if mode in ["developing", "developing_without_bot50cn"]:
+    if ENABLE_TWINX and mode in ["developing", "developing_without_bot50cn"]:
         ax2 = plt.gca().twinx()
         financiers = {
             "Developed countries": 47.99,
             "G7+EU (incl. Norway, Switzerland, Australia, South Korea excl. USA)": 21.0,
             "G7+EU (incl. China, Norway, Switzerland, Australia, South Korea excl. USA)": 32.19,
         }
-        colors = iter(["navy", "tab:orange", "tab:green"])
         for financier, scc_share in financiers.items():
             global_sccs = [
                 public_costs_per_ae_full.get(c, 0) / (scc_share / 100)
                 for c in costs_per_ae
             ]
-            plt.scatter(xs, global_sccs, label=financier, color=next(colors))
+            plt.scatter(xs, global_sccs, label=financier, s=100)
         plt.ylabel(r"Global SCC ($/tCO2)")
         plt.legend()
 
-    plt.grid()
+    plt.grid(which="major", color="dimgray", linewidth=0.8)
+    plt.grid(which="minor", color="gray", linestyle=":", linewidth=0.5)
+    plt.minorticks_on()
     plt.tight_layout()
     plt.savefig(f"plots/cop30/supply_curve_{mode}_{last_year}.png")
     plt.close()
@@ -163,13 +187,21 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
     for name, measure in {
         "public costs": cumsum_public_costs,
         "costs": cumsum_costs,
+        "costs_nocumsum": list(costs_per_ae.values()),
+        "public_costs_nocumsum": [public_costs_per_ae_full[c] for c in costs_per_ae],
     }.items():
         plt.figure()
         plt.plot(cumsum_ae, measure, linestyle="dashed")
         color = ["green" if c in developed else "black" for c in costs_per_ae]
         plt.scatter(cumsum_ae, measure, color=color, facecolor="none")
         plt.xlabel(r"Cumulative avoided emissions ($GtCO_2$)")
-        plt.ylabel(f"Cumulative {name} (trillion dollars)")
+        if name == "costs_nocumsum":
+            ylabel = "Costs ($/tCO2)"
+        elif name == "public_costs_nocumsum":
+            ylabel = "Public costs ($/tCO2)"
+        else:
+            ylabel = f"Cumulative {name} (trillion dollars)"
+        plt.ylabel(ylabel)
         countries = list(costs_per_ae)
         ax = plt.gca()
         texts = []
