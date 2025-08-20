@@ -85,7 +85,7 @@ unilateral_countries = {
     "GE",
     "NZ",
 }
-G7 = "US JP DK GB DE IT NO".split()
+G7 = "US JP CA GB DE IT NO".split()
 EU = "AT BE BG CY CZ DK EE FI FR DE GR HU HR IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 eurozone = "AT BE HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES".split()
 # Largest by avoided emissions
