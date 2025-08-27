@@ -86,7 +86,12 @@ public_costs_per_ae_full = {
 
 PLOT_AVOIDED_EMISSIONS = True
 ENABLE_TWINX = False
-for mode in ["all", "developing", "developing_without_bot50cn"]:
+for mode in [
+    "all",
+    "developing",
+    "developing_without_bot50cn",
+    "developing_without_cn",
+]:
     match mode:
         case "developing":
             costs_per_ae = {
@@ -97,6 +102,12 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
                 k: v
                 for k, v in costs_per_ae_full.items()
                 if k in developing and k != "CN" and k not in sorted_ae_dict_bot50
+            }
+        case "developing_without_cn":
+            costs_per_ae = {
+                k: v
+                for k, v in costs_per_ae_full.items()
+                if k in developing and k != "CN"
             }
         case _:
             costs_per_ae = costs_per_ae_full
@@ -118,19 +129,21 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
         xs, ys, color="#CBD5E1" if ENABLE_TWINX else "tab:blue"
     )  # color is slate-300
     labels = []
+    developing_group = [
+        "developing",
+        "developing_without_bot50cn",
+        "developing_without_cn",
+    ]
     for e in costs_per_ae:
         c = str(int(costs_per_ae.get(e, 0)))
-        if PLOT_AVOIDED_EMISSIONS and mode in [
-            "developing",
-            "developing_without_bot50cn",
-        ]:
+        if PLOT_AVOIDED_EMISSIONS and mode in developing_group:
             c += f",{int(public_costs_per_ae_full.get(e, 0))}"
         label = f"{a2_to_full_name[e]};$\\mathbf{{{c}}}$"
         labels.append(label)
     labels[0] = labels[0] + "$\\mathbf{\\$/tCO_2}$"
     common_xticks(xs, labels)
 
-    if ENABLE_TWINX and mode in ["developing", "developing_without_bot50cn"]:
+    if ENABLE_TWINX and mode in developing_group:
         ax2 = plt.gca().twinx()
         financiers = {
             "Developed countries": 47.99,
@@ -191,26 +204,36 @@ for mode in ["all", "developing", "developing_without_bot50cn"]:
         "public_costs_nocumsum": [public_costs_per_ae_full[c] for c in costs_per_ae],
     }.items():
         plt.figure()
-        plt.plot(cumsum_ae, measure, linestyle="dashed")
-        color = ["green" if c in developed else "black" for c in costs_per_ae]
-        plt.scatter(cumsum_ae, measure, color=color, facecolor="none")
-        plt.xlabel(r"Cumulative avoided emissions ($GtCO_2$)")
+        measure_x = cumsum_ae
         if name == "costs_nocumsum":
             ylabel = "Costs ($/tCO2)"
         elif name == "public_costs_nocumsum":
             ylabel = "Public costs ($/tCO2)"
+            sorted_idx = np.argsort(measure)
+            measure = np.array(measure)[sorted_idx]
+
+            measure_x = np.cumsum(
+                [ae_dict[c] for c in np.array(list(costs_per_ae))[sorted_idx]]
+            )
         else:
             ylabel = f"Cumulative {name} (trillion dollars)"
+        plt.plot(measure_x, measure, linestyle="dashed")
+        color = ["green" if c in developed else "black" for c in costs_per_ae]
+        plt.scatter(measure_x, measure, color=color, facecolor="none")
+        plt.xlabel(r"Cumulative avoided emissions ($GtCO_2$)")
+
         plt.ylabel(ylabel)
         countries = list(costs_per_ae)
+        if name == "public_costs_nocumsum":
+            countries = np.array(countries)[sorted_idx]
         ax = plt.gca()
         texts = []
-        for i in range(len(cumsum_ae)):
+        for i in range(len(measure_x)):
             c = countries[i]
             if c in sorted_ae_dict_top10:
                 texts.append(
                     plt.text(
-                        cumsum_ae[i],
+                        measure_x[i],
                         measure[i],
                         a2_to_full_name[c],
                         color="green" if c in developed else "black",
