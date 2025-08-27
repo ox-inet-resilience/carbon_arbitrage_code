@@ -32,8 +32,12 @@ ae_dict = out_yearly[f"2024-{last_year} FA + Net Zero 2050 Scenario"][
 sorted_ae_dict_top10 = dict(
     sorted(ae_dict.items(), key=lambda item: item[1], reverse=True)[:20]
 )
-sorted_ae_dict_bot50 = dict(
-    sorted(ae_dict.items(), key=lambda item: item[1], reverse=True)[-50:]
+ae_dict_developing = {k: v for k, v in ae_dict.items() if k in developing}
+sorted_ae_dict_developing_top21 = dict(
+    sorted(ae_dict_developing.items(), key=lambda item: item[1], reverse=True)[:21]
+)
+sorted_ae_dict_developing_top51 = dict(
+    sorted(ae_dict_developing.items(), key=lambda item: item[1], reverse=True)[:51]
 )
 
 
@@ -71,6 +75,24 @@ def common_xticks(xs, labels, remove_marginal_number=True):
         )
 
 
+def common_yticks(ys, labels, remove_marginal_number=True):
+    plt.yticks(
+        ys,
+        labels=labels,
+        rotation=0,
+        ha="right",
+    )
+    for tick in plt.gca().get_yticklabels():
+        country_name = tick.get_text()
+        if remove_marginal_number:
+            country_name = ",".join(country_name.split(";")[:-1])
+        tick.set_color(
+            "green"
+            if full_name_to_a2.get(country_name, "N/A") in developed
+            else "black"
+        )
+
+
 costs_per_ae_full = pd.read_csv(
     "./plots/cop30/costs_per_ae_dollar_per_tCO2e_2024-2035_combined.csv",
     index_col="Unnamed: 0",
@@ -85,23 +107,30 @@ public_costs_per_ae_full = {
 }
 
 PLOT_AVOIDED_EMISSIONS = True
-ENABLE_TWINX = False
+ENABLE_TWINY = True
 for mode in [
-    "all",
-    "developing",
-    "developing_without_bot50cn",
-    "developing_without_cn",
+    #"all",
+    #"developing",
+    "developing_top20_withoutcn",
+    "developing_top50_withoutcn",
+    #"developing_without_cn",
 ]:
     match mode:
         case "developing":
             costs_per_ae = {
                 k: v for k, v in costs_per_ae_full.items() if k in developing
             }
-        case "developing_without_bot50cn":
+        case "developing_top20_withoutcn":
             costs_per_ae = {
                 k: v
                 for k, v in costs_per_ae_full.items()
-                if k in developing and k != "CN" and k not in sorted_ae_dict_bot50
+                if k != "CN" and k in sorted_ae_dict_developing_top21
+            }
+        case "developing_top50_withoutcn":
+            costs_per_ae = {
+                k: v
+                for k, v in costs_per_ae_full.items()
+                if k != "CN" and k in sorted_ae_dict_developing_top51
             }
         case "developing_without_cn":
             costs_per_ae = {
@@ -118,20 +147,22 @@ for mode in [
     xs = list(range(len(costs_per_ae)))
 
     # 1
-    plt.figure(figsize=(35, 9))
+    plt.figure(figsize=(9, 35))
+    ys = list(range(len(costs_per_ae)))
     if PLOT_AVOIDED_EMISSIONS:
-        ys = [ae_dict[c] for c in costs_per_ae]
-        plt.ylabel("Avoided emissions (GtCO2)")
+        xs_vals = [ae_dict[c] for c in costs_per_ae]
+        plt.xlabel("Avoided emissions (GtCO2)")
     else:
-        ys = [public_costs_per_ae_full.get(c, 0) for c in costs_per_ae]
-        plt.ylabel("Public costs / avoided emissions ($/tCO2)")
-    plt.bar(
-        xs, ys, color="#CBD5E1" if ENABLE_TWINX else "tab:blue"
+        xs_vals = [public_costs_per_ae_full.get(c, 0) for c in costs_per_ae]
+        plt.xlabel("Public costs / avoided emissions ($/tCO2)")
+    plt.barh(
+        ys, xs_vals, color="#CBD5E1" if ENABLE_TWINY else "tab:blue"
     )  # color is slate-300
     labels = []
     developing_group = [
         "developing",
-        "developing_without_bot50cn",
+        "developing_top20_withoutcn",
+        "developing_top50_withoutcn",
         "developing_without_cn",
     ]
     for e in costs_per_ae:
@@ -141,10 +172,10 @@ for mode in [
         label = f"{a2_to_full_name[e]};$\\mathbf{{{c}}}$"
         labels.append(label)
     labels[0] = labels[0] + "$\\mathbf{\\$/tCO_2}$"
-    common_xticks(xs, labels)
+    common_yticks(ys, labels)
 
-    if ENABLE_TWINX and mode in developing_group:
-        ax2 = plt.gca().twinx()
+    if ENABLE_TWINY and mode in developing_group:
+        ax2 = plt.gca().twiny()
         financiers = {
             "Developed countries": 47.99,
             "G7+EU (incl. Norway, Switzerland, Australia, South Korea excl. USA)": 21.0,
@@ -155,8 +186,8 @@ for mode in [
                 public_costs_per_ae_full.get(c, 0) / (scc_share / 100)
                 for c in costs_per_ae
             ]
-            plt.scatter(xs, global_sccs, label=financier, s=100)
-        plt.ylabel(r"Global SCC ($/tCO2)")
+            plt.scatter(global_sccs, ys, label=financier, s=100)
+        plt.xlabel(r"Global SCC ($/tCO2)")
         plt.legend()
 
     plt.grid(which="major", color="dimgray", linewidth=0.8)
