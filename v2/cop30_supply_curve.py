@@ -147,7 +147,8 @@ for mode in [
     xs = list(range(len(costs_per_ae)))
 
     # 1
-    plt.figure(figsize=(9, 35))
+    figsize = (9, 9) if mode == "developing_top20_withoutcn" else (9, 35)
+    plt.figure(figsize=figsize)
     ys = list(range(len(costs_per_ae)))
     if PLOT_AVOIDED_EMISSIONS:
         xs_vals = [ae_dict[c] for c in costs_per_ae]
