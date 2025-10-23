@@ -1,0 +1,25 @@
+{
+  "name": "great-carbon-arbitrage-nodejs",
+  "version": "1.0.0",
+  "description": "Node.js translation of NGFS projection calculations",
+  "main": "calculate_ngfs_projection.js",
+  "scripts": {
+    "start": "node calculate_ngfs_projection.js",
+    "test": "node calculate_ngfs_projection.js"
+  },
+  "keywords": [
+    "carbon",
+    "climate",
+    "ngfs",
+    "energy"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "data-forge": "^1.10.2",
+    "data-forge-fs": "^0.0.9"
+  }
+}
