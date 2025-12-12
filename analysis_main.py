@@ -17,6 +17,12 @@ from util import (
     world_gdp_2023,
 )
 import with_learning
+from gca.lib.array_ops import (
+    maybe_round6,
+    sum_array_of_mixed_objs,
+    divide_array_of_mixed_objs,
+    add_array_of_mixed_objs,
+)
 
 sns.set_theme(style="ticks")
 # TODO these globals could be removed.
@@ -59,14 +65,6 @@ print("BATTERY_LONG", with_learning.ENABLE_BATTERY_LONG)
 assert SECTOR_INCLUDED in ["Power", "Coal"]
 
 
-def maybe_round6(do_it, x):
-    return round(x, 6) if do_it else x
-
-
-def pandas_divide_or_zero(num, dem):
-    return (num / dem).replace([np.inf, -np.inf], 0)
-
-
 ngfs_df = util.read_ngfs()
 iso3166_df = util.read_iso3166()
 unit_profit_df = pd.read_csv(
@@ -77,57 +75,6 @@ alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
 
 _, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
 country_sccs = pd.Series(util.read_country_specific_scc_filtered())
-
-
-def sum_array_of_mixed_objs(x):
-    out = 0.0
-    for e in x:
-        if isinstance(e, float):
-            out += e
-        elif isinstance(e, dict):
-            out += sum(e.values())
-        else:
-            out += e.sum()
-    return out
-
-
-def divide_array_of_mixed_objs(arr, divider):
-    out = []
-    for e in arr:
-        if isinstance(e, dict):
-            out.append({k: v / divider for k, v in e.items()})
-        else:
-            # float or Pandas Series
-            out.append(e / divider)
-    return out
-
-
-def add_array_of_mixed_objs(x, y):
-    assert len(x) == len(y)
-    out = []
-    for i in range(len(x)):
-        xi = x[i]
-        yi = y[i]
-        if isinstance(xi, pd.Series):
-            xi = xi.to_dict()
-        if isinstance(yi, pd.Series):
-            yi = yi.to_dict()
-
-        if isinstance(xi, dict):
-            if isinstance(yi, float) and yi == 0.0:
-                out.append(xi.copy())
-                continue
-            z = {}
-            # We need to include keys from both xi and yi, because recently in
-            # the coal export, there are 100% importer countries that are not
-            # part of masterdata.
-            for key in set(xi) | set(yi):
-                z[key] = xi.get(key, 0) + yi.get(key, 0)
-            out.append(z)
-        else:
-            # float
-            out.append(xi + yi)
-    return out
 
 
 def calculate_table1_info(
@@ -916,18 +863,6 @@ def generate_table1_output(
     # Convert results to DataFrame and return
     out = pd.DataFrame(out)
     return out, out_yearly
-
-
-def floatify_array_of_mixed_objs(x):
-    out = []
-    for e in x:
-        if isinstance(e, float):
-            out.append(e)
-        elif isinstance(e, dict):
-            out.append(sum(e.values()))
-        else:
-            out.append(e.sum())
-    return out
 
 
 def run_table1(
@@ -1935,7 +1870,7 @@ if __name__ == "__main__":
         # get_yearly_by_country()
         exit()
 
-    if 0:
+    if 1:
         run_table2()
         exit()
 
