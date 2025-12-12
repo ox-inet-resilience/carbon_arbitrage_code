@@ -1,5 +1,3 @@
-import copy
-import functools
 import json
 import math
 import os
@@ -12,25 +10,12 @@ import seaborn as sns
 from cycler import cycler
 
 import util
-from util import (
-    social_cost_of_carbon,
-    world_gdp_2023,
-)
+from util import world_gdp_2023
 import with_learning
-from gca.lib.array_ops import (
-    maybe_round6,
-    sum_array_of_mixed_objs,
-    divide_array_of_mixed_objs,
-    add_array_of_mixed_objs,
-)
+import gca.table1 as table1
+import gca.parameters as parameters
 
 sns.set_theme(style="ticks")
-# TODO these globals could be removed.
-global_cost_with_learning = None
-MEASURE_GLOBAL_VARS = False
-# Only change this to current policies if you want to see the result
-# for halt to fossil fuel production scenario
-MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
 
 
 # Ensure that plots directory exists
@@ -40,880 +25,17 @@ os.makedirs("plots/table2", exist_ok=True)
 # Params that can be modified
 lcoe_mode = "solar+wind"
 # lcoe_mode="solar+wind+gas"
-ENABLE_COAL_EXPORT = 0
-ENABLE_WORKER = 1
-LAST_YEAR = 2050
-# The year where the NGFS value is pegged/rescaled to be the same as Masterdata
-# global production value.
-NGFS_PEG_YEAR = 2024
-# SECTOR_INCLUDED = "Coal"
-SECTOR_INCLUDED = "Power"
-# Possible values: "default", "100year", "5%", "8%", "0%"
-RHO_MODE = "default"
-# This is used in Bruegel analysis. Might be deleted later.
-INVESTMENT_COST_DIVIDER = 1
 
 print("Renewable degradation:", with_learning.ENABLE_RENEWABLE_GRADUAL_DEGRADATION)
 print("30 year lifespan:", with_learning.ENABLE_RENEWABLE_30Y_LIFESPAN)
 print("Wright's law", with_learning.ENABLE_WRIGHTS_LAW)
 print("Residual benefit", with_learning.ENABLE_RESIDUAL_BENEFIT)
-print("Sector included", SECTOR_INCLUDED)
+print("Sector included", parameters.SECTOR_INCLUDED)
 print("BATTERY_SHORT", with_learning.ENABLE_BATTERY_SHORT)
 print("BATTERY_LONG", with_learning.ENABLE_BATTERY_LONG)
 
 
-assert SECTOR_INCLUDED in ["Power", "Coal"]
-
-
-ngfs_df = util.read_ngfs()
-iso3166_df = util.read_iso3166()
-unit_profit_df = pd.read_csv(
-    "data_private/v5_final_country_region_profit_analysis.csv.zip",
-    compression="zip",
-)
-alpha2_to_alpha3 = iso3166_df.set_index("alpha-2")["alpha-3"].to_dict()
-
-_, df_sector = util.read_forward_analytics_data(SECTOR_INCLUDED)
-country_sccs = pd.Series(util.read_country_specific_scc_filtered())
-
-
-def calculate_table1_info(
-    do_round,
-    scenario,
-    data_set,
-    time_period,
-    total_production,
-    array_of_total_emissions_non_discounted,
-    array_of_cost_non_discounted_owner_by_subsector,
-    array_of_cost_discounted_owner_by_subsector,  # opportunity cost
-    array_of_cost_non_discounted_investment,
-    array_of_cost_discounted_investment,
-    current_policies=None,
-    residual_emissions_series=0.0,
-    residual_production_series=0.0,
-    final_cost_with_learning=None,
-    included_countries=None,
-):
-    if INVESTMENT_COST_DIVIDER > 1:
-        array_of_cost_discounted_investment = divide_array_of_mixed_objs(
-            array_of_cost_discounted_investment, INVESTMENT_COST_DIVIDER
-        )
-        array_of_cost_non_discounted_investment = divide_array_of_mixed_objs(
-            array_of_cost_non_discounted_investment, INVESTMENT_COST_DIVIDER
-        )
-    out_yearly_info = {}
-
-    # Workers
-    subsectors = util.SUBSECTORS
-    cost_discounted_worker = 0
-    worker_compensation = None
-    worker_retraining_cost = None
-    if ENABLE_WORKER:
-        import coal_worker
-
-        worker_by_subsector = {
-            subsector: coal_worker.calculate(
-                "default",
-                subsector,
-                LAST_YEAR,
-                included_countries=included_countries,
-                return_summed=True,
-                scenario=scenario,
-            )
-            for subsector in subsectors
-        }
-        worker_compensation = {
-            subsector: worker_by_subsector[subsector][0] for subsector in subsectors
-        }
-        worker_compensation_sum_trillion = sum(worker_compensation.values()) / 1e3
-        worker_retraining_cost = {
-            subsector: worker_by_subsector[subsector][1] for subsector in subsectors
-        }
-        worker_rc_sum_trillion = sum(worker_retraining_cost.values()) / 1e3
-        cost_discounted_worker = (
-            worker_compensation_sum_trillion + worker_rc_sum_trillion
-        )
-    # End of workers
-
-    # Sum across subsectors
-    array_of_cost_non_discounted_owner = functools.reduce(
-        util.add_array, array_of_cost_non_discounted_owner_by_subsector.values()
-    )
-    array_of_cost_discounted_owner = functools.reduce(
-        util.add_array, array_of_cost_discounted_owner_by_subsector.values()
-    )
-
-    cost_non_discounted_owner = sum_array_of_mixed_objs(
-        array_of_cost_non_discounted_owner
-    )
-    # nansum is needed because PG has nan value for gas
-    cost_discounted_owner = np.nansum(array_of_cost_discounted_owner)
-    cost_non_discounted_investment = sum_array_of_mixed_objs(
-        array_of_cost_non_discounted_investment
-    )
-    cost_discounted_investment = sum_array_of_mixed_objs(
-        array_of_cost_discounted_investment
-    )
-    # In GtCO2
-    residual_emissions = residual_emissions_series.sum() / 1e9
-    if current_policies is None:
-        assert data_set == "FA" or "Current Policies" in data_set, data_set
-        # The groupby-sum aggregates across subsectors
-        avoided_emissions_by_country: pd.Series = (
-            sum(array_of_total_emissions_non_discounted).groupby(level=0).sum()
-        )
-        avoided_emissions_non_discounted: float = avoided_emissions_by_country.sum()
-        avoided_emissions_by_subsector = (
-            sum(array_of_total_emissions_non_discounted).groupby(level=1).sum()
-        )
-        total_production_avoided = total_production
-        out_yearly_info["benefit_non_discounted"] = list(
-            array_of_total_emissions_non_discounted
-        )
-    else:
-        assert not (data_set == "FA" or "Current Policies" in data_set)
-        # The groupby-sum aggregates across subsectors
-        avoided_emissions_by_country: pd.Series = (
-            (
-                sum(current_policies["emissions_non_discounted"])
-                - sum(array_of_total_emissions_non_discounted)
-            )
-            .groupby(level=0)
-            .sum()
-        )
-        avoided_emissions_non_discounted: float = avoided_emissions_by_country.sum()
-        avoided_emissions_by_subsector: pd.Series = (
-            (
-                sum(current_policies["emissions_non_discounted"])
-                - sum(array_of_total_emissions_non_discounted)
-            )
-            .groupby(level=1)
-            .sum()
-        )
-
-        total_production_avoided = (
-            current_policies["total_production"] - total_production
-        )
-        out_yearly_info["benefit_non_discounted"] = util.subtract_array(
-            current_policies["emissions_non_discounted"],
-            array_of_total_emissions_non_discounted,
-        )
-    # Rescale to include residual emissions
-    ae_by_subsector_with_residual = (
-        avoided_emissions_by_subsector
-        * (1 + residual_emissions / avoided_emissions_by_subsector.sum())
-    ).to_dict()
-
-    # We multiply by 1e9 to go from GtCO2 to tCO2
-    # We divide by 1e12 to get trilllion USD
-    for i in range(len(out_yearly_info["benefit_non_discounted"])):
-        out_yearly_info["benefit_non_discounted"][i] *= (
-            1e9 / 1e12 * social_cost_of_carbon
-        )
-
-    # Division of residual emissions dict by 1e9 converts to GtCO2
-    out_yearly_info["avoided_emissions_including_residual_emissions"] = (
-        avoided_emissions_by_country + residual_emissions_series / 1e9
-    )
-    # Sanity check
-    expected = avoided_emissions_non_discounted + residual_emissions
-    assert math.isclose(
-        out_yearly_info["avoided_emissions_including_residual_emissions"].sum(),
-        expected,
-    )
-    # Division by 1e3 converts to trillion dollars, because the ae is in GtCO2
-    out_yearly_info["country_benefit_country_reduction"] = (
-        (
-            out_yearly_info["avoided_emissions_including_residual_emissions"]
-            * country_sccs
-            / country_sccs.sum()
-            * social_cost_of_carbon
-            / 1e3
-        )
-        .dropna()
-        .to_dict()
-    )
-    out_yearly_info["global_benefit_country_reduction"] = (
-        out_yearly_info["avoided_emissions_including_residual_emissions"]
-        * social_cost_of_carbon
-        / 1e3
-    ).to_dict()
-    out_yearly_info["avoided_emissions_including_residual_emissions"] = out_yearly_info[
-        "avoided_emissions_including_residual_emissions"
-    ].to_dict()
-
-    # Summed benefit
-    benefit_non_discounted = sum_array_of_mixed_objs(
-        out_yearly_info["benefit_non_discounted"]
-    )
-
-    # Convert to trillion USD
-    cost_non_discounted_owner /= 1e12
-    cost_discounted_owner /= 1e12
-    cost_non_discounted_investment /= 1e12
-    cost_discounted_investment /= 1e12
-    array_of_cost_non_discounted_owner_trillions = divide_array_of_mixed_objs(
-        array_of_cost_non_discounted_owner, 1e12
-    )
-    array_of_cost_discounted_owner_trillions = divide_array_of_mixed_objs(
-        array_of_cost_discounted_owner, 1e12
-    )
-    array_of_cost_non_discounted_investment_trillions = divide_array_of_mixed_objs(
-        array_of_cost_non_discounted_investment, 1e12
-    )
-    array_of_cost_discounted_investment_trillions = divide_array_of_mixed_objs(
-        array_of_cost_discounted_investment, 1e12
-    )
-    # In trillion dollars
-    residual_benefit = residual_emissions * social_cost_of_carbon / 1e3
-
-    # Convert to Gigatonnes of coal
-    residual_production = residual_production_series.sum() / 1e9
-
-    # rho is the same everywhere
-    rho = util.calculate_rho(util.beta, rho_mode=RHO_MODE)
-
-    def discount_the_array(arr):
-        out = []
-        for i, e in enumerate(arr):
-            discount = util.calculate_discount(rho, i)
-            if len(e) == 0:
-                out.append(0.0)
-            else:
-                out.append({k: v * discount for k, v in e.items()})
-        return out
-
-    out_yearly_info["opportunity_cost_non_discounted"] = (
-        array_of_cost_non_discounted_owner_trillions
-    )
-    out_yearly_info["investment_cost_non_discounted"] = (
-        array_of_cost_non_discounted_investment_trillions
-    )
-    # Division by 1e12 converts to trillion
-    out_yearly_info["cost_battery_short_non_discounted"] = divide_array_of_mixed_objs(
-        final_cost_with_learning.cost_non_discounted_battery_short_by_country, 1e12
-    )
-    out_yearly_info["cost_battery_long_non_discounted"] = divide_array_of_mixed_objs(
-        final_cost_with_learning.cost_non_discounted_battery_long_by_country, 1e12
-    )
-    out_yearly_info["cost_battery_pe_non_discounted"] = divide_array_of_mixed_objs(
-        final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
-    )
-    out_yearly_info["cost_battery_grid_non_discounted"] = divide_array_of_mixed_objs(
-        final_cost_with_learning.cost_non_discounted_battery_grid_by_country, 1e12
-    )
-    out_yearly_info["opportunity_cost_owner"] = array_of_cost_discounted_owner_trillions
-    out_yearly_info["investment_cost"] = array_of_cost_discounted_investment_trillions
-    out_yearly_info["cost_battery_short"] = discount_the_array(
-        divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_short_by_country,
-            1e12,
-        )
-    )
-    out_yearly_info["cost_battery_long"] = discount_the_array(
-        divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_long_by_country,
-            1e12,
-        )
-    )
-    out_yearly_info["cost_battery_pe"] = discount_the_array(
-        divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_pe_by_country, 1e12
-        )
-    )
-    out_yearly_info["cost_battery_grid"] = discount_the_array(
-        divide_array_of_mixed_objs(
-            final_cost_with_learning.cost_non_discounted_battery_grid_by_country,
-            1e12,
-        )
-    )
-    out_yearly_info["cost"] = add_array_of_mixed_objs(
-        out_yearly_info["opportunity_cost_owner"], out_yearly_info["investment_cost"]
-    )
-    out_yearly_info["residual_benefit"] = {
-        k: v * social_cost_of_carbon / 1e12
-        for k, v in residual_emissions_series.items()
-    }
-
-    # Costs of avoiding coal emissions
-    assert cost_discounted_investment >= 0
-    cost_discounted = (
-        cost_discounted_owner + cost_discounted_investment + cost_discounted_worker
-    )
-
-    # Equation 1 in the paper
-    net_benefit = benefit_non_discounted - cost_discounted
-
-    last_year = int(time_period.split("-")[1])
-    arbitrage_period = last_year - NGFS_PEG_YEAR
-
-    owner_dict = {
-        # nansum is needed because PG has nan value for gas
-        f"OC owner {subsector}": np.nansum(
-            array_of_cost_discounted_owner_by_subsector[subsector]
-        )
-        / 1e12
-        for subsector in subsectors
-    }
-    worker_dict = {}
-    if ENABLE_WORKER:
-        for subsector in subsectors:
-            # Trillion
-            worker_dict[f"OC workers lost wages {subsector}"] = (
-                worker_compensation[subsector] / 1e3
-            )
-            worker_dict[f"OC workers retraining cost {subsector}"] = (
-                worker_retraining_cost[subsector] / 1e3
-            )
-
-    ic_battery_short = sum_array_of_mixed_objs(out_yearly_info["cost_battery_short"])
-    ic_battery_long = sum_array_of_mixed_objs(out_yearly_info["cost_battery_long"])
-    ic_battery_pe = sum_array_of_mixed_objs(out_yearly_info["cost_battery_pe"])
-    ic_battery_grid = sum_array_of_mixed_objs(out_yearly_info["cost_battery_grid"])
-    ic_battery = ic_battery_short + ic_battery_long + ic_battery_pe + ic_battery_grid
-    data = {
-        "Using production projections of data set": data_set,
-        "Time Period of Carbon Arbitrage": time_period,
-        "Total coal production avoided (Giga tonnes)": total_production_avoided,
-        "Total coal production avoided including residual (Giga tonnes)": total_production_avoided
-        + residual_production,
-        "Electricity generation avoided including residual (PWh)": (
-            # Multiplication by 1e9 converts from Giga tonnes to tonnes
-            # Division by seconds in 1 hr converts from GJ to GWh
-            # Division by 1e6 converts from GWh to PWh
-            util.coal2GJ((total_production_avoided + residual_production) * 1e9)
-            / util.seconds_in_1hour
-            / 1e6
-        ),
-        "Total emissions avoided (GtCO2)": avoided_emissions_non_discounted,
-        "Total emissions avoided including residual (GtCO2)": avoided_emissions_non_discounted
-        + residual_emissions,
-        **{f"AE+residual {k}": v for k, v in ae_by_subsector_with_residual.items()},
-        "Costs of avoiding coal emissions (in trillion dollars)": cost_discounted,
-        "Opportunity costs (in trillion dollars)": cost_discounted_owner
-        + cost_discounted_worker,
-        "OC owner (in trillion dollars)": cost_discounted_owner,
-        **owner_dict,
-        **worker_dict,
-        "investment_cost_battery_short_trillion": ic_battery_short,
-        "investment_cost_battery_long_trillion": ic_battery_long,
-        "investment_cost_battery_pe_trillion": ic_battery_pe,
-        "investment_cost_battery_grid_trillion": ic_battery_grid,
-        "Investment costs in renewable energy": cost_discounted_investment - ic_battery,
-        "Investment costs (in trillion dollars)": cost_discounted_investment,
-        "Carbon arbitrage opportunity (in trillion dollars)": net_benefit,
-        "Carbon arbitrage opportunity relative to world GDP (%)": net_benefit
-        * 100
-        / (world_gdp_2023 * arbitrage_period),
-        "Carbon arbitrage residual benefit (in trillion dollars)": residual_benefit,
-        "Carbon arbitrage including residual benefit (in trillion dollars)": net_benefit
-        + residual_benefit,
-        "Carbon arbitrage including residual benefit relative to world GDP (%)": (
-            net_benefit + residual_benefit
-        )
-        * 100
-        / (world_gdp_2023 * arbitrage_period),
-        "Benefits of avoiding coal emissions (in trillion dollars)": benefit_non_discounted,
-        "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)": benefit_non_discounted
-        + residual_benefit,
-        "country_benefit_country_reduction": sum(
-            out_yearly_info["country_benefit_country_reduction"].values()
-        ),
-    }
-
-    for k, v in data.items():
-        if k in [
-            "Using production projections of data set",
-            "Time Period of Carbon Arbitrage",
-        ]:
-            continue
-        data[k] = maybe_round6(do_round, v)
-    # TODO included worker
-    # out_yearly_info = None
-    return data, out_yearly_info
-
-
-def calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower):
-    if not with_learning.ENABLE_RESIDUAL_BENEFIT:
-        return None
-    colname = "activity"
-
-    grouped_np = _df_nonpower.groupby("asset_country")
-
-    # In tce
-    production_pegyear_np = grouped_np[colname].sum()
-    production_pegyear = production_pegyear_np
-
-    # Convert million tonnes of CO2 to tCO2
-    emissions_pegyear_np = grouped_np[util.EMISSIONS_COLNAME].sum() * 1e6
-    emissions_pegyear = emissions_pegyear_np
-    ef = emissions_pegyear / production_pegyear
-    # There are some countries with 0 production, and so it is division by
-    # zero. We set them to 0.0 for now
-    ef = ef.fillna(0.0)
-    return ef
-
-
-def get_opportunity_cost_owner(
-    rho,
-    delta_profit,
-    scenario,
-    last_year,
-):
-    # Calculate cost
-    out_non_discounted = delta_profit
-    out_discounted = {
-        subsector: util.discount_array(out_non_discounted[subsector], rho)
-        for subsector in util.SUBSECTORS
-    }
-    return (
-        out_non_discounted,
-        out_discounted,
-    )
-
-
-def get_cost_including_ngfs_renewable(
-    _df_nonpower,
-    rho,
-    DeltaP,
-    weighted_emissions_factor_by_country_peg_year,
-    scenario,
-    last_year,
-    _cost_new_method,
-):
-    # We copy _cost_new_method because it is going to be reused for
-    # different scenario and year range.
-    temp_cost_with_learning = copy.deepcopy(_cost_new_method)
-
-    for i, dp in enumerate(DeltaP):
-        discount = util.calculate_discount(rho, i)
-        temp_cost_with_learning.calculate_investment_cost(
-            dp, NGFS_PEG_YEAR + i, discount
-        )
-    if with_learning.VERBOSE_ANALYSIS:
-        # This is to calculate available capacity beyond LAST_YEAR
-        for year in range(
-            LAST_YEAR + 1, LAST_YEAR + 1 + with_learning.RENEWABLE_LIFESPAN
-        ):
-            temp_cost_with_learning.initialize_verbose_analysis(
-                {c: 0 for c in DeltaP[0].keys()}, year
-            )
-
-    out_non_discounted = list(temp_cost_with_learning.cost_non_discounted)
-    out_discounted = list(temp_cost_with_learning.cost_discounted)
-    residual_benefits_years_offset = with_learning.RENEWABLE_LIFESPAN
-    (
-        residual_emissions,
-        residual_production,
-    ) = temp_cost_with_learning.calculate_residual(
-        last_year + 1,
-        last_year + residual_benefits_years_offset,
-        weighted_emissions_factor_by_country_peg_year,
-    )
-    if MEASURE_GLOBAL_VARS and scenario == MEASURE_GLOBAL_VARS_SCENARIO:
-        global global_cost_with_learning
-        global_cost_with_learning = temp_cost_with_learning
-    return (
-        out_non_discounted,
-        out_discounted,
-        residual_emissions,
-        residual_production,
-        temp_cost_with_learning,
-    )
-
-
-def _prepare_table1_base_data(_df_nonpower):
-    """Prepare base production and emissions data for table1 analysis."""
-    total_production_fa = util.get_production_by_country(df_sector, SECTOR_INCLUDED)
-    emissions_fa = util.get_emissions_by_country(df_sector)
-
-    production_2019 = (
-        _df_nonpower.groupby("asset_country")._2019.sum()
-        if ENABLE_COAL_EXPORT
-        else None
-    )
-
-    weighted_emissions_factor_by_country_peg_year = (
-        calculate_weighted_emissions_factor_by_country_peg_year(_df_nonpower)
-    )
-
-    return (
-        total_production_fa,
-        emissions_fa,
-        production_2019,
-        weighted_emissions_factor_by_country_peg_year,
-    )
-
-
-def _process_table1_scenario(
-    scenario,
-    total_production_fa,
-    emissions_fa,
-    production_with_ngfs_projection_CPS,
-    profit_ngfs_projection_CPS,
-):
-    """Process a single scenario for table1 analysis."""
-    last_year = LAST_YEAR
-
-    # Calculate NGFS projections
-    (
-        production_with_ngfs_projection,
-        gigatonnes_coal_production,
-        profit_ngfs_projection,
-    ) = util.calculate_ngfs_projection(
-        "production",
-        total_production_fa,
-        ngfs_df,
-        SECTOR_INCLUDED,
-        scenario,
-        NGFS_PEG_YEAR,
-        last_year,
-        alpha2_to_alpha3,
-        unit_profit_df=unit_profit_df,
-    )
-
-    emissions_with_ngfs_projection, _, _ = util.calculate_ngfs_projection(
-        "emissions",
-        emissions_fa,
-        ngfs_df,
-        SECTOR_INCLUDED,
-        scenario,
-        NGFS_PEG_YEAR,
-        last_year,
-        alpha2_to_alpha3,
-    )
-
-    # Store Current Policies data for Net Zero 2050 comparison
-    if scenario == "Current Policies":
-        production_with_ngfs_projection_CPS = production_with_ngfs_projection.copy()
-        profit_ngfs_projection_CPS = profit_ngfs_projection.copy()
-
-    scenario_formatted = f"FA + {scenario} Scenario"
-    array_of_total_emissions_non_discounted = emissions_with_ngfs_projection
-
-    # Calculate delta production and profit
-    if scenario == "Net Zero 2050":
-        DeltaP = util.subtract_array(
-            production_with_ngfs_projection_CPS, production_with_ngfs_projection
-        )
-        delta_profit = {
-            subsector: util.subtract_array(
-                profit_ngfs_projection_CPS[subsector],
-                profit_ngfs_projection[subsector],
-            )
-            for subsector in util.SUBSECTORS
-        }
-    else:
-        DeltaP = production_with_ngfs_projection_CPS
-        delta_profit = profit_ngfs_projection_CPS
-
-    # Convert Giga tonnes of coal to GJ
-    DeltaP = util.coal2GJ([dp * 1e9 for dp in DeltaP])
-
-    scenario_results = (
-        gigatonnes_coal_production,
-        array_of_total_emissions_non_discounted,
-        DeltaP,
-        scenario_formatted,
-        delta_profit,
-        production_with_ngfs_projection,
-    )
-
-    return (
-        scenario_results,
-        production_with_ngfs_projection_CPS,
-        profit_ngfs_projection_CPS,
-    )
-
-
-def _apply_table1_country_filter(
-    included_countries,
-    production_with_ngfs_projection,
-    gigatonnes_coal_production,
-    array_of_total_emissions_non_discounted,
-    cost_non_discounted_owner,
-    cost_discounted_owner,
-    cost_non_discounted_investment,
-    cost_discounted_investment,
-    residual_emissions,
-    residual_production,
-    final_cost_with_learning,
-):
-    """Apply country filtering to table1 data."""
-
-    def _filter(e, is_multiindex=False):
-        if isinstance(e, dict):
-            e = pd.Series(e)
-        if is_multiindex:
-            return e[e.index.get_level_values(0).isin(included_countries)]
-        return e[e.index.isin(included_countries)]
-
-    def _filter_arr(arr, is_multiindex=False):
-        return [_filter(e, is_multiindex) for e in arr]
-
-    # Filter production data
-    gigatonnes_coal_production = _filter(sum(production_with_ngfs_projection)).sum()
-
-    # Filter emissions data
-    array_of_total_emissions_non_discounted = _filter_arr(
-        array_of_total_emissions_non_discounted, is_multiindex=True
-    )
-
-    # Filter cost data
-    cost_non_discounted_owner = {
-        subsector: _filter_arr(cost_non_discounted_owner[subsector])
-        for subsector in util.SUBSECTORS
-    }
-    cost_discounted_owner = {
-        subsector: _filter_arr(cost_discounted_owner[subsector])
-        for subsector in util.SUBSECTORS
-    }
-    cost_non_discounted_investment = _filter_arr(cost_non_discounted_investment)
-    cost_discounted_investment = _filter_arr(cost_discounted_investment)
-
-    # Filter residual data
-    residual_emissions = _filter(residual_emissions)
-    residual_production = _filter(residual_production)
-
-    # Filter battery cost data
-    final_cost_with_learning.cost_non_discounted_battery_short_by_country = _filter_arr(
-        final_cost_with_learning.cost_non_discounted_battery_short_by_country
-    )
-    final_cost_with_learning.cost_non_discounted_battery_long_by_country = _filter_arr(
-        final_cost_with_learning.cost_non_discounted_battery_long_by_country
-    )
-    final_cost_with_learning.cost_non_discounted_battery_pe_by_country = _filter_arr(
-        final_cost_with_learning.cost_non_discounted_battery_pe_by_country
-    )
-    final_cost_with_learning.cost_non_discounted_battery_grid_by_country = _filter_arr(
-        final_cost_with_learning.cost_non_discounted_battery_grid_by_country
-    )
-
-    return (
-        gigatonnes_coal_production,
-        array_of_total_emissions_non_discounted,
-        cost_non_discounted_owner,
-        cost_discounted_owner,
-        cost_non_discounted_investment,
-        cost_discounted_investment,
-        residual_emissions,
-        residual_production,
-        final_cost_with_learning,
-    )
-
-
-def generate_table1_output(
-    rho,
-    do_round,
-    _df_nonpower,
-    included_countries=None,
-):
-    """Generate table 1 output for carbon arbitrage analysis.
-
-    This function calculates the costs and benefits of carbon arbitrage under
-    two scenarios: Current Policies and Net Zero 2050. It processes production,
-    emissions, and cost data for both scenarios and returns comprehensive results.
-
-    Args:
-        rho: Discount rate for present value calculations
-        do_round: Whether to round numerical results
-        _df_nonpower: Non-power sector dataframe with asset data
-        included_countries: Optional list of country codes to include in analysis
-
-    Returns:
-        Tuple of (results_dataframe, yearly_info_dict):
-            - results_dataframe: Summary results by scenario
-            - yearly_info_dict: Detailed yearly breakdown by scenario
-    """
-    out = {}
-    out_yearly = {}
-
-    # Prepare base production and emissions data
-    (
-        total_production_fa,
-        emissions_fa,
-        production_2019,
-        weighted_emissions_factor_by_country_peg_year,
-    ) = _prepare_table1_base_data(_df_nonpower)
-
-    # Initialize scenario tracking variables
-    current_policies = None
-    production_with_ngfs_projection_CPS = None
-    profit_ngfs_projection_CPS = None
-
-    # Process both scenarios: Current Policies provides baseline, Net Zero 2050 shows intervention
-    for scenario in ["Current Policies", "Net Zero 2050"]:
-        (
-            scenario_results,
-            production_with_ngfs_projection_CPS,
-            profit_ngfs_projection_CPS,
-        ) = _process_table1_scenario(
-            scenario,
-            total_production_fa,
-            emissions_fa,
-            production_with_ngfs_projection_CPS,
-            profit_ngfs_projection_CPS,
-        )
-
-        (
-            gigatonnes_coal_production,
-            array_of_total_emissions_non_discounted,
-            DeltaP,
-            scenario_formatted,
-            delta_profit,
-            production_with_ngfs_projection,
-        ) = scenario_results
-
-        # Calculate opportunity costs
-        (
-            cost_non_discounted_owner,
-            cost_discounted_owner,
-        ) = get_opportunity_cost_owner(
-            rho,
-            delta_profit,
-            scenario,
-            LAST_YEAR,
-        )
-
-        # Calculate investment costs
-        (
-            cost_non_discounted_investment,
-            cost_discounted_investment,
-            residual_emissions,
-            residual_production,
-            final_cost_with_learning,
-        ) = get_cost_including_ngfs_renewable(
-            _df_nonpower,
-            rho,
-            DeltaP,
-            weighted_emissions_factor_by_country_peg_year,
-            scenario,
-            LAST_YEAR,
-            with_learning.InvestmentCostWithLearning(),
-        )
-
-        if ENABLE_COAL_EXPORT:
-            from coal_export.common import modify_array_based_on_coal_export
-
-            modify_array_based_on_coal_export(
-                cost_non_discounted_investment, production_2019
-            )
-            modify_array_based_on_coal_export(
-                cost_discounted_investment, production_2019
-            )
-
-        if included_countries is not None:
-            (
-                gigatonnes_coal_production,
-                array_of_total_emissions_non_discounted,
-                cost_non_discounted_owner,
-                cost_discounted_owner,
-                cost_non_discounted_investment,
-                cost_discounted_investment,
-                residual_emissions,
-                residual_production,
-                final_cost_with_learning,
-            ) = _apply_table1_country_filter(
-                included_countries,
-                production_with_ngfs_projection,
-                gigatonnes_coal_production,
-                array_of_total_emissions_non_discounted,
-                cost_non_discounted_owner,
-                cost_discounted_owner,
-                cost_non_discounted_investment,
-                cost_discounted_investment,
-                residual_emissions,
-                residual_production,
-                final_cost_with_learning,
-            )
-
-        # Generate scenario identifier and calculate table info
-        text = f"{NGFS_PEG_YEAR}-{LAST_YEAR} {scenario_formatted}"
-        table1_info, yearly_info = calculate_table1_info(
-            do_round,
-            scenario,
-            scenario_formatted,
-            f"{NGFS_PEG_YEAR}-{LAST_YEAR}",
-            gigatonnes_coal_production,
-            copy.deepcopy(array_of_total_emissions_non_discounted),
-            cost_non_discounted_owner,
-            cost_discounted_owner,
-            cost_non_discounted_investment,
-            cost_discounted_investment,
-            current_policies=current_policies,
-            residual_emissions_series=residual_emissions,
-            residual_production_series=residual_production,
-            final_cost_with_learning=final_cost_with_learning,
-            included_countries=included_countries,
-        )
-
-        # Store results
-        out[text] = table1_info
-        out_yearly[text] = yearly_info
-
-        # Store Current Policies baseline for Net Zero 2050 comparison
-        if scenario == "Current Policies":
-            current_policies = {
-                "emissions_non_discounted": copy.deepcopy(
-                    array_of_total_emissions_non_discounted
-                ),
-                "total_production": gigatonnes_coal_production,
-            }
-
-    # Convert results to DataFrame and return
-    out = pd.DataFrame(out)
-    return out, out_yearly
-
-
-def run_table1(
-    to_csv=False,
-    do_round=False,
-    return_yearly=False,
-    included_countries=None,
-):
-    # rho is the same everywhere
-    rho = util.calculate_rho(util.beta, rho_mode=RHO_MODE)
-
-    out, yearly = generate_table1_output(
-        rho,
-        do_round,
-        df_sector,
-        included_countries=included_countries,
-    )
-
-    out_dict = out.T.to_dict()
-    both_dict = {}
-    for key in out_dict.keys():
-        if key in [
-            "Using production projections of data set",
-            "Time Period of Carbon Arbitrage",
-        ]:
-            both_dict[key] = out_dict[key]
-        else:
-            both_dict[key] = maybe_round6(
-                do_round,
-                pd.Series(out_dict[key]),
-            ).to_dict()
-    if to_csv:
-        uid = util.get_unique_id(include_date=False)
-        ext = ""
-        if with_learning.ENABLE_RENEWABLE_GRADUAL_DEGRADATION:
-            ext += "_degrade"
-        if with_learning.ENABLE_RENEWABLE_30Y_LIFESPAN:
-            ext += "_30Y"
-        if with_learning.ENABLE_WRIGHTS_LAW:
-            ext += "_wright"
-        fname = f"plots/table1_{uid}{ext}_{social_cost_of_carbon}_{LAST_YEAR}.csv"
-        pd.DataFrame(both_dict).T.to_csv(fname)
-
-    if return_yearly:
-        return yearly
-
-    return both_dict
-
-
 def run_table2(name="", included_countries=None):
-    global social_cost_of_carbon, LAST_YEAR
     result = {}
     sccs = [
         util.social_cost_of_carbon_imf,
@@ -924,9 +46,8 @@ def run_table2(name="", included_countries=None):
     last_years = [2035, 2050]
     for last_year in last_years:
         util.social_cost_of_carbon = scc_default
-        social_cost_of_carbon = scc_default
-        LAST_YEAR = last_year
-        result[last_year] = run_table1(included_countries=included_countries)
+        parameters.LAST_YEAR = last_year
+        result[last_year] = table1.run_table1(included_countries=included_countries)
     gc_benefit_old_name = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     subsectors = ["Coal", "Oil", "Gas"]
     mapper_worker = {}
@@ -1001,7 +122,7 @@ def run_table2(name="", included_countries=None):
             else 0
         )
         table["Costs per avoided tCO2e ($/tCO2e)"].append(cost_per_ae)
-        arbitrage_period = y - NGFS_PEG_YEAR
+        arbitrage_period = y - parameters.NGFS_PEG_YEAR
         for scc in sccs:
             scc_scale = scc / scc_default
             table[f"scc {scc} GC benefit (in trillion dollars)"].append(
@@ -1061,8 +182,8 @@ def run_table2(name="", included_countries=None):
     if included_countries is not None:
         scc_share_percent = (
             100
-            * sum(country_sccs.get(c, 0) for c in included_countries)
-            / country_sccs.sum()
+            * sum(table1.country_sccs.get(c, 0) for c in included_countries)
+            / table1.country_sccs.sum()
         )
 
     table["scc_share (%)"] = scc_share_percent
@@ -1083,8 +204,7 @@ def calculate_each_countries_with_cache(
     # IMPORTANT: the chosen s2 scenario indicates whether the yearly cost for
     # avoiding is discounted or not.
     if last_year is not None:
-        global LAST_YEAR
-        LAST_YEAR = last_year
+        parameters.LAST_YEAR = last_year
     use_cache = not ignore_cache
     if use_cache and os.path.isfile(cache_json_path):
         info_dict = util.read_json(cache_json_path)
@@ -1092,10 +212,8 @@ def calculate_each_countries_with_cache(
         print("Cached json not found. Calculating from scratch...")
         info_dict = {}
         if scc is not None:
-            global social_cost_of_carbon
-            social_cost_of_carbon = scc
             util.social_cost_of_carbon = scc
-        out = run_table1(to_csv=False, do_round=False, return_yearly=True)
+        out = table1.run_table1(to_csv=False, do_round=False, return_yearly=True)
         for key, yearly in out[chosen_s2_scenario].items():
             if key in [
                 "residual_benefit",
@@ -1175,7 +293,7 @@ def make_climate_financing_SCATTER_plot():
     # gdp_marketcap_dict["XK"] = 10.44 * 1e9  # to billion uSD
 
     worldbank_set = set(gdp_per_capita_dict.keys())
-    masterdata_coal_set = set(df_sector.asset_country)
+    masterdata_coal_set = set(table1.df_sector.asset_country)
     divide_by_marketcap = True
 
     print("MODE divide by marketcap", divide_by_marketcap)
@@ -1187,7 +305,7 @@ def make_climate_financing_SCATTER_plot():
     # Only in masterdata: {nan, 'TW', 'XK'}
 
     # country_shortnames = list(masterdata_coal_set - {np.nan, "TW", "XK"})
-    chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
     cache_json_path = "plots/climate_financing.json"
 
     costs_dict = calculate_each_countries_cost_with_cache(
@@ -1217,8 +335,8 @@ def make_climate_financing_SCATTER_plot():
         else:
             mul = 1 if multiplier_mode == "trillion" else 1e3
 
-        arbitrage_period = 1 + (2100 - (NGFS_PEG_YEAR + 1))
-        print("Peg year", NGFS_PEG_YEAR, "arbitrage period", arbitrage_period)
+        arbitrage_period = 1 + (2100 - (parameters.NGFS_PEG_YEAR + 1))
+        print("Peg year", parameters.NGFS_PEG_YEAR, "arbitrage period", arbitrage_period)
         plot_labels = []
         filter_labels = []
         for country_shortname in shortnames:
@@ -1309,7 +427,7 @@ def make_climate_financing_SCATTER_plot():
 
 def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
     yearly_costs_dict = {}
-    out = run_table1(to_csv=False, do_round=False, return_yearly=True)
+    out = table1.run_table1(to_csv=False, do_round=False, return_yearly=True)
     yearly_cost_for_avoiding = out[chosen_s2_scenario][info_name]
     country_names = list(yearly_cost_for_avoiding[-1].keys())
     for country_name in country_names:
@@ -1327,9 +445,9 @@ def calculate_yearly_info_dict(chosen_s2_scenario, info_name="cost"):
 
 
 def do_cf_battery_yearly():
-    chosen_s2_scenario = f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
 
-    whole_years = range(NGFS_PEG_YEAR, 2100 + 1)
+    whole_years = range(parameters.NGFS_PEG_YEAR, 2100 + 1)
 
     def calculate_yearly_world_cost(s2_scenario):
         yearly_costs_dict = calculate_yearly_info_dict(s2_scenario)
@@ -1341,7 +459,7 @@ def do_cf_battery_yearly():
 
     def _get_year_range_cost(year_start, year_end, yearly_world_cost):
         return sum(
-            yearly_world_cost[year_start - NGFS_PEG_YEAR : year_end + 1 - NGFS_PEG_YEAR]
+            yearly_world_cost[year_start - parameters.NGFS_PEG_YEAR : year_end + 1 - parameters.NGFS_PEG_YEAR]
         )
 
     labels = [
@@ -1361,14 +479,14 @@ def do_cf_battery_yearly():
         * coal_worker.ic_usa
         / coal_worker.wage_usd_dict["US"]
     )
-    # Set NGFS_PEG_YEAR value to 0
+    # Set parameters.NGFS_PEG_YEAR value to 0
     retraining_series = np.insert(retraining_series, 0, 0)
     opportunity_cost_series = cw_out["opportunity_cost_series"]
     opportunity_cost_series = np.insert(opportunity_cost_series, 0, 0)
 
     # Just for bar chart and original
     data_for_barchart = {
-        (NGFS_PEG_YEAR + 1, 2050): {},
+        (parameters.NGFS_PEG_YEAR + 1, 2050): {},
         (2051, 2070): {},
         (2071, 2100): {},
     }
@@ -1414,7 +532,7 @@ def do_cf_battery_yearly():
 
         yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
         for year_start, year_end in [
-            (NGFS_PEG_YEAR + 1, 2050),
+            (parameters.NGFS_PEG_YEAR + 1, 2050),
             (2051, 2070),
             (2071, 2100),
         ]:
@@ -1437,7 +555,7 @@ def do_cf_battery_yearly():
         yearly_all, extra_data_for_barchart = util.read_json(fname)
     else:
         extra_data_for_barchart = {
-            f"{NGFS_PEG_YEAR + 1}-2050": {},
+            f"{parameters.NGFS_PEG_YEAR + 1}-2050": {},
             "2051-2070": {},
             "2071-2100": {},
         }
@@ -1456,7 +574,7 @@ def do_cf_battery_yearly():
 
             yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
             for year_start, year_end in [
-                (NGFS_PEG_YEAR + 1, 2050),
+                (parameters.NGFS_PEG_YEAR + 1, 2050),
                 (2051, 2070),
                 (2071, 2100),
             ]:
@@ -1517,7 +635,6 @@ def do_cf_battery_yearly():
 
 def run_3_level_scc():
     # Run for 3 levels of social cost of carbon.
-    global social_cost_of_carbon, LAST_YEAR
     mode = "cao"
     # mode = "cao_relative"
     # mode = "cost"
@@ -1537,11 +654,11 @@ def run_3_level_scc():
         cao_name_with_residual = cao_name
     print(cao_name)
     for last_year in [2050, 2070, 2100]:
-        LAST_YEAR = last_year
+        parameters.LAST_YEAR = last_year
         caos = []
         caos_with_residual = []
-        condition = f"{NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
-        # condition = f"{NGFS_PEG_YEAR}-{last_year} FA + Current Policies  Scenario"
+        condition = f"{parameters.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
+        # condition = f"{parameters.NGFS_PEG_YEAR}-{last_year} FA + Current Policies  Scenario"
         scs = [
             util.social_cost_of_carbon_lower_bound,
             util.social_cost_of_carbon_imf,
@@ -1549,8 +666,7 @@ def run_3_level_scc():
         ]
         for sc in scs:
             util.social_cost_of_carbon = sc
-            social_cost_of_carbon = sc  # noqa: F811
-            out = run_table1(to_csv=False, do_round=True)
+            out = table1.run_table1(to_csv=False, do_round=True)
             cao = out[cao_name][condition]
             caos.append(f"{cao:.2f}")
             cao_with_residual = out[cao_name_with_residual][condition]
@@ -1570,22 +686,21 @@ def get_yearly_by_country():
     # Ensure plot output dir exists
     os.makedirs("plots/bruegel", exist_ok=True)
 
-    global ENABLE_COAL_EXPORT
     for enable in [False, True]:
-        ENABLE_COAL_EXPORT = enable
-        out = run_table1(to_csv=False, do_round=True, return_yearly=True)
-        nz2050 = out[f"{NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"]
+        parameters.ENABLE_COAL_EXPORT = enable
+        out = table1.run_table1(to_csv=False, do_round=True, return_yearly=True)
+        nz2050 = out[f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"]
         series_ics = []
         series_ocs = []
-        for i in range(2, 2100 - NGFS_PEG_YEAR + 1):
+        for i in range(2, 2100 - parameters.NGFS_PEG_YEAR + 1):
             # Trillions
             series_ocs.append(
-                nz2050["opportunity_cost_non_discounted"][i].rename(NGFS_PEG_YEAR + i)
+                nz2050["opportunity_cost_non_discounted"][i].rename(parameters.NGFS_PEG_YEAR + i)
             )
             series_ics.append(
                 pd.Series(
                     nz2050["investment_cost_non_discounted"][i],
-                    name=(NGFS_PEG_YEAR + i),
+                    name=(parameters.NGFS_PEG_YEAR + i),
                 )
             )
         git_branch = util.get_git_branch()
@@ -1607,20 +722,20 @@ def get_yearly_by_country():
         yearly_ae = util.read_json(
             "./cache/unilateral_benefit_yearly_avoided_emissions_GtCO2_2100.json"
         )
-        if ENABLE_COAL_EXPORT:
+        if parameters.ENABLE_COAL_EXPORT:
             from coal_export.common import modify_avoided_emissions_based_on_coal_export
 
             yearly_ae = modify_avoided_emissions_based_on_coal_export(yearly_ae)
         df = pd.DataFrame(
-            yearly_ae, index=list(range(NGFS_PEG_YEAR, 2100 + 1))
+            yearly_ae, index=list(range(parameters.NGFS_PEG_YEAR, 2100 + 1))
         ).transpose()
         df.index = df.index.to_series().apply(lambda a2: a2_to_full_name[a2])
         df.to_csv(f"plots/bruegel/yearly_by_country_avoided_emissions_{suffix}.csv")
 
 
 def get_yearly_by_country_power():
-    out = run_table1(to_csv=False, do_round=True, return_yearly=True)
-    nz2050 = out[f"{NGFS_PEG_YEAR}-{LAST_YEAR} FA + Net Zero 2050 Scenario"]
+    out = table1.run_table1(to_csv=False, do_round=True, return_yearly=True)
+    nz2050 = out[f"{parameters.NGFS_PEG_YEAR}-{parameters.LAST_YEAR} FA + Net Zero 2050 Scenario"]
     series = defaultdict(list)
     ignore = [
         "avoided_emissions_including_residual_emissions",
@@ -1628,17 +743,17 @@ def get_yearly_by_country_power():
         "global_benefit_country_reduction",
         "residual_benefit",
     ]
-    for i in range(LAST_YEAR - NGFS_PEG_YEAR + 1):
+    for i in range(parameters.LAST_YEAR - parameters.NGFS_PEG_YEAR + 1):
         # Trillions
         for key, value in nz2050.items():
             if key in ignore:
                 continue
             if isinstance(value[i], pd.Series):
-                element = value[i].rename(NGFS_PEG_YEAR + i)
+                element = value[i].rename(parameters.NGFS_PEG_YEAR + i)
             else:
                 element = pd.Series(
                     value[i],
-                    name=(NGFS_PEG_YEAR + i),
+                    name=(parameters.NGFS_PEG_YEAR + i),
                 )
             series[key].append(element)
     git_branch = util.get_git_branch()
@@ -1651,14 +766,12 @@ def make_battery_unit_ic_plot(scenario, countries_included):
     # Ensure plot output dir exists
     os.makedirs("plots/phase_in", exist_ok=True)
 
-    global MEASURE_GLOBAL_VARS
-    global MEASURE_GLOBAL_VARS_SCENARIO
-    MEASURE_GLOBAL_VARS_SCENARIO = scenario
-    MEASURE_GLOBAL_VARS = True
+    parameters.MEASURE_GLOBAL_VARS_SCENARIO = scenario
+    parameters.MEASURE_GLOBAL_VARS = True
     with_learning.VERBOSE_ANALYSIS = True
     util.CARBON_BUDGET_CONSISTENT = "15-50"
     # util.CARBON_BUDGET_CONSISTENT = "strictly_declining"
-    years = list(range(2024, LAST_YEAR + 1))
+    years = list(range(2024, parameters.LAST_YEAR + 1))
     years_plus_renewable_lifetime = years + list(
         range(2050 + 1, 2050 + 1 + with_learning.RENEWABLE_LIFESPAN)
     )
@@ -1688,7 +801,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         print(title)
         try:
-            run_table1(to_csv=False, do_round=False)
+            table1.run_table1(to_csv=False, do_round=False)
         except Exception as e:
             print("FA doesn't have this country's data:", e)
             continue
@@ -1698,18 +811,18 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         for name, label in name_labels.items():
             plt.plot(
                 years,
-                global_cost_with_learning.cached_investment_costs[name].values(),
+                parameters.global_cost_with_learning.cached_investment_costs[name].values(),
                 label=label,
             )
 
         plt.plot(
             years,
-            global_cost_with_learning.battery_unit_ic["short"].values(),
+            parameters.global_cost_with_learning.battery_unit_ic["short"].values(),
             label="Short",
         )
         plt.plot(
             years,
-            global_cost_with_learning.battery_unit_ic["long"].values(),
+            parameters.global_cost_with_learning.battery_unit_ic["long"].values(),
             label="Battery long",
         )
         plt.xlabel("Time")
@@ -1731,7 +844,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
             y = np.cumsum(
                 kW2GW(
                     list(
-                        global_cost_with_learning.cached_stock_without_degradation[
+                        parameters.global_cost_with_learning.cached_stock_without_degradation[
                             tech
                         ].values()
                     )
@@ -1752,7 +865,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
                 tech: e[country_name][tech] if country_name in e else 0
                 for tech in with_learning.TECHS
             }
-            for e in global_cost_with_learning.green_energy_produced_by_country
+            for e in parameters.global_cost_with_learning.green_energy_produced_by_country
         ]
         for tech, label in name_labels.items():
             plt.plot(
@@ -1778,14 +891,14 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         plt.tight_layout()
         plt.savefig(
-            f"plots/phase_in/battery_unit_ic_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
+            f"plots/phase_in/battery_unit_ic_{parameters.MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
             bbox_inches="tight",
         )
         plt.close()
         util.write_small_json(
             {
-                **global_cost_with_learning.cached_investment_costs,
-                **global_cost_with_learning.battery_unit_ic,
+                **parameters.global_cost_with_learning.cached_investment_costs,
+                **parameters.global_cost_with_learning.battery_unit_ic,
             },
             f"plots/phase_in/battery_unit_ic_{country}.json",
         )
@@ -1800,7 +913,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         }.items():
             y = kW2GW(
                 list(
-                    global_cost_with_learning.cached_stock_without_degradation[
+                    parameters.global_cost_with_learning.cached_stock_without_degradation[
                         tech
                     ].values()
                 )
@@ -1826,17 +939,17 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         )
         plt.tight_layout()
         plt.savefig(
-            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
+            f"plots/phase_in/battery_yearly_installed_capacity_{parameters.MEASURE_GLOBAL_VARS_SCENARIO}_{country}.png",
             bbox_inches="tight",
         )
         plt.close()
         util.write_small_json(
-            dict(global_cost_with_learning.cached_stock_without_degradation),
-            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
+            dict(parameters.global_cost_with_learning.cached_stock_without_degradation),
+            f"plots/phase_in/battery_yearly_installed_capacity_{parameters.MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
         util.write_small_json(
-            dict(global_cost_with_learning.cached_stock),
-            f"plots/phase_in/battery_yearly_available_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
+            dict(parameters.global_cost_with_learning.cached_stock),
+            f"plots/phase_in/battery_yearly_available_capacity_{parameters.MEASURE_GLOBAL_VARS_SCENARIO}_{country}.json",
         )
 
         # 3rd file
@@ -1844,7 +957,7 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         plt.title(title)
         y = sum(
             np.array(list(d.values()))
-            for d in global_cost_with_learning.cached_stock_without_degradation.values()
+            for d in parameters.global_cost_with_learning.cached_stock_without_degradation.values()
         )
         y_cumsum = np.cumsum(y)
 
@@ -1854,12 +967,12 @@ def make_battery_unit_ic_plot(scenario, countries_included):
         plt.xlabel("Time")
         plt.ylabel("Annual installed capacity (GW)")
         plt.savefig(
-            f"plots/phase_in/battery_yearly_installed_capacity_{MEASURE_GLOBAL_VARS_SCENARIO}_{country}_summed.png"
+            f"plots/phase_in/battery_yearly_installed_capacity_{parameters.MEASURE_GLOBAL_VARS_SCENARIO}_{country}_summed.png"
         )
         plt.close()
 
-    MEASURE_GLOBAL_VARS = False
-    MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
+    parameters.MEASURE_GLOBAL_VARS = False
+    parameters.MEASURE_GLOBAL_VARS_SCENARIO = "Net Zero 2050"
     with_learning.VERBOSE_ANALYSIS = False
     util.CARBON_BUDGET_CONSISTENT = False
 
@@ -1882,8 +995,7 @@ if __name__ == "__main__":
         ]
         for scc in sccs:
             util.social_cost_of_carbon = scc
-            social_cost_of_carbon = scc  # noqa: F811
-            out = run_table1(to_csv=True, do_round=True)
+            out = table1.run_table1(to_csv=True, do_round=True)
         exit()
     if 1:
         # Battery yearly
@@ -1897,7 +1009,7 @@ if __name__ == "__main__":
         # 15 Africa countries
         countries = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
         countries = "ID IN VN ZA".split()
-        countries = sorted(list(set(df_sector.asset_country.tolist())))
+        countries = sorted(list(set(table1.df_sector.asset_country.tolist())))
         make_battery_unit_ic_plot("Net Zero 2050", countries)
         # Halt to coal production
         # make_battery_unit_ic_plot("Current Policies", countries)

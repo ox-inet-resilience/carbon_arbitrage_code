@@ -28,6 +28,8 @@ plt.rc("font", size=13)
 plt.rc("legend", fontsize=11, title_fontsize=11)
 # End font
 
+import gca.parameters as parameters
+
 hours_in_1year = 24 * 365.25
 seconds_in_1hour = 3600  # seconds
 # The years in NGFS data
@@ -525,7 +527,8 @@ def calculate_ngfs_projection_by_subsector(
     return out
 
 
-def calculate_rho(beta, rho_mode="default"):
+def calculate_rho(beta):
+    rho_mode = parameters.RHO_MODE
     # See the carbon arbitrage paper page 11, in the paragraph that starts with
     # "We discount expected free cash flows of ...".
     # This function is used on masterdata

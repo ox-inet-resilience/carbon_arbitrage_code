@@ -11,6 +11,8 @@ import pandas as pd
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
 
+import gca.table1 as table1  # noqa
+import gca.parameters as parameters  # noqa
 import analysis_main  # noqa
 import util  # noqa
 import with_learning  # noqa
@@ -23,8 +25,8 @@ a2_to_full_name = util.prepare_alpha2_to_full_name_concise()
 full_name_to_a2 = {v: k for k, v in a2_to_full_name.items()}
 
 last_year = 2035
-analysis_main.LAST_YEAR = last_year
-out_yearly = analysis_main.run_table1(return_yearly=True)
+parameters.LAST_YEAR = last_year
+out_yearly = table1.run_table1(return_yearly=True)
 ae_dict = out_yearly[f"2024-{last_year} FA + Net Zero 2050 Scenario"][
     "avoided_emissions_including_residual_emissions"
 ]

@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+import gca.parameters as parameters  # noqa
+import gca.table1 as table1
 import analysis_main
 import util
 import with_learning
@@ -9,14 +11,12 @@ import with_learning
 def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     from collections import defaultdict
 
-    global social_cost_of_carbon
     social_costs = np.linspace(0, 200, 3)
     ydict = defaultdict(list)
-    chosen_scenario = f"{analysis_main.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
+    chosen_scenario = f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
     for social_cost in social_costs:
         util.social_cost_of_carbon = social_cost
-        social_cost_of_carbon = social_cost
-        out = analysis_main.run_table1(to_csv=False, do_round=False)
+        out = table1.run_table1(to_csv=False, do_round=False)
         carbon_arbitrage_opportunity = out[
             "Carbon arbitrage including residual benefit (in trillion dollars)"
         ]
@@ -27,10 +27,10 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
                 value = value / util.world_gdp_2023 * 100
             ydict[scenario].append(value)
     mapper = {
-        f"{analysis_main.NGFS_PEG_YEAR}-{analysis_main.LAST_YEAR} FA + Current Policies  Scenario": f"s2=0, T={analysis_main.LAST_YEAR}",
-        f"{analysis_main.NGFS_PEG_YEAR}-2100 FA + Current Policies  Scenario": "s2=0, T=2100",
-        f"{analysis_main.NGFS_PEG_YEAR}-{analysis_main.LAST_YEAR} FA + Net Zero 2050 Scenario": f"s2=Net Zero 2050, T={analysis_main.LAST_YEAR}",
-        f"{analysis_main.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario": "s2=Net Zero 2050, T=2100",
+        f"{parameters.NGFS_PEG_YEAR}-{parameters.LAST_YEAR} FA + Current Policies  Scenario": f"s2=0, T={parameters.LAST_YEAR}",
+        f"{parameters.NGFS_PEG_YEAR}-2100 FA + Current Policies  Scenario": "s2=0, T=2100",
+        f"{parameters.NGFS_PEG_YEAR}-{parameters.LAST_YEAR} FA + Net Zero 2050 Scenario": f"s2=Net Zero 2050, T={parameters.LAST_YEAR}",
+        f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario": "s2=Net Zero 2050, T=2100",
     }
 
     # Find the intersect with the x axis
@@ -101,10 +101,10 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
 
 def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     chosen_s2_scenario = (
-        f"{analysis_main.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
+        f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
     )
 
-    whole_years = range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)
+    whole_years = range(parameters.NGFS_PEG_YEAR, 2100 + 1)
 
     def calculate_yearly_world_cost(s2_scenario):
         yearly_costs_dict = analysis_main.calculate_yearly_info_dict(s2_scenario)
@@ -117,9 +117,9 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
     def _get_year_range_cost(year_start, year_end, yearly_world_cost):
         return sum(
             yearly_world_cost[
-                year_start - analysis_main.NGFS_PEG_YEAR : year_end
+                year_start - parameters.NGFS_PEG_YEAR : year_end
                 + 1
-                - analysis_main.NGFS_PEG_YEAR
+                - parameters.NGFS_PEG_YEAR
             ]
         )
 
@@ -135,7 +135,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
         with_learning.RENEWABLE_LIFESPAN = 30
 
     data_for_barchart = {
-        (analysis_main.NGFS_PEG_YEAR + 1, 2050): {},
+        (parameters.NGFS_PEG_YEAR + 1, 2050): {},
         (2051, 2070): {},
         (2071, 2100): {},
     }
@@ -160,7 +160,7 @@ def make_yearly_climate_financing_plot_SENSITIVITY_ANALYSIS():
 
         yearly_discounted = calculate_yearly_world_cost(chosen_s2_scenario)
         for year_start, year_end in [
-            (analysis_main.NGFS_PEG_YEAR + 1, 2050),
+            (parameters.NGFS_PEG_YEAR + 1, 2050),
             (2051, 2070),
             (2071, 2100),
         ]:

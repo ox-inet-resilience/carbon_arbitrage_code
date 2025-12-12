@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
+import gca.parameters as parameters  # noqa
 import util
 
 iso3166_df = util.read_iso3166()
@@ -64,7 +64,8 @@ def calculate(
     scenario="Net Zero 2050",
 ):
     years = range(NGFS_PEG_YEAR + 1, last_year + 1)
-    rho = util.calculate_rho(util.beta, rho_mode=rho_mode)
+    parameters.RHO_MODE = rho_mode
+    rho = util.calculate_rho(util.beta)
     subsector_column = subsector_column_map[subsector]
     if included_countries is None:
         included_countries = countries

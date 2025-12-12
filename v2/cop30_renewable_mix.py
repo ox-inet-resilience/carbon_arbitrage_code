@@ -9,6 +9,8 @@ import pandas as pd
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
 
+import gca.parameters as parameters  # noqa
+import gca.table1 as table1  # noqa
 import analysis_main  # noqa
 import util  # noqa
 import with_learning  # noqa
@@ -38,18 +40,18 @@ if 0:
         print(country)
         with_learning.VERBOSE_ANALYSIS_COUNTRY = country
         try:
-            analysis_main.run_table1(to_csv=False, do_round=False)
+            table1.run_table1(to_csv=False, do_round=False)
         except Exception:
             print("Skipping", country)
             continue
 
         output_1_country = {
-            r: analysis_main.global_cost_with_learning.cached_investment_costs[r][year]
+            r: parameters.global_cost_with_learning.cached_investment_costs[r][year]
             for r in renewables
         }
         for battery_type in ["short", "long"]:
             output_1_country[battery_type] = (
-                analysis_main.global_cost_with_learning.battery_unit_ic[battery_type][
+                parameters.global_cost_with_learning.battery_unit_ic[battery_type][
                     year
                 ]
             )

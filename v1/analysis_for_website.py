@@ -5,6 +5,8 @@ import time
 
 import util
 import analysis_main
+import gca.parameters as parameters
+import gca.table1 as table1
 
 
 BATTERY_MODES = ["Not included", "Short-term storage", "Short-term + long-term storage"]
@@ -130,11 +132,10 @@ def do_website_sensitivity_analysis():
                                     "onshore_wind": weights[1],
                                     "offshore_wind": weights[2],
                                 }
-                                analysis_main.RHO_MODE = rho_mode_map[rho_mode]
+                                parameters.RHO_MODE = rho_mode_map[rho_mode]
                                 util.social_cost_of_carbon = sc
-                                analysis_main.social_cost_of_carbon = sc  # noqa: F811
                                 setup_battery(battery_mode)
-                                out = analysis_main.run_table1(
+                                out = table1.run_table1(
                                     to_csv=False, do_round=True
                                 )
 
@@ -280,7 +281,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
     def fn(param):
         rho_mode = param["rho_mode"]
         last_year = param["last_year"]
-        analysis_main.RHO_MODE = rho_mode_map[rho_mode]
+        parameters.RHO_MODE = rho_mode_map[rho_mode]
         apply_last_year(last_year)
 
         # round to 6 decimals to save space
@@ -289,7 +290,7 @@ def do_website_sensitivity_analysis_opportunity_costs():
 
         s2_scenario = f"2022-{last_year} 2DII + Net Zero 2050 Scenario"
 
-        out = analysis_main.run_table1(
+        out = table1.run_table1(
             to_csv=False, do_round=False, return_yearly=True
         )
         yearly_opportunity_costs = out[s2_scenario]["opportunity_cost_non_discounted"]

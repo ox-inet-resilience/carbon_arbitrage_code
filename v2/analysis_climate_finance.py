@@ -16,6 +16,7 @@ sys.path.append(parent_dir)
 import analysis_main  # noqa
 import util  # noqa
 from util import world_gdp_2023  # noqa
+import gca.parameters as parameters  # noqa
 
 sns.set_theme(style="ticks")
 # Common variables
@@ -66,7 +67,7 @@ def get_global_benefit_country_reduction(chosen_s2_scenario, last_year, scc=None
 
 def get_info(info_name, last_year, included_countries=None, scc=None):
     chosen_s2_scenario = (
-        f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
+        f"{parameters.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
 
     if info_name == "global_benefit_country_reduction":
@@ -261,7 +262,7 @@ def make_climate_financing_plot(
     def get_info_with_start_year(
         start_year=None, last_year=None, included_countries=None
     ):
-        if start_year == analysis_main.NGFS_PEG_YEAR:
+        if start_year == parameters.NGFS_PEG_YEAR:
             return get_info(info_name, last_year, included_countries)
         return get_info(info_name, last_year, included_countries) - get_info(
             info_name, start_year - 1, included_countries
@@ -275,7 +276,7 @@ def make_climate_financing_plot(
         "Emerging Market Countries",
     ] + regions
     for_df = {"region": xticks}
-    for year_start, year_end in [(analysis_main.NGFS_PEG_YEAR, 2035), (2031, 2050)]:
+    for year_start, year_end in [(parameters.NGFS_PEG_YEAR, 2035), (2031, 2050)]:
         _world = get_info_with_start_year(year_start, year_end)
         _developed = get_info_with_start_year(
             year_start, year_end, developed_country_shortnames
@@ -462,7 +463,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
 
 def make_climate_financing_top15_plot(last_year):
     chosen_s2_scenario = (
-        f"{analysis_main.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
+        f"{parameters.NGFS_PEG_YEAR}-{last_year} FA + Net Zero 2050 Scenario"
     )
     global_benefit_country_reduction = get_global_benefit_country_reduction(
         chosen_s2_scenario, last_year
@@ -542,7 +543,7 @@ def prepare_regions_for_climate_financing(iso3166_df):
 def make_yearly_climate_financing_plot():
     global df_sector
 
-    chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{analysis_main.LAST_YEAR} FA + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-{parameters.LAST_YEAR} FA + Net Zero 2050 Scenario"
 
     (
         iso3166_df,
@@ -564,7 +565,7 @@ def make_yearly_climate_financing_plot():
         )
         with open(cache_json_path, "w") as f:
             json.dump(yearly_costs_dict, f)
-    whole_years = range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)
+    whole_years = range(parameters.NGFS_PEG_YEAR, 2100 + 1)
 
     def _get_yearly_cost(shortnames):
         out = np.zeros(len(whole_years))

@@ -16,6 +16,7 @@ sys.path.append(parent_dir)
 import analysis_main  # noqa
 import util  # noqa
 import with_learning  # noqa
+import gca.table1 as table1  # noqa
 
 # solar_and_onshore_wind: Herbaceous crops, Grassland, Shrub-covered areas, Sparsely natural vegetated areas, Terrestrial barren land
 # Solar: Woody crops
@@ -410,7 +411,7 @@ alpha2s += with_learning.DEVELOPING_UNFCCC
 # 15 African countries
 alpha2s = "BW CI DJ GH GN KE NG RW SN SL SC TZ UG ZM ZW".split()
 # All of FA countries
-alpha2s = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
+alpha2s = sorted(list(set(table1.df_sector.asset_country.tolist())))
 
 for alpha2 in alpha2s:
     plt.figure(figsize=(7, 4.8))

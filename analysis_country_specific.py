@@ -11,6 +11,8 @@ import seaborn as sns
 import matplotlib
 
 import util
+import gca.table1 as table1  # noqa
+import gca.parameters as parameters  # noqa
 import analysis_main
 from coal_export.common import modify_avoided_emissions_based_on_coal_export
 
@@ -189,7 +191,7 @@ def calculate_country_specific_scc_data(
 ):
     if last_year is None:
         last_year = 2100
-    chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
+    chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
     costs_dict = analysis_main.calculate_each_countries_with_cache(
         chosen_s2_scenario,
         "plots/country_specific_cost.json",
@@ -197,7 +199,7 @@ def calculate_country_specific_scc_data(
         info_name=cost_name,
         last_year=last_year,
     )
-    out = analysis_main.run_table1(to_csv=False, do_round=False)
+    out = table1.run_table1(to_csv=False, do_round=False)
     global_benefit = out[
         "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     ][chosen_s2_scenario]
@@ -224,7 +226,7 @@ def calculate_country_specific_scc_data(
     benefit_of_country_doing_the_action = None
     if unilateral_actor is not None:
         # Generated from the Git branch unilateral_action_benefit
-        suffix = "_with_coal_export" if analysis_main.ENABLE_COAL_EXPORT else ""
+        suffix = "_with_coal_export" if parameters.ENABLE_COAL_EXPORT else ""
         cache_name = (
             f"cache/unilateral_benefit_total_trillion_{last_year}{suffix}.json"
         )
@@ -588,8 +590,8 @@ def do_country_specific_scc_part4():
 def calculate_global_benefit(last_year=None):
     if last_year is None:
         last_year = 2100
-    out = analysis_main.run_table1(to_csv=False, do_round=False)
-    chosen_s2_scenario = f"{analysis_main.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
+    out = table1.run_table1(to_csv=False, do_round=False)
+    chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-{last_year} 2DII + Net Zero 2050 Scenario"
     property = "Benefits of avoiding coal emissions including residual benefit (in trillion dollars)"
     global_benefit = out[property][chosen_s2_scenario]
     return global_benefit
@@ -1617,7 +1619,7 @@ def do_bruegel_heatmap():
 
 def do_bruegel_2():
     git_branch = util.get_git_branch()
-    if analysis_main.ENABLE_COAL_EXPORT:
+    if parameters.ENABLE_COAL_EXPORT:
         ae_csv_path = "./plots/avoided_emissions_modified_by_coal_export.csv"
         suffix = "_modified_with_coal_export"
         all_obj = countries_after_coal_export
@@ -1925,9 +1927,9 @@ def do_bruegel_4(action_groups):
             }
 
             identifier = git_branch
-            if git_branch == "main" and analysis_main.ENABLE_COAL_EXPORT:
+            if git_branch == "main" and parameters.ENABLE_COAL_EXPORT:
                 identifier = "coal_export"
-            elif git_branch == "battery" and analysis_main.ENABLE_COAL_EXPORT:
+            elif git_branch == "battery" and parameters.ENABLE_COAL_EXPORT:
                 identifier = "coal_export_over_battery"
 
             with open(
@@ -1968,7 +1970,7 @@ def do_bruegel_4(action_groups):
                         ),
                     ]
                 )
-                duration = last_year - (analysis_main.NGFS_PEG_YEAR + 1)
+                duration = last_year - (parameters.NGFS_PEG_YEAR + 1)
                 for ag_name, ag in action_groups.items():
                     # Ignore developed countries
                     if ag_name in ["AU", "US", "CA", "DE", "GR"]:
@@ -2042,7 +2044,7 @@ def do_bruegel_5(action_groups, enable_coal_export):
         "w",
     ) as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(["country"] + list(range(analysis_main.NGFS_PEG_YEAR, 2100 + 1)))
+        csvwriter.writerow(["country"] + list(range(parameters.NGFS_PEG_YEAR, 2100 + 1)))
 
         total = 0
         for group, countries in action_groups.items():
@@ -2089,9 +2091,9 @@ if __name__ == "__main__":
         # do_country_specific_scc_part7("CN", use_developed_for_zerocost=True)
         # do_bruegel_heatmap()
         # exit()
-        analysis_main.ENABLE_COAL_EXPORT = True
+        parameters.ENABLE_COAL_EXPORT = True
         do_bruegel_2()
-        analysis_main.ENABLE_COAL_EXPORT = False
+        parameters.ENABLE_COAL_EXPORT = False
         do_bruegel_2()
         exit()
 
@@ -2136,7 +2138,7 @@ if __name__ == "__main__":
                 "Middle East": "BH IR IQ JO KW LB OM QA SA SY AE YE".split(),
                 "World": flatten_list_of_list(list(region_countries_map.values())),
             }
-        analysis_main.ENABLE_COAL_EXPORT = 1
+        parameters.ENABLE_COAL_EXPORT = 1
         do_bruegel_4(action_groups)
         # for enable_coal_export in [True, False]:
         #     do_bruegel_5(action_groups, enable_coal_export)

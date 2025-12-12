@@ -7,9 +7,8 @@ import util
 import processed_revenue
 
 start_year = 2022
-RHO_MODE = "default"
 # The value of rho is 0.02795381840850683
-rho = util.calculate_rho(processed_revenue.beta, rho_mode=RHO_MODE)
+rho = util.calculate_rho(processed_revenue.beta)
 
 years = [2025, 2030, 2035, 2040]
 # In billion dollars

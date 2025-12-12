@@ -10,6 +10,8 @@ sys.path.append(parent_dir)
 import util  # noqa
 import analysis_main  # noqa
 import coal_worker  # noqa
+import gca.parameters as parameters  # noqa
+import gca.table1 as table1  # noqa
 
 last_year = 2050
 util.CARBON_BUDGET_CONSISTENT = "15-50"
@@ -26,14 +28,14 @@ maturity_dict = (
     .set_index("uniqueforwardassetid")["maturity_year"]
     .to_dict()
 )
-rho = util.calculate_rho(util.beta, rho_mode=analysis_main.RHO_MODE)
+rho = util.calculate_rho(util.beta)
 emde6 = "IN ID VN TR PL KZ".split()
 countries_included = emde6
 # Bangladesh
 countries_included = ["BD"]
 top8_unfccc_developing = "EG IN ID ZA MX VN IR TH".split()
 # All of FA countries
-# countries_included = sorted(list(set(analysis_main.df_sector.asset_country.tolist())))
+# countries_included = sorted(list(set(table1.df_sector.asset_country.tolist())))
 countries_included = top8_unfccc_developing
 
 
@@ -44,7 +46,7 @@ def get_emissions_projection(scenario):
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
         scenario,
-        analysis_main.NGFS_PEG_YEAR,
+        parameters.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
     )
@@ -81,7 +83,7 @@ def get_activity_unit_multiplier(row):
 
 # emissions_projection_CPS = get_emissions_projection("Current Policies")
 emissions_projection_NZ2050 = get_emissions_projection("Net Zero 2050")
-years = list(range(analysis_main.NGFS_PEG_YEAR, last_year + 1))
+years = list(range(parameters.NGFS_PEG_YEAR, last_year + 1))
 
 
 def calculate_power_plant_phaseout_order(method_name, df, measure):
@@ -195,7 +197,7 @@ def calculate_power_plant_phaseout_order(method_name, df, measure):
 
 
 def prepare_by_emissions_per_oc(df):
-    unit_profit_df = analysis_main.unit_profit_df
+    unit_profit_df = table1.unit_profit_df
 
     total_production_fa = util.get_production_by_country(
         df, analysis_main.SECTOR_INCLUDED
@@ -212,7 +214,7 @@ def prepare_by_emissions_per_oc(df):
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
         scenario,
-        analysis_main.NGFS_PEG_YEAR,
+        parameters.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
         unit_profit_df=unit_profit_df,
@@ -237,7 +239,7 @@ def prepare_by_emissions_per_oc(df):
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
         scenario,
-        analysis_main.NGFS_PEG_YEAR,
+        parameters.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
     )
@@ -289,7 +291,7 @@ def prepare_by_emissions_per_oc(df):
 
 
 def prepare_by_emissions_per_oc_with_maturity(df):
-    unit_profit_df = analysis_main.unit_profit_df
+    unit_profit_df = table1.unit_profit_df
 
     total_production_fa = util.get_production_by_country(
         df, analysis_main.SECTOR_INCLUDED
@@ -306,7 +308,7 @@ def prepare_by_emissions_per_oc_with_maturity(df):
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
         scenario,
-        analysis_main.NGFS_PEG_YEAR,
+        parameters.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
         unit_profit_df=unit_profit_df,
@@ -324,7 +326,7 @@ def prepare_by_emissions_per_oc_with_maturity(df):
         ngfs_df,
         analysis_main.SECTOR_INCLUDED,
         scenario,
-        analysis_main.NGFS_PEG_YEAR,
+        parameters.NGFS_PEG_YEAR,
         last_year,
         alpha2_to_alpha3,
     )
@@ -349,7 +351,7 @@ def prepare_by_emissions_per_oc_with_maturity(df):
 
         profit_projection_subsector = profit_ngfs_projection[row.subsector]
         maturity = get_maturity(row)
-        maturity_index = maturity - analysis_main.NGFS_PEG_YEAR
+        maturity_index = maturity - parameters.NGFS_PEG_YEAR
         profit_per_fa = (
             discounted_sum(profit_projection_subsector[: maturity_index + 1])
             / fa_by_subsector[row.subsector]

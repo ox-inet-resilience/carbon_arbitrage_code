@@ -8,6 +8,8 @@ import pycountry
 parent_dir = str(pathlib.Path(__file__).parent.parent.resolve())
 sys.path.append(parent_dir)
 
+import gca.table1 as table1  # noqa
+import gca.parameters as parameters  # noqa
 import analysis_main  # noqa
 import util  # noqa
 import with_learning  # noqa
@@ -42,9 +44,9 @@ def plot_electricity_generation(
     # Production
     # Giga tonnes of coal
     total_production_fa = util.get_production_by_country(
-        analysis_main.df_sector, analysis_main.SECTOR_INCLUDED
+        table1.df_sector, analysis_main.SECTOR_INCLUDED
     )
-    last_year = analysis_main.LAST_YEAR
+    last_year = parameters.LAST_YEAR
     production_projection = {}
     scenarios = ["Current Policies", "Net Zero 2050"]
     for scenario in scenarios:
@@ -56,13 +58,13 @@ def plot_electricity_generation(
         ) = util.calculate_ngfs_projection(
             "production",
             total_production_fa,
-            analysis_main.ngfs_df,
+            table1.ngfs_df,
             analysis_main.SECTOR_INCLUDED,
             scenario,
-            analysis_main.NGFS_PEG_YEAR,
+            parameters.NGFS_PEG_YEAR,
             last_year,
             analysis_main.alpha2_to_alpha3,
-            unit_profit_df=analysis_main.unit_profit_df,
+            unit_profit_df=table1.unit_profit_df,
         )
         production_projection[scenario] = production_with_ngfs_projection
     DeltaP = util.subtract_array(
@@ -97,12 +99,12 @@ def plot_electricity_generation(
     y_deltap = get_arr(DeltaP)
     with_learning.VERBOSE_ANALYSIS = True
     with_learning.VERBOSE_ANALYSIS_COUNTRY = region_key
-    analysis_main.run_table1(to_csv=False, do_round=False, plot_yearly=False)
+    table1.run_table1(to_csv=False, do_round=False, plot_yearly=False)
 
     if region_key == "WORLD":
         green_energy_produced_by_country_group = [
             {tech: sum(e[a2][tech] for a2 in e) for tech in with_learning.TECHS}
-            for e in analysis_main.global_cost_with_learning.green_energy_produced_by_country
+            for e in parameters.global_cost_with_learning.green_energy_produced_by_country
         ]
     elif region_key == "Developing_UNFCCC":
         green_energy_produced_by_country_group = [
@@ -112,7 +114,7 @@ def plot_electricity_generation(
                 )
                 for tech in with_learning.TECHS
             }
-            for e in analysis_main.global_cost_with_learning.green_energy_produced_by_country
+            for e in parameters.global_cost_with_learning.green_energy_produced_by_country
         ]
     elif region_key == "Developed_UNFCCC":
         green_energy_produced_by_country_group = [
@@ -122,7 +124,7 @@ def plot_electricity_generation(
                 )
                 for tech in with_learning.TECHS
             }
-            for e in analysis_main.global_cost_with_learning.green_energy_produced_by_country
+            for e in parameters.global_cost_with_learning.green_energy_produced_by_country
         ]
     else:
         green_energy_produced_by_country_group = [
@@ -130,7 +132,7 @@ def plot_electricity_generation(
                 tech: e[region_key][tech] if region_key in e else 0
                 for tech in with_learning.TECHS
             }
-            for e in analysis_main.global_cost_with_learning.green_energy_produced_by_country
+            for e in parameters.global_cost_with_learning.green_energy_produced_by_country
         ]
 
     # now we group by tech
