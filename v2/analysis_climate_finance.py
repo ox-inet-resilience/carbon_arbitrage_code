@@ -219,7 +219,7 @@ def run_table2_region():
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
 
     analysis_main.run_table2("world")
 
@@ -257,7 +257,7 @@ def make_climate_financing_plot(
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
 
     def get_info_with_start_year(
         start_year=None, last_year=None, included_countries=None
@@ -361,7 +361,7 @@ def make_cost_benefit_plot(last_year, to_csv=False):
     developING_country_shortnames = util.get_developing_countries()
     emerging_country_shortnames = util.get_emerging_countries()
 
-    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
     level_development_countries_map = {
         "World": None,
         "Developed Countries": developed_country_shortnames,
@@ -503,43 +503,6 @@ def make_climate_financing_top15_plot(last_year):
     df.to_csv(f"plots/table_{fname}_{util.get_unique_id()}.csv", index=False)
 
 
-def prepare_regions_for_climate_financing(iso3166_df):
-    asia_countries = list(iso3166_df[iso3166_df.region == "Asia"]["alpha-2"])
-    africa_countries = list(iso3166_df[iso3166_df.region == "Africa"]["alpha-2"])
-    north_america_countries = list(
-        iso3166_df[iso3166_df["sub-region"] == "Northern America"]["alpha-2"]
-    )
-    lac_countries = list(
-        iso3166_df[iso3166_df["sub-region"] == "Latin America and the Caribbean"][
-            "alpha-2"
-        ]
-    )
-    europe_countries = list(iso3166_df[iso3166_df.region == "Europe"]["alpha-2"])
-    au_and_nz = list(
-        iso3166_df[iso3166_df["sub-region"] == "Australia and New Zealand"]["alpha-2"]
-    )
-
-    region_countries_map = {
-        "Asia": asia_countries,
-        "Africa": africa_countries,
-        "North America": north_america_countries,
-        "Latin America & the Carribean": lac_countries,
-        "Europe": europe_countries,
-        "Australia & New Zealand": au_and_nz,
-    }
-    # Just to make sure that the order is deterministic.
-    # Unlikely, but just to be sure.
-    regions = [
-        "Asia",
-        "Africa",
-        "North America",
-        "Latin America & the Carribean",
-        "Europe",
-        "Australia & New Zealand",
-    ]
-    return region_countries_map, regions
-
-
 def make_yearly_climate_financing_plot():
     global df_sector
 
@@ -614,7 +577,7 @@ def make_yearly_climate_financing_plot():
     # Part 2. By regions
     plt.sca(axs[1])
     plt.plot(whole_years, yearly_world_cost, label="World")
-    region_countries_map, regions = prepare_regions_for_climate_financing(iso3166_df)
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(iso3166_df)
     for region in regions:
         included_country_names = region_countries_map[region]
         yearly_cost = _get_yearly_cost(included_country_names)

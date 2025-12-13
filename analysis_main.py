@@ -275,6 +275,43 @@ def annotate(xs, ys, labels, filter_labels=None, no_zero_x=False, fontsize=None)
         )
 
 
+def prepare_regions_for_climate_financing(iso3166_df):
+    asia_countries = list(iso3166_df[iso3166_df.region == "Asia"]["alpha-2"])
+    africa_countries = list(iso3166_df[iso3166_df.region == "Africa"]["alpha-2"])
+    north_america_countries = list(
+        iso3166_df[iso3166_df["sub-region"] == "Northern America"]["alpha-2"]
+    )
+    lac_countries = list(
+        iso3166_df[iso3166_df["sub-region"] == "Latin America and the Caribbean"][
+            "alpha-2"
+        ]
+    )
+    europe_countries = list(iso3166_df[iso3166_df.region == "Europe"]["alpha-2"])
+    au_and_nz = list(
+        iso3166_df[iso3166_df["sub-region"] == "Australia and New Zealand"]["alpha-2"]
+    )
+
+    region_countries_map = {
+        "Asia": asia_countries,
+        "Africa": africa_countries,
+        "North America": north_america_countries,
+        "Latin America & the Carribean": lac_countries,
+        "Europe": europe_countries,
+        "Australia & New Zealand": au_and_nz,
+    }
+    # Just to make sure that the order is deterministic.
+    # Unlikely, but just to be sure.
+    regions = [
+        "Asia",
+        "Africa",
+        "North America",
+        "Latin America & the Carribean",
+        "Europe",
+        "Australia & New Zealand",
+    ]
+    return region_countries_map, regions
+
+
 def make_climate_financing_SCATTER_plot():
     gdp_per_capita_dict = util.read_json(util.gdp_per_capita_path)
     # Taiwan in 2024
@@ -308,7 +345,7 @@ def make_climate_financing_SCATTER_plot():
     chosen_s2_scenario = f"{parameters.NGFS_PEG_YEAR}-2100 FA + Net Zero 2050 Scenario"
     cache_json_path = "plots/climate_financing.json"
 
-    costs_dict = calculate_each_countries_cost_with_cache(
+    costs_dict = calculate_each_countries_with_cache(
         chosen_s2_scenario, cache_json_path
     )
 
