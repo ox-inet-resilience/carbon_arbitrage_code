@@ -200,7 +200,7 @@ def plot_combined_2dii_ngfs_over_time(
     return out
 
 
-if 0:
+if 1:
 
     def get_ngfs_regional(_df):
         _df_regional = _df[_df.Region != "World"]
@@ -287,18 +287,11 @@ if 0:
     ngfs_peg_year = 2023
     start_year = 2013
 
-    def plot_halt_to_coal_production(x, y):
-        halt_y = [0] * len(x)
-        for i in range(ngfs_peg_year - start_year + 1):
-            halt_y[i] = y[i]
-        plt.plot(x, halt_y, label="Halt to coal production")
-
     for i, mode in enumerate(["production", "emissions"]):
         plt.sca(axs[i])
         for label, content in out_combined[mode].items():
             plt.plot(content["x"], content["y"], label=label)
         current_policies = out_combined[mode]["Current Policies "]
-        plot_halt_to_coal_production(current_policies["x"], current_policies["y"])
         plt.xlabel("Time")
         if mode == "production":
             ylabel = "Coal production (Giga tonnes / year)"
