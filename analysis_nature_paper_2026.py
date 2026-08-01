@@ -8,10 +8,14 @@ everything (the original convention), and once with each country following the
 trajectory of the NGFS region it belongs to (see compute_2dii_ngfs_over_time and
 compute_2dii_ngfs_over_time_by_region).
 
+The global (world) projections are produced for all 3 NGFS models (see
+NGFS_MODELS); everything else stays on util.NGFS_MODEL.
+
 Outputs:
-- plots/exp16_{production,emissions}.png  (non-power, intermediate)
-- plots/exp34_{production,emissions}.png  (power, intermediate)
-- plots/for_comparison_yearly_exp16_34.json
+- plots/exp16_{production,emissions}_{model}.png  (non-power, intermediate)
+- plots/exp34_{production,emissions}_{model}.png  (power, intermediate)
+- plots/for_comparison_yearly_exp16_34.json       (keyed by NGFS model)
+- plots/exp16_34_models.png                       (the 3 models, side by side)
 - plots/for_comparison_yearly_exp16_34_by_development_level.json
 - plots/for_comparison_yearly_exp16_34_by_region.json
 - plots/exp16_34_combined.png             (the figure of interest)
@@ -34,6 +38,21 @@ import util
 
 # Ensure that plots directory exists
 os.makedirs("plots", exist_ok=True)
+
+# The 3 NGFS models that report every scenario, used for the global (world)
+# projections only. util.NGFS_MODEL (the first one) remains the model used
+# everywhere else in this script and in the rest of the codebase.
+NGFS_MODELS = [
+    util.NGFS_MODEL,
+    "MESSAGEix-GLOBIOM 1.1",
+    "REMIND-MAgPIE 2.1-4.2",
+]
+# Short names, for filenames and plot titles.
+NGFS_MODEL_SHORT = {
+    "GCAM5.3_NGFS": "gcam",
+    "MESSAGEix-GLOBIOM 1.1": "messageix_globiom",
+    "REMIND-MAgPIE 2.1-4.2": "remind_magpie",
+}
 
 
 def convert2Gtonnes(sector, x):
@@ -94,13 +113,34 @@ def get_fraction_increase_over_peg_year(ngfs_row, sector, ngfs_peg_year):
 
     # Get the fraction
     ngfs_years_after_peg = list(range(ngfs_right_year, 2105, 5))
-    ngfs_values = [
-        convert2Gtonnes(sector, ngfs_row[str(year)]) for year in ngfs_years_after_peg
-    ]
-    fraction_increase_over_peg_year = np.array(
-        [(v / ngfs_value_peg) for v in ngfs_values]
+    ngfs_values = np.array(
+        [convert2Gtonnes(sector, ngfs_row[str(year)]) for year in ngfs_years_after_peg],
+        dtype=float,
     )
+    ngfs_values = fill_missing_ngfs_years(ngfs_years_after_peg, ngfs_values)
+    fraction_increase_over_peg_year = ngfs_values / ngfs_value_peg
     return ngfs_years_after_peg, fraction_increase_over_peg_year
+
+
+def fill_missing_ngfs_years(years, values):
+    """Linearly interpolate the NGFS years that a model does not report.
+
+    GCAM is 5-yearly all the way to 2100, but MESSAGEix-GLOBIOM and REMIND-MAgPIE
+    switch to 10-yearly after 2060 (2065, 2075, 2085 and 2095 are empty), so that
+    the 3 models share a year grid the reported values are interpolated over.
+    """
+    missing = np.isnan(values)
+    if not missing.any():
+        return values
+    assert not missing.all()
+    # np.interp clamps at the edges, which never happens here because the NGFS
+    # files only omit years in between the reported ones.
+    assert not (missing[0] or missing[-1])
+    values = values.copy()
+    values[missing] = np.interp(
+        np.array(years)[missing], np.array(years)[~missing], values[~missing]
+    )
+    return values
 
 
 def compute_2dii_ngfs_over_time(_ngfs_global_coal, total_by_year, sector):
@@ -442,67 +482,92 @@ def main():
     _, nonpower_coal, power_coal = util.read_masterdata()
 
     # Non-power NGFS. Unit is EJ/yr.
-    ngfs = util.read_ngfs_coal_and_power()["Coal"]
-    # Constrain to a particular NGFS model
-    ngfs = ngfs[ngfs.Model == util.NGFS_MODEL]
-    ngfs_nonpower = ngfs[ngfs.Variable == "Primary Energy|Coal"]
+    ngfs_all_models = util.read_ngfs_coal_and_power()["Coal"]
+    ngfs_all_models = ngfs_all_models[
+        ngfs_all_models.Variable == "Primary Energy|Coal"
+    ]
+    # Power NGFS. Initial unit is GW.
+    ngfs_power_all_models = util.read_ngfs_coal_and_power()["Power"]
+    ngfs_power_all_models = ngfs_power_all_models[
+        ngfs_power_all_models.Variable == "Capacity|Electricity|Coal"
+    ]
+
+    # Constrain to a particular NGFS model. This is the one used by everything
+    # but the global projections, which are done for all of NGFS_MODELS below.
+    ngfs_nonpower = ngfs_all_models[ngfs_all_models.Model == util.NGFS_MODEL]
     ngfs_nonpower_global = ngfs_nonpower[ngfs_nonpower.Region == "World"]
 
-    # Power NGFS. Initial unit is GW.
-    ngfs_power = util.read_ngfs_coal_and_power()["Power"]
-    # Constrain to a particular NGFS model
-    ngfs_power = ngfs_power[ngfs_power.Model == util.NGFS_MODEL]
-    ngfs_power = ngfs_power[ngfs_power.Variable == "Capacity|Electricity|Coal"]
-    ngfs_power_global = ngfs_power[ngfs_power.Region == "World"]
+    # The global projections, one set per NGFS model.
+    out_combined_by_model = {}
+    for ngfs_model in NGFS_MODELS:
+        print(f"# Global projections, NGFS model {ngfs_model}")
+        model_short = NGFS_MODEL_SHORT[ngfs_model]
+        ngfs_nonpower_global_model = ngfs_all_models[
+            (ngfs_all_models.Model == ngfs_model) & (ngfs_all_models.Region == "World")
+        ]
+        ngfs_power_global_model = ngfs_power_all_models[
+            (ngfs_power_all_models.Model == ngfs_model)
+            & (ngfs_power_all_models.Region == "World")
+        ]
 
-    out_combined = {}
-    for mode in ["production", "emissions"]:
-        print("# exp 16")
-        years_masterdata = range(2013, 2027)
-        if mode == "production":
-            total_by_year = util.get_coal_nonpower_global_generation_across_years(
-                nonpower_coal, years_masterdata
+        out_combined = {}
+        for mode in ["production", "emissions"]:
+            print("# exp 16")
+            years_masterdata = range(2013, 2027)
+            if mode == "production":
+                total_by_year = util.get_coal_nonpower_global_generation_across_years(
+                    nonpower_coal, years_masterdata
+                )
+            else:
+                total_by_year = util.get_coal_nonpower_global_emissions_across_years(
+                    nonpower_coal, years_masterdata
+                )
+            out16_nonpower = plot_combined_2dii_ngfs_over_time(
+                ngfs_nonpower_global_model,
+                f"plots/exp16_{mode}_{model_short}.png",
+                total_by_year,
+                "nonpower",
+                mode,
             )
-        else:
-            total_by_year = util.get_coal_nonpower_global_emissions_across_years(
-                nonpower_coal, years_masterdata
-            )
-        out16_nonpower = plot_combined_2dii_ngfs_over_time(
-            ngfs_nonpower_global,
-            f"plots/exp16_{mode}.png",
-            total_by_year,
-            "nonpower",
-            mode,
-        )
 
-        print("# exp 34")
-        # Non-power is already done in exp 16
-        years_masterdata = range(2013, 2027)
-        if mode == "production":
-            power_total_by_year = util.get_coal_power_global_generation_across_years(
-                power_coal, years_masterdata
+            print("# exp 34")
+            # Non-power is already done in exp 16
+            years_masterdata = range(2013, 2027)
+            if mode == "production":
+                power_total_by_year = (
+                    util.get_coal_power_global_generation_across_years(
+                        power_coal, years_masterdata
+                    )
+                )
+            else:
+                power_total_by_year = util.get_coal_power_global_emissions_across_years(
+                    power_coal, years_masterdata
+                )
+            out34_power = plot_combined_2dii_ngfs_over_time(
+                ngfs_power_global_model,
+                f"plots/exp34_{mode}_{model_short}.png",
+                power_total_by_year,
+                "power",
+                mode,
             )
-        else:
-            power_total_by_year = util.get_coal_power_global_emissions_across_years(
-                power_coal, years_masterdata
-            )
-        out34_power = plot_combined_2dii_ngfs_over_time(
-            ngfs_power_global,
-            f"plots/exp34_{mode}.png",
-            power_total_by_year,
-            "power",
-            mode,
-        )
 
-        # For combined plot
-        out_combined[mode] = {}
-        for label, v16 in out16_nonpower.items():
-            v34 = out34_power[label]
-            x = v16["x"]
-            assert x == v34["x"]
-            # out_combined[mode][label] = {"x": x, "y": list(v16["y"] + v34["y"])}
-            # Only nonpower
-            out_combined[mode][label] = {"x": x, "y": list(v16["y"])}
+            # For combined plot
+            out_combined[mode] = {}
+            for label, v16 in out16_nonpower.items():
+                v34 = out34_power[label]
+                x = v16["x"]
+                assert x == v34["x"]
+                # out_combined[mode][label] = {"x": x, "y": list(v16["y"] + v34["y"])}
+                # Only nonpower
+                out_combined[mode][label] = {"x": x, "y": list(v16["y"])}
+        out_combined_by_model[ngfs_model] = out_combined
+
+    # The rest of the script (and the world panel of the combined figure) uses
+    # the default NGFS model.
+    out_combined = out_combined_by_model[util.NGFS_MODEL]
+
+    print("# Global projections, the 3 NGFS models")
+    plot_models_comparison(out_combined_by_model, "plots/exp16_34_models.png")
 
     print("# By level of development")
     out_by_development_level = get_by_group(
@@ -525,8 +590,9 @@ def main():
         "plots/exp16_34_combined.png",
     )
 
+    # Keyed by NGFS model, unlike the other files below, which are single model.
     with open("plots/for_comparison_yearly_exp16_34.json", "w") as f:
-        json.dump(out_combined, f)
+        json.dump(out_combined_by_model, f)
     with open(
         "plots/for_comparison_yearly_exp16_34_by_development_level.json", "w"
     ) as f:
@@ -654,6 +720,62 @@ def plot_combined_figure(
         bbox_to_anchor=(0.5, 0),
         ncol=2,
     )
+    plt.savefig(figname, bbox_inches="tight")
+    plt.close()
+
+
+def plot_models_comparison(out_combined_by_model, figname):
+    """The global result under each of the 3 NGFS models, one panel per model.
+
+    Production and emissions share each panel, same as in plot_combined_figure:
+    production on the left axis (solid), emissions on the right one (dashed).
+    The masterdata years are identical across the panels; only the NGFS
+    trajectory after the peg year differs. The left axis is shared so that the
+    models are comparable by eye, which matters because they disagree by a lot,
+    most of all on Current Policies and on how fast coal falls after 2050.
+    """
+    n = len(out_combined_by_model)
+    fig, axs = plt.subplots(1, n, figsize=(6 * n, 5), sharex=True, sharey=True)
+    twins = []
+    for j, (ngfs_model, out_combined) in enumerate(out_combined_by_model.items()):
+        ax = axs[j]
+        ax2 = plot_production_and_emissions(
+            ax, out_combined["production"], out_combined["emissions"], ngfs_model
+        )
+        twins.append(ax2)
+        for mode in ["production", "emissions"]:
+            for label, content in out_combined[mode].items():
+                print(
+                    f"{ngfs_model} {mode} {label.replace(chr(10), ' ')} "
+                    f"in {content['x'][-1]}: {content['y'][-1]:.3f}"
+                )
+        if j == 0:
+            ax.set_ylabel(get_ylabel("production"))
+        if j == n - 1:
+            ax2.set_ylabel(get_ylabel("emissions"))
+
+    # plot_production_and_emissions pins each right axis to its own left axis,
+    # which is only settled once every panel is drawn because the left ones are
+    # shared. Redo the pinning now that they are.
+    for ax, ax2, (_, out_combined) in zip(axs, twins, out_combined_by_model.items()):
+        factor, _ = get_emissions_per_production(
+            out_combined["production"], out_combined["emissions"]
+        )
+        ax2.set_ylim(np.array(ax.get_ylim()) * factor)
+
+    handles, labels = axs[0].get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    # The left/right axis of each panel is distinguished by line style
+    by_label["Production (left axis)"] = Line2D([], [], color="gray", linestyle="-")
+    by_label["Emissions (right axis)"] = Line2D([], [], color="gray", linestyle="--")
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
+        ncol=2,
+    )
+    plt.tight_layout()
     plt.savefig(figname, bbox_inches="tight")
     plt.close()
 
