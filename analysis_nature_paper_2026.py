@@ -7,6 +7,7 @@ Outputs:
 - plots/exp16_{production,emissions}.png  (non-power, intermediate)
 - plots/exp34_{production,emissions}.png  (power, intermediate)
 - plots/for_comparison_yearly_exp16_34.json
+- plots/for_comparison_yearly_exp16_34_by_development_level.json
 - plots/exp16_34_combined.png             (the figure of interest)
 """
 
@@ -34,12 +35,16 @@ def convert2Gtonnes(sector, x):
         return util.GJ2coal(x * util.hours_in_1year * util.seconds_in_1hour / 1e9)
 
 
-def plot_combined_2dii_ngfs_over_time(
-    _ngfs_global_coal, figname, total_by_year, sector, mode
-):
-    assert mode in ["production", "emissions"]
+def compute_2dii_ngfs_over_time(_ngfs_global_coal, total_by_year, sector):
+    """Patch the masterdata history with the NGFS scenario trajectories.
+
+    Returns {scenario label: {"x": years, "y": values}}. The NGFS trajectories
+    are the global ones; when total_by_year is a subset of the world (e.g. only
+    the developed countries), the global fractional increase over the peg year
+    is applied to that subset, which is the same convention as the rest of the
+    codebase (see util.calculate_ngfs_fractional_increase).
+    """
     out = {}
-    fig = plt.figure(figsize=(7, 5))
     for scenario in util.scenarios:
         if scenario in ["Below 2Â°C", "Divergent Net Zero", "Delayed transition"]:
             # Skip this scenario
@@ -92,26 +97,94 @@ def plot_combined_2dii_ngfs_over_time(
         whole_range_production = (
             total_by_year[: len(masterdata_years)] + rescaled_ngfs_value_after_2025
         )
+        # Remove weird character
         label = scenario.replace("Â", "")
         if label == "Nationally Determined Contributions (NDCs) ":
             label = "Nationally Determined\nContributions (NDCs)"
-        plt.plot(
-            patched_years,
-            whole_range_production,
-            # Remove weird character
-            label=label,
-        )
         out[label] = {"x": patched_years, "y": np.array(whole_range_production)}
-    plt.xlabel("Time")
+    return out
+
+
+def get_ylabel(mode):
     if mode == "production":
-        ylabel = "Coal production (Giga tonnes / year)"
-    else:
-        ylabel = "Coal emissions (GtCO2 / year)"
-    plt.ylabel(ylabel)
+        return "Coal production (Giga tonnes / year)"
+    return "Coal emissions (GtCO2 / year)"
+
+
+def plot_combined_2dii_ngfs_over_time(
+    _ngfs_global_coal, figname, total_by_year, sector, mode
+):
+    assert mode in ["production", "emissions"]
+    out = compute_2dii_ngfs_over_time(_ngfs_global_coal, total_by_year, sector)
+    fig = plt.figure(figsize=(7, 5))
+    for label, content in out.items():
+        plt.plot(content["x"], content["y"], label=label)
+    plt.xlabel("Time")
+    plt.ylabel(get_ylabel(mode))
     fig.subplots_adjust(right=0.68)
     fig.legend(title="Scenario:", loc=7)
     plt.savefig(figname)
     plt.close()
+    return out
+
+
+DEVELOPMENT_LEVELS = [
+    "Developed Countries",
+    "Developing Countries",
+    "Emerging Market Countries",
+]
+
+
+def get_countries_by_development_level():
+    (
+        _,
+        _,
+        _,
+        _,
+        developed_country_shortnames,
+    ) = util.prepare_from_climate_financing_data()
+    developING_country_shortnames = util.get_developing_countries()
+    emerging_country_shortnames = util.get_emerging_countries()
+    return {
+        "Developed Countries": developed_country_shortnames,
+        "Developing Countries": developING_country_shortnames,
+        "Emerging Market Countries": emerging_country_shortnames,
+    }
+
+
+def get_by_development_level(nonpower_coal, ngfs_nonpower_global):
+    """Same as the global exp 16 result, but restricted to each level of development.
+
+    Returns {mode: {level of development: {scenario label: {"x": ..., "y": ...}}}}.
+    Non-power only, to match out_combined in main().
+    """
+    countries_by_level = get_countries_by_development_level()
+    uncategorized = set(nonpower_coal.asset_country.dropna()) - set(
+        sum(countries_by_level.values(), [])
+    )
+    if uncategorized:
+        print("Countries not in any level of development:", sorted(uncategorized))
+
+    years_masterdata = range(2013, 2027)
+    out = {}
+    for mode in ["production", "emissions"]:
+        out[mode] = {}
+        for level, shortnames in countries_by_level.items():
+            subset = nonpower_coal[nonpower_coal.asset_country.isin(shortnames)]
+            if mode == "production":
+                total_by_year = util.get_coal_nonpower_global_generation_across_years(
+                    subset, years_masterdata
+                )
+            else:
+                total_by_year = util.get_coal_nonpower_global_emissions_across_years(
+                    subset, years_masterdata
+                )
+            content = compute_2dii_ngfs_over_time(
+                ngfs_nonpower_global, total_by_year, "nonpower"
+            )
+            out[mode][level] = {
+                label: {"x": v["x"], "y": list(v["y"])} for label, v in content.items()
+            }
     return out
 
 
@@ -181,21 +254,42 @@ def main():
             # Only nonpower
             out_combined[mode][label] = {"x": x, "y": list(v16["y"])}
 
+    print("# By level of development")
+    out_by_development_level = get_by_development_level(
+        nonpower_coal, ngfs_nonpower_global
+    )
+
     print("# exp 16 + 34")
-    fig, axs = plt.subplots(1, 2, figsize=(8, 5))
+    # Row 0 is the global result (2 panels), rows 1 and 2 break it down by level
+    # of development (3 panels each). The 6-column grid is the least common
+    # multiple of the 2 and 3 panel rows.
+    fig = plt.figure(figsize=(13, 12))
+    gs = fig.add_gridspec(3, 6, hspace=0.35, wspace=0.9)
 
     for i, mode in enumerate(["production", "emissions"]):
-        plt.sca(axs[i])
+        ax = fig.add_subplot(gs[0, (3 * i) : (3 * i + 3)])
         for label, content in out_combined[mode].items():
-            plt.plot(content["x"], content["y"], label=label)
-        plt.xlabel("Time")
-        if mode == "production":
-            ylabel = "Coal production (Giga tonnes / year)"
-        else:
-            ylabel = "Coal emissions (GtCO2 / year)"
-        plt.ylabel(ylabel)
+            ax.plot(content["x"], content["y"], label=label)
+        ax.set_title("World")
+        ax.set_xlabel("Time")
+        ax.set_ylabel(get_ylabel(mode))
+
+    for i, mode in enumerate(["production", "emissions"]):
+        for j, level in enumerate(DEVELOPMENT_LEVELS):
+            ax = fig.add_subplot(gs[1 + i, (2 * j) : (2 * j + 2)])
+            for label, content in out_by_development_level[mode][level].items():
+                ax.plot(content["x"], content["y"], label=label)
+            ax.set_title(level)
+            ax.set_xlabel("Time")
+            if j == 0:
+                ax.set_ylabel(get_ylabel(mode))
+
     with open("plots/for_comparison_yearly_exp16_34.json", "w") as f:
         json.dump(out_combined, f)
+    with open(
+        "plots/for_comparison_yearly_exp16_34_by_development_level.json", "w"
+    ) as f:
+        json.dump(out_by_development_level, f)
 
     # Deduplicate labels
     handles, labels = plt.gca().get_legend_handles_labels()
