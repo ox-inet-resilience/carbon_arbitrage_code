@@ -39,6 +39,104 @@ import util
 # Ensure that plots directory exists
 os.makedirs("plots", exist_ok=True)
 
+# ------------------------------------------------------------------- style
+# Same look as ../carbon_arbitrage_website/for_nature_paper_2026/
+# plot_climate_financing_barchart.py, so that the figures of the paper are one
+# set: no bundled stylesheet despines the axes, but seaborn-v0_8-ticks is the
+# closest ancestor of the reference figure's look (white surface, outward
+# ticks, no grid). Take it as the base and override only what is left over --
+# despined axes, dark grey ink throughout, 9pt text.
+TEXT = "#1a1a1a"
+MUTED = "#6b6b6b"
+
+plt.style.use("seaborn-v0_8-ticks")
+plt.rcParams.update(
+    {
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.edgecolor": TEXT,
+        "axes.labelcolor": TEXT,
+        # seaborn-v0_8-ticks would otherwise thicken the spines to 1.25.
+        "axes.linewidth": 0.8,
+        "axes.titlesize": 12,
+        "axes.axisbelow": True,
+        "text.color": TEXT,
+        "xtick.color": TEXT,
+        "ytick.color": TEXT,
+        "xtick.major.size": 3,
+        "ytick.major.size": 3,
+        # 2pt above the reference figure's sizes, throughout.
+        "font.size": 11,  # every "medium" size below resolves to this
+        "legend.fontsize": 10,
+        "legend.frameon": False,
+        "legend.labelspacing": 0.35,
+        "legend.borderaxespad": 0.8,
+        "savefig.facecolor": "white",
+    }
+)
+
+# The categorical dimension of these figures is the NGFS scenario, so it gets
+# the categorical (rather than sequential) colours of the reference figure,
+# ordered by how much coal each scenario leaves in place.
+SCENARIO_COLORS = {
+    "Current Policies ": "#D6331F",
+    "Nationally Determined\nContributions (NDCs)": "#EF7C2B",
+    "Net Zero 2050": "#1F5F96",
+}
+# Falls back to these for any scenario that iter_plotted_scenarios starts
+# letting through but that the map above does not name.
+FALLBACK_COLORS = ["#1a1a1a", "#5A9BCB", "#9C6B1E", "#B5495B", "#7A4B8C"]
+
+LINEWIDTH = 1.6
+
+
+def get_scenario_color(label, i):
+    if label in SCENARIO_COLORS:
+        return SCENARIO_COLORS[label]
+    return FALLBACK_COLORS[i % len(FALLBACK_COLORS)]
+
+
+def add_panel_letter(ax, letter):
+    """Panel letter, in the reference figure's upper-left position."""
+    ax.text(
+        -0.01,
+        1.10,
+        letter,
+        transform=ax.transAxes,
+        fontsize=15,
+        fontweight="bold",
+        va="top",
+        ha="right",
+    )
+
+
+def add_bottom_legend(fig, by_label, ncol=2, pad_inches=0.2):
+    """The shared legend, just under the bottom row of panels.
+
+    Anchoring it to the bottom of the figure instead (bbox_to_anchor=(0.5, 0))
+    leaves the whole bottom margin as whitespace between the panels and the
+    legend, because bbox_inches="tight" only trims what is below the legend.
+    So measure where the panels actually end -- tick labels and axis labels
+    included, which is what get_tightbbox adds over get_position -- and sit
+    just below that.
+    """
+    # The axes positions and their tick labels are only final once drawn.
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    to_figure = fig.transFigure.inverted()
+    bottom = min(
+        ax.get_tightbbox(renderer).transformed(to_figure).y0 for ax in fig.axes
+    )
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, bottom - pad_inches / fig.get_figheight()),
+        ncol=ncol,
+        handlelength=1.6,
+    )
+
+
 # The 3 NGFS models that report every scenario, used for the global (world)
 # projections only. util.NGFS_MODEL (the first one) remains the model used
 # everywhere else in this script and in the rest of the codebase.
@@ -327,18 +425,34 @@ def plot_production_and_emissions(ax, production, emissions, title):
     visibly separate where it does not.
     """
     ax2 = ax.twinx()
+    # The right axis is the one spine that the despined style has to keep.
+    ax2.spines["right"].set_visible(True)
+    ax2.spines["top"].set_visible(False)
     colors = {}
     for i, (label, content) in enumerate(production.items()):
-        color = f"C{i}"
+        color = get_scenario_color(label, i)
         colors[label] = color
-        ax.plot(content["x"], content["y"], color=color, label=label)
+        ax.plot(
+            content["x"],
+            content["y"],
+            color=color,
+            label=label,
+            linewidth=LINEWIDTH,
+            zorder=3,
+        )
     for label, content in emissions.items():
         ax2.plot(
-            content["x"], content["y"], color=colors[label], linestyle="--", alpha=0.8
+            content["x"],
+            content["y"],
+            color=colors[label],
+            linestyle="--",
+            alpha=0.8,
+            linewidth=LINEWIDTH,
+            zorder=3,
         )
     factor, drift = get_emissions_per_production(production, emissions)
     ax2.set_ylim(np.array(ax.get_ylim()) * factor)
-    ax.set_title(title)
+    ax.set_title(title, pad=10)
     ax.set_xlabel("Time")
     print(
         f"{title}: {factor:.3f} tCO2 per tonne of coal, "
@@ -353,13 +467,20 @@ def plot_combined_2dii_ngfs_over_time(
     assert mode in ["production", "emissions"]
     out = compute_2dii_ngfs_over_time(_ngfs_global_coal, total_by_year, sector)
     fig = plt.figure(figsize=(7, 5))
-    for label, content in out.items():
-        plt.plot(content["x"], content["y"], label=label)
+    for i, (label, content) in enumerate(out.items()):
+        plt.plot(
+            content["x"],
+            content["y"],
+            color=get_scenario_color(label, i),
+            label=label,
+            linewidth=LINEWIDTH,
+            zorder=3,
+        )
     plt.xlabel("Time")
     plt.ylabel(get_ylabel(mode))
     fig.subplots_adjust(right=0.68)
     fig.legend(title="Scenario:", loc=7)
-    plt.savefig(figname)
+    plt.savefig(figname, dpi=200)
     plt.close()
     return out
 
@@ -678,6 +799,7 @@ def plot_combined_figure(
     ax2 = plot_production_and_emissions(
         ax_world, out_combined["production"], out_combined["emissions"], "World"
     )
+    add_panel_letter(ax_world, "a")
     ax_world.set_ylabel(get_ylabel("production"))
     ax2.set_ylabel(get_ylabel("emissions"))
 
@@ -689,6 +811,7 @@ def plot_combined_figure(
             out_by_development_level["emissions"][level],
             level,
         )
+        add_panel_letter(ax, "bcd"[j])
         if j == 0:
             ax.set_ylabel(get_ylabel("production"))
         if j == len(DEVELOPMENT_LEVELS) - 1:
@@ -702,6 +825,7 @@ def plot_combined_figure(
             out_by_region["emissions"][region],
             REGION_TITLES.get(region, region),
         )
+        add_panel_letter(ax, "efghij"[j])
         if j == 0:
             ax.set_ylabel(get_ylabel("production"))
         if j == len(REGIONS) - 1:
@@ -711,16 +835,14 @@ def plot_combined_figure(
     handles, labels = ax_world.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     # The left/right axis of each panel is distinguished by line style
-    by_label["Production (left axis)"] = Line2D([], [], color="gray", linestyle="-")
-    by_label["Emissions (right axis)"] = Line2D([], [], color="gray", linestyle="--")
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0),
-        ncol=2,
+    by_label["Production (left axis)"] = Line2D(
+        [], [], color=MUTED, linestyle="-", linewidth=LINEWIDTH
     )
-    plt.savefig(figname, bbox_inches="tight")
+    by_label["Emissions (right axis)"] = Line2D(
+        [], [], color=MUTED, linestyle="--", linewidth=LINEWIDTH
+    )
+    add_bottom_legend(fig, by_label)
+    plt.savefig(figname, dpi=200, bbox_inches="tight")
     plt.close()
 
 
@@ -743,6 +865,7 @@ def plot_models_comparison(out_combined_by_model, figname):
             ax, out_combined["production"], out_combined["emissions"], ngfs_model
         )
         twins.append(ax2)
+        add_panel_letter(ax, "abcdef"[j])
         for mode in ["production", "emissions"]:
             for label, content in out_combined[mode].items():
                 print(
@@ -766,17 +889,16 @@ def plot_models_comparison(out_combined_by_model, figname):
     handles, labels = axs[0].get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     # The left/right axis of each panel is distinguished by line style
-    by_label["Production (left axis)"] = Line2D([], [], color="gray", linestyle="-")
-    by_label["Emissions (right axis)"] = Line2D([], [], color="gray", linestyle="--")
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0),
-        ncol=2,
+    by_label["Production (left axis)"] = Line2D(
+        [], [], color=MUTED, linestyle="-", linewidth=LINEWIDTH
     )
+    by_label["Emissions (right axis)"] = Line2D(
+        [], [], color=MUTED, linestyle="--", linewidth=LINEWIDTH
+    )
+    # Before the legend, which is placed relative to where the panels end up.
     plt.tight_layout()
-    plt.savefig(figname, bbox_inches="tight")
+    add_bottom_legend(fig, by_label)
+    plt.savefig(figname, dpi=200, bbox_inches="tight")
     plt.close()
 
 
@@ -792,9 +914,24 @@ def plot_ngfs_region_vs_world(out_combined, out_combined_regional, figname):
     for i, mode in enumerate(["production", "emissions"]):
         ax = axs[i]
         for j, (label, content) in enumerate(out_combined[mode].items()):
-            ax.plot(content["x"], content["y"], color=f"C{j}", label=label)
+            color = get_scenario_color(label, j)
+            ax.plot(
+                content["x"],
+                content["y"],
+                color=color,
+                label=label,
+                linewidth=LINEWIDTH,
+                zorder=3,
+            )
             regional = out_combined_regional[mode][label]
-            ax.plot(regional["x"], regional["y"], color=f"C{j}", linestyle="--")
+            ax.plot(
+                regional["x"],
+                regional["y"],
+                color=color,
+                linestyle="--",
+                linewidth=LINEWIDTH,
+                zorder=3,
+            )
             last = np.array(content["y"])[-1]
             print(
                 f"{mode} {label.replace(chr(10), ' ')} in {content['x'][-1]}: "
@@ -803,20 +940,20 @@ def plot_ngfs_region_vs_world(out_combined, out_combined_regional, figname):
             )
         ax.set_xlabel("Time")
         ax.set_ylabel(get_ylabel(mode))
+        add_panel_letter(ax, "ab"[i])
 
     handles, labels = axs[0].get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    by_label["Global NGFS"] = Line2D([], [], color="gray", linestyle="-")
-    by_label["NGFS by region"] = Line2D([], [], color="gray", linestyle="--")
-    fig.legend(
-        by_label.values(),
-        by_label.keys(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0),
-        ncol=2,
+    by_label["Global NGFS"] = Line2D(
+        [], [], color=MUTED, linestyle="-", linewidth=LINEWIDTH
     )
+    by_label["NGFS by region"] = Line2D(
+        [], [], color=MUTED, linestyle="--", linewidth=LINEWIDTH
+    )
+    # Before the legend, which is placed relative to where the panels end up.
     plt.tight_layout()
-    plt.savefig(figname, bbox_inches="tight")
+    add_bottom_legend(fig, by_label)
+    plt.savefig(figname, dpi=200, bbox_inches="tight")
     plt.close()
 
 
