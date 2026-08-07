@@ -1184,7 +1184,7 @@ def common_prepare_cost_benefit_by_country(
         )
 
         # This code chunk is used to calculate global_benefit_by_country
-        global_benefit = calculate_global_benefit()
+        global_benefit = calculate_global_benefit(last_year=last_year)
         scc_dict = read_country_specific_scc_filtered()
         unscaled_global_scc = sum(scc_dict.values())
         global_benefit_by_country = {}
@@ -1272,6 +1272,153 @@ def do_country_specific_scc_part8():
     )
     plt.tight_layout()
     util.savefig(f"country_specific_scatter_part8_git_{git_branch}", tight=True)
+
+
+def do_country_specific_scc_part8_grid(last_years=(2030, 2050, 2070, 2100)):
+    """Expand part 8 into a grid of panels.
+
+    The left column groups the countries by level of development, the right one
+    by region. There is 1 row per time horizon in last_years.
+
+    Within a panel, the filled marker is the country benefit when the whole
+    world takes action, and the hollow marker of the same color is the benefit
+    the country gets when it is the only one taking action.
+    """
+    levels, levels_map, iso3166_df = prepare_level_development()
+    region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
+        iso3166_df
+    )
+    git_branch = util.get_git_branch()
+    # ncol of the legend of the column. The region names are long, and so they
+    # are laid out in 2 columns to keep the 2 legends the same height.
+    groupings = [
+        ("By level of development", levels, levels_map, 1),
+        ("By region", regions, region_countries_map, 2),
+    ]
+
+    def mul_1000(x):
+        # Converts trillion to billion dollars
+        return [i * 1e3 for i in x]
+
+    fig, axs = plt.subplots(
+        len(last_years),
+        len(groupings),
+        figsize=(10, 4.5 * len(last_years)),
+        sharex=True,
+        sharey=True,
+    )
+    for row, last_year in enumerate(last_years):
+        # Global action
+        (
+            cs_level,
+            bs_level,
+            _,
+            cs_region,
+            bs_region,
+            _,
+            _,
+        ) = calculate_country_specific_scc_data(
+            unilateral_actor=None,
+            to_csv=False,
+            last_year=last_year,
+        )
+
+        # Local action.
+        # Calculated for all the countries at once instead of group by group,
+        # because the numbers of a country don't depend on the grouping it is
+        # put in, and so both columns of the row reuse them.
+        fname = (
+            f"cache/country_specific_data_part8_grid_git_{git_branch}_{last_year}.json"
+        )
+        cs_combined, bs_combined, _, _ = common_prepare_cost_benefit_by_country(
+            fname,
+            sorted(unilateral_countries),
+            last_year=last_year,
+        )
+
+        for col, (grouping_name, group_names, group_map, legend_ncol) in enumerate(
+            groupings
+        ):
+            ax = axs[row][col]
+            plt.sca(ax)
+            cs_global = [cs_level, cs_region][col]
+            bs_global = [bs_level, bs_region][col]
+
+            # Global action
+            for group in group_names:
+                plt.plot(
+                    mul_1000(cs_global[group]),
+                    mul_1000(bs_global[group]),
+                    linewidth=0,
+                    marker="o",
+                    label=group,
+                )
+
+            # Local action
+            # Reset color cycler, so that the 2 markers of a group match.
+            ax.set_prop_cycle(None)
+            for group in group_names:
+                # Filter to only the countries we have unilateral data for.
+                countries = [c for c in group_map[group] if c in cs_combined]
+                plt.plot(
+                    mul_1000([cs_combined[c] for c in countries]),
+                    mul_1000([bs_combined[c] for c in countries]),
+                    linewidth=0,
+                    marker="o",
+                    fillstyle="none",
+                )
+
+            # 45 degree line
+            ax.axline([0, 0], [1, 1])
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            axis_limit = 45_000
+            plt.xlim(5e-4, axis_limit)
+            plt.ylim(5e-4, axis_limit)
+
+            # Panel letter
+            ax.text(
+                0.03,
+                0.96,
+                "abcdefghijklmnop"[row * len(groupings) + col],
+                transform=ax.transAxes,
+                fontweight="bold",
+                va="top",
+            )
+            if row == 0:
+                ax.set_title(grouping_name)
+            if row == len(last_years) - 1:
+                plt.xlabel("PV country costs (bln dollars)")
+            if col == 0:
+                plt.ylabel("PV country benefits (bln dollars)")
+            else:
+                # The time horizon of the row, on the right edge of the grid.
+                ax.text(
+                    1.03,
+                    0.5,
+                    f"Up to {last_year}",
+                    transform=ax.transAxes,
+                    rotation=270,
+                    va="center",
+                    ha="left",
+                )
+    plt.tight_layout()
+
+    # 1 legend per column, because the 2 columns group the countries
+    # differently. Anchored to the bottom panel of its own column, so that the
+    # 2 legends stay side by side.
+    for col, (_, _, _, legend_ncol) in enumerate(groupings):
+        handles, labels = axs[0][col].get_legend_handles_labels()
+        fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.12),
+            bbox_transform=axs[len(last_years) - 1][col].transAxes,
+            ncol=legend_ncol,
+            frameon=False,
+        )
+    util.savefig(f"country_specific_scatter_part8_grid_git_{git_branch}", tight=True)
 
 
 def make_common_freeloader_plot(
@@ -2088,6 +2235,7 @@ if __name__ == "__main__":
         # do_country_specific_scc_part5()
         # do_country_specific_scc_part6()
         # do_country_specific_scc_part8()
+        # do_country_specific_scc_part8_grid()
         # do_country_specific_scc_part9()
         # exit()
         # do_country_specific_scc_part7("ID")
