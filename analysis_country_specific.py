@@ -1274,8 +1274,22 @@ def do_country_specific_scc_part8():
     util.savefig(f"country_specific_scatter_part8_git_{git_branch}", tight=True)
 
 
-def do_country_specific_scc_part8_grid(last_years=(2030, 2050, 2070, 2100)):
-    """Expand part 8 into a grid of panels.
+def do_country_specific_scc_part8_grid(
+    last_years=(2030, 2050, 2070, 2100), main_year=2100
+):
+    """Expand part 8 into a grid of panels, split into 2 figures.
+
+    The main figure only shows the main_year horizon, and the remaining
+    horizons of last_years go into a second figure.
+    """
+    _do_country_specific_scc_part8_grid_figure([main_year], "")
+    _do_country_specific_scc_part8_grid_figure(
+        [y for y in last_years if y != main_year], "_rest"
+    )
+
+
+def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
+    """Plot 1 grid figure of part 8.
 
     The left column groups the countries by level of development, the right one
     by region. There is 1 row per time horizon in last_years.
@@ -1306,6 +1320,8 @@ def do_country_specific_scc_part8_grid(last_years=(2030, 2050, 2070, 2100)):
         figsize=(10, 4.5 * len(last_years)),
         sharex=True,
         sharey=True,
+        # So that axs stays 2D even when there is a single row.
+        squeeze=False,
     )
     for row, last_year in enumerate(last_years):
         # Global action
@@ -1391,8 +1407,9 @@ def do_country_specific_scc_part8_grid(last_years=(2030, 2050, 2070, 2100)):
                 plt.xlabel("PV country costs (bln dollars)")
             if col == 0:
                 plt.ylabel("PV country benefits (bln dollars)")
-            else:
+            elif len(last_years) > 1:
                 # The time horizon of the row, on the right edge of the grid.
+                # Only needed when the figure mixes several horizons.
                 ax.text(
                     1.03,
                     0.5,
@@ -1418,7 +1435,10 @@ def do_country_specific_scc_part8_grid(last_years=(2030, 2050, 2070, 2100)):
             ncol=legend_ncol,
             frameon=False,
         )
-    util.savefig(f"country_specific_scatter_part8_grid_git_{git_branch}", tight=True)
+    util.savefig(
+        f"country_specific_scatter_part8_grid{fname_suffix}_git_{git_branch}",
+        tight=True,
+    )
 
 
 def make_common_freeloader_plot(
@@ -2235,9 +2255,9 @@ if __name__ == "__main__":
         # do_country_specific_scc_part5()
         # do_country_specific_scc_part6()
         # do_country_specific_scc_part8()
-        # do_country_specific_scc_part8_grid()
+        do_country_specific_scc_part8_grid()
         # do_country_specific_scc_part9()
-        # exit()
+        exit()
         # do_country_specific_scc_part7("ID")
         # do_country_specific_scc_part7("ZA")
         # do_country_specific_scc_part7("VN")
