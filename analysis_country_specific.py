@@ -1282,14 +1282,16 @@ def do_country_specific_scc_part8_grid(
     The main figure only shows the main_year horizon, and the remaining
     horizons of last_years go into a second figure.
 
-    Everything is done twice: once with the annotated countries picked by GDP,
-    and once with them picked by total climate finance need.
+    Only the main figure annotates the countries, and it is done twice: once
+    with the annotated countries picked by GDP, and once with them picked by
+    total climate finance need. The second figure has too many panels for the
+    annotations to stay readable, and so it is plotted only once, unannotated.
     """
     for rank_by in ["gdp", "climate_finance_need"]:
         _do_country_specific_scc_part8_grid_figure([main_year], "", rank_by)
-        _do_country_specific_scc_part8_grid_figure(
-            [y for y in last_years if y != main_year], "_rest", rank_by
-        )
+    _do_country_specific_scc_part8_grid_figure(
+        [y for y in last_years if y != main_year], "_rest"
+    )
 
 
 def _prepare_gdp_for_ranking():
@@ -1303,7 +1305,7 @@ def _prepare_gdp_for_ranking():
 
 
 def _do_country_specific_scc_part8_grid_figure(
-    last_years, fname_suffix, rank_by="gdp"
+    last_years, fname_suffix, rank_by=None
 ):
     """Plot 1 grid figure of part 8.
 
@@ -1314,9 +1316,10 @@ def _do_country_specific_scc_part8_grid_figure(
     world takes action, and the hollow marker of the same color is the benefit
     the country gets when it is the only one taking action.
 
-    The alpha-2 code of the top countries of each group is annotated on both
-    markers of the country. rank_by picks the top countries either by "gdp" or
-    by "climate_finance_need" (the country cost when the world takes action).
+    When rank_by is set, the alpha-2 code of the top countries of each group is
+    annotated on both markers of the country. rank_by picks the top countries
+    either by "gdp" or by "climate_finance_need" (the country cost when the
+    world takes action). rank_by None annotates no country at all.
     """
     levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
@@ -1415,7 +1418,7 @@ def _do_country_specific_scc_part8_grid_figure(
 
             # Annotate the alpha-2 code of the top countries of each group, on
             # both markers of the country.
-            for group in group_names:
+            for group in group_names if rank_by is not None else []:
                 global_by_country = dict(
                     zip(names_global[group], zip(cs_global[group], bs_global[group]))
                 )
@@ -1498,8 +1501,9 @@ def _do_country_specific_scc_part8_grid_figure(
             ncol=legend_ncol,
             frameon=False,
         )
+    rank_by_suffix = f"_top_by_{rank_by}" if rank_by is not None else ""
     util.savefig(
-        f"country_specific_scatter_part8_grid{fname_suffix}_top_by_{rank_by}_git_{git_branch}",
+        f"country_specific_scatter_part8_grid{fname_suffix}{rank_by_suffix}_git_{git_branch}",
         tight=True,
     )
 
