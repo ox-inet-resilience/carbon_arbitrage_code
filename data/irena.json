@@ -1,0 +1,11 @@
+{
+    "installed_cost_onshore_wind_2010_2020_$/kW": [1971, 1939, 1995, 1851, 1797, 1659, 1652, 1647, 1566, 1491, 1355],
+    "installed_cost_solar_2010_2020_$/kW": [4731, 4007, 3021, 2647, 2393, 1823, 1657, 1432, 1223, 1009, 883],
+    "installed_cost_offshore_wind_2010_2020_$/kW": [4706, 5390, 4770, 5721, 5308, 5323, 4191, 4735, 4631, 3723, 3185],
+    "capacity_factor_onshore_wind_2010_2020_percent": [27, 28, 28, 27, 29, 29, 31, 32, 34, 36, 36],
+    "capacity_factor_solar_2010_2020_percent": [13.8, 15.2, 15.1, 16.4, 16.6, 16.5, 16.7, 17.5, 17.9, 17.5, 16.1],
+    "capacity_factor_offshore_wind_2010_2020_percent": [38, 38, 40, 43, 35, 42, 40, 45, 43, 42, 40],
+    "solar_MW_world_cumulative_total_installed_capacity_2011_2020": [72040, 101449, 135681, 171590, 217463, 291295, 384452, 482916, 580760, 707495],
+    "onshore_wind_MW_world_cumulative_total_installed_capacity_2011_2020": [216243, 261573, 292747, 340808, 404531, 452522, 495537, 540204, 593894, 698909],
+    "offshore_wind_MW_world_cumulative_total_installed_capacity_2011_2020": [3776, 5334, 7171, 8492, 11717, 14342, 18837, 23626, 28355, 34367]
+}
