@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib
+from adjustText import adjust_text
+from matplotlib.patches import FancyArrowPatch
 
 import util
 import analysis_main
@@ -1304,6 +1306,106 @@ def _prepare_gdp_for_ranking():
     }
 
 
+def _prepare_short_country_names():
+    """Alpha-2 to a country name that is short enough to be an annotation.
+
+    Starts from the concise names of util, and shortens further the ones that
+    are still too long to fit in the empty space of a scatter panel.
+    """
+    names = util.prepare_alpha2_to_full_name_concise()
+    names.update(
+        {
+            "AE": "UAE",
+            "BA": "Bosnia",
+            "BO": "Bolivia",
+            "CD": "DR Congo",
+            "CZ": "Czechia",
+            "DO": "Dominican Rep.",
+            "GB": "UK",
+            "KP": "North Korea",
+            "MD": "Moldova",
+            "MK": "N. Macedonia",
+            "SY": "Syria",
+            "TR": "Turkey",
+            "VN": "Vietnam",
+        }
+    )
+    return names
+
+
+def _annotate_country_pairs(ax, annotations, static_points, fontsize=7):
+    """Annotate 1 country name per country, shared by the 2 markers.
+
+    annotations is a list of (name, points), with points the 1 or 2 markers of
+    the country. The names are laid out by adjustText into the empty spaces of
+    the panel, repelled by each other and by every marker of static_points, and
+    then 1 arrow is drawn from the name to each of its markers.
+    """
+    if not annotations:
+        return
+    texts = []
+    for name, points in annotations:
+        # Start the name at the midpoint of its markers, which on log-log axes
+        # is the geometric mean.
+        x = math.exp(sum(math.log(p[0]) for p in points) / len(points))
+        y = math.exp(sum(math.log(p[1]) for p in points) / len(points))
+        texts.append(
+            ax.text(
+                x,
+                y,
+                name,
+                fontsize=fontsize,
+                # So that a name stays readable on the rare occasion that it
+                # cannot be laid out away from every marker.
+                bbox=dict(
+                    boxstyle="square,pad=0.1",
+                    facecolor="white",
+                    edgecolor="none",
+                    alpha=0.7,
+                ),
+            )
+        )
+    adjust_text(
+        texts,
+        x=[p[0] for p in static_points],
+        y=[p[1] for p in static_points],
+        ax=ax,
+        # The markers are already all in static_points, and so there is no need
+        # to also repel the names from the midpoints they start at.
+        avoid_self=False,
+        # No pull back to the midpoint, so that the names are free to travel to
+        # the empty spaces of the panel. The arrows keep them readable anyway.
+        force_pull=(0.0, 0.0),
+        force_text=(2.0, 2.2),
+        force_static=(0.6, 0.7),
+        # A large initial explosion, so that a name that starts in the middle
+        # of the crowded band of markers gets out of it in one go.
+        force_explode=(0.6, 0.8),
+        explode_radius=200,
+        expand=(2.6, 2.6),
+        time_lim=15,
+    )
+    # The arrows are drawn by hand instead of by adjustText, because adjustText
+    # only draws 1 arrow per name, to the point the name started at, while here
+    # each name has to point at both markers of its country.
+    for text, (_, points) in zip(texts, annotations):
+        for point in points:
+            ax.add_patch(
+                FancyArrowPatch(
+                    posA=text.get_position(),
+                    posB=point,
+                    # Clips the arrow at the bounding box of the name, so that
+                    # it starts at the edge of the text instead of its center.
+                    patchA=text,
+                    transform=ax.transData,
+                    arrowstyle="-",
+                    color="gray",
+                    linewidth=0.4,
+                    shrinkB=2,
+                )
+            )
+
+
 def _do_country_specific_scc_part8_grid_figure(
     last_years, fname_suffix, rank_by=None
 ):
@@ -1316,10 +1418,11 @@ def _do_country_specific_scc_part8_grid_figure(
     world takes action, and the hollow marker of the same color is the benefit
     the country gets when it is the only one taking action.
 
-    When rank_by is set, the alpha-2 code of the top countries of each group is
-    annotated on both markers of the country. rank_by picks the top countries
-    either by "gdp" or by "climate_finance_need" (the country cost when the
-    world takes action). rank_by None annotates no country at all.
+    When rank_by is set, the name of the top countries of each group is
+    annotated once per country, with 1 arrow from the name to each of the 2
+    markers of the country. rank_by picks the top countries either by "gdp" or
+    by "climate_finance_need" (the country cost when the world takes action).
+    rank_by None annotates no country at all.
     """
     levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
@@ -1327,6 +1430,7 @@ def _do_country_specific_scc_part8_grid_figure(
     )
     git_branch = util.get_git_branch()
     gdp = _prepare_gdp_for_ranking() if rank_by == "gdp" else None
+    short_names = _prepare_short_country_names()
     # ncol of the legend of the column. The region names are long, and so they
     # are laid out in 2 columns to keep the 2 legends the same height.
     # The last element is the number of annotated countries per group. The
@@ -1350,6 +1454,10 @@ def _do_country_specific_scc_part8_grid_figure(
         # So that axs stays 2D even when there is a single row.
         squeeze=False,
     )
+    # (ax, annotations, static_points) of each panel. The annotations are laid
+    # out only after tight_layout, because adjustText needs the final size of
+    # the panels.
+    panels_to_annotate = []
     for row, last_year in enumerate(last_years):
         # Global action
         (
@@ -1392,11 +1500,22 @@ def _do_country_specific_scc_part8_grid_figure(
             bs_global = [bs_level, bs_region][col]
             names_global = [names_level, names_region][col]
 
+            # Every marker of the panel, so that the annotations can be laid
+            # out in the empty spaces between them.
+            static_points = []
+
+            def remember(xs, ys, static_points=static_points):
+                # Non-positive values are not visible on the log-log axes, and
+                # adjustText cannot lay out anything around them.
+                static_points.extend(
+                    (x, y) for x, y in zip(xs, ys) if x > 0 and y > 0
+                )
+                return xs, ys
+
             # Global action
             for group in group_names:
                 plt.plot(
-                    mul_1000(cs_global[group]),
-                    mul_1000(bs_global[group]),
+                    *remember(mul_1000(cs_global[group]), mul_1000(bs_global[group])),
                     linewidth=0,
                     marker="o",
                     label=group,
@@ -1409,15 +1528,18 @@ def _do_country_specific_scc_part8_grid_figure(
                 # Filter to only the countries we have unilateral data for.
                 countries = [c for c in group_map[group] if c in cs_combined]
                 plt.plot(
-                    mul_1000([cs_combined[c] for c in countries]),
-                    mul_1000([bs_combined[c] for c in countries]),
+                    *remember(
+                        mul_1000([cs_combined[c] for c in countries]),
+                        mul_1000([bs_combined[c] for c in countries]),
+                    ),
                     linewidth=0,
                     marker="o",
                     fillstyle="none",
                 )
 
-            # Annotate the alpha-2 code of the top countries of each group, on
-            # both markers of the country.
+            # Annotate the name of the top countries of each group, once per
+            # country, with 1 arrow to each of its 2 markers.
+            annotations = []
             for group in group_names if rank_by is not None else []:
                 global_by_country = dict(
                     zip(names_global[group], zip(cs_global[group], bs_global[group]))
@@ -1435,20 +1557,18 @@ def _do_country_specific_scc_part8_grid_figure(
                         return global_by_country[c][0]
 
                 for c in sorted(candidates, key=ranking_value, reverse=True)[:top_k]:
-                    for cost, benefit in [
-                        global_by_country[c],
-                        (cs_combined[c], bs_combined[c]),
-                    ]:
-                        if cost <= 0 or benefit <= 0:
-                            # Not visible on the log-log axes.
-                            continue
-                        ax.annotate(
-                            c,
-                            (cost * 1e3, benefit * 1e3),
-                            textcoords="offset points",
-                            xytext=(4, 2),
-                            fontsize=7,
-                        )
+                    points = [
+                        (cost * 1e3, benefit * 1e3)
+                        for cost, benefit in [
+                            global_by_country[c],
+                            (cs_combined[c], bs_combined[c]),
+                        ]
+                        # Not visible on the log-log axes.
+                        if cost > 0 and benefit > 0
+                    ]
+                    if points:
+                        annotations.append((short_names.get(c, c), points))
+            panels_to_annotate.append((ax, annotations, static_points))
 
             # 45 degree line
             ax.axline([0, 0], [1, 1])
@@ -1486,6 +1606,9 @@ def _do_country_specific_scc_part8_grid_figure(
                     ha="left",
                 )
     plt.tight_layout()
+
+    for ax, annotations, static_points in panels_to_annotate:
+        _annotate_country_pairs(ax, annotations, static_points)
 
     # 1 legend per column, because the 2 columns group the countries
     # differently. Anchored to the bottom panel of its own column, so that the
