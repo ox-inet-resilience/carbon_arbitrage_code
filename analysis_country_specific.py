@@ -1281,14 +1281,30 @@ def do_country_specific_scc_part8_grid(
 
     The main figure only shows the main_year horizon, and the remaining
     horizons of last_years go into a second figure.
+
+    Everything is done twice: once with the annotated countries picked by GDP,
+    and once with them picked by total climate finance need.
     """
-    _do_country_specific_scc_part8_grid_figure([main_year], "")
-    _do_country_specific_scc_part8_grid_figure(
-        [y for y in last_years if y != main_year], "_rest"
-    )
+    for rank_by in ["gdp", "climate_finance_need"]:
+        _do_country_specific_scc_part8_grid_figure([main_year], "", rank_by)
+        _do_country_specific_scc_part8_grid_figure(
+            [y for y in last_years if y != main_year], "_rest", rank_by
+        )
 
 
-def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
+def _prepare_gdp_for_ranking():
+    """GDP in market cap dollars, of the countries we have a GDP number for."""
+    gdp = util.read_json("data/all_countries_gdp_marketcap_2022.json")
+    return {
+        country: value
+        for country, value in gdp.items()
+        if value is not None and not math.isnan(value)
+    }
+
+
+def _do_country_specific_scc_part8_grid_figure(
+    last_years, fname_suffix, rank_by="gdp"
+):
     """Plot 1 grid figure of part 8.
 
     The left column groups the countries by level of development, the right one
@@ -1297,17 +1313,25 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
     Within a panel, the filled marker is the country benefit when the whole
     world takes action, and the hollow marker of the same color is the benefit
     the country gets when it is the only one taking action.
+
+    The alpha-2 code of the top countries of each group is annotated on both
+    markers of the country. rank_by picks the top countries either by "gdp" or
+    by "climate_finance_need" (the country cost when the world takes action).
     """
     levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
         iso3166_df
     )
     git_branch = util.get_git_branch()
+    gdp = _prepare_gdp_for_ranking() if rank_by == "gdp" else None
     # ncol of the legend of the column. The region names are long, and so they
     # are laid out in 2 columns to keep the 2 legends the same height.
+    # The last element is the number of annotated countries per group. The
+    # regions are fewer and larger than the levels of development, and so fewer
+    # countries per group are annotated, to keep the panels readable.
     groupings = [
-        ("By level of development", levels, levels_map, 1),
-        ("By region", regions, region_countries_map, 2),
+        ("By level of development", levels, levels_map, 1, 4),
+        ("By region", regions, region_countries_map, 2, 2),
     ]
 
     def mul_1000(x):
@@ -1328,10 +1352,10 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
         (
             cs_level,
             bs_level,
-            _,
+            names_level,
             cs_region,
             bs_region,
-            _,
+            names_region,
             _,
         ) = calculate_country_specific_scc_data(
             unilateral_actor=None,
@@ -1352,13 +1376,18 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
             last_year=last_year,
         )
 
-        for col, (grouping_name, group_names, group_map, legend_ncol) in enumerate(
-            groupings
-        ):
+        for col, (
+            grouping_name,
+            group_names,
+            group_map,
+            legend_ncol,
+            top_k,
+        ) in enumerate(groupings):
             ax = axs[row][col]
             plt.sca(ax)
             cs_global = [cs_level, cs_region][col]
             bs_global = [bs_level, bs_region][col]
+            names_global = [names_level, names_region][col]
 
             # Global action
             for group in group_names:
@@ -1383,6 +1412,40 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
                     marker="o",
                     fillstyle="none",
                 )
+
+            # Annotate the alpha-2 code of the top countries of each group, on
+            # both markers of the country.
+            for group in group_names:
+                global_by_country = dict(
+                    zip(names_global[group], zip(cs_global[group], bs_global[group]))
+                )
+                # Only the countries that have both markers are candidates, so
+                # that the annotation always comes in a pair.
+                candidates = [c for c in global_by_country if c in cs_combined]
+                if rank_by == "gdp":
+                    def ranking_value(c):
+                        return gdp.get(c, 0.0)
+                else:
+                    # The climate finance need of a country is its cost when
+                    # the whole world takes action.
+                    def ranking_value(c):
+                        return global_by_country[c][0]
+
+                for c in sorted(candidates, key=ranking_value, reverse=True)[:top_k]:
+                    for cost, benefit in [
+                        global_by_country[c],
+                        (cs_combined[c], bs_combined[c]),
+                    ]:
+                        if cost <= 0 or benefit <= 0:
+                            # Not visible on the log-log axes.
+                            continue
+                        ax.annotate(
+                            c,
+                            (cost * 1e3, benefit * 1e3),
+                            textcoords="offset points",
+                            xytext=(4, 2),
+                            fontsize=7,
+                        )
 
             # 45 degree line
             ax.axline([0, 0], [1, 1])
@@ -1424,7 +1487,7 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
     # 1 legend per column, because the 2 columns group the countries
     # differently. Anchored to the bottom panel of its own column, so that the
     # 2 legends stay side by side.
-    for col, (_, _, _, legend_ncol) in enumerate(groupings):
+    for col, (_, _, _, legend_ncol, _) in enumerate(groupings):
         handles, labels = axs[0][col].get_legend_handles_labels()
         fig.legend(
             handles,
@@ -1436,7 +1499,7 @@ def _do_country_specific_scc_part8_grid_figure(last_years, fname_suffix):
             frameon=False,
         )
     util.savefig(
-        f"country_specific_scatter_part8_grid{fname_suffix}_git_{git_branch}",
+        f"country_specific_scatter_part8_grid{fname_suffix}_top_by_{rank_by}_git_{git_branch}",
         tight=True,
     )
 
