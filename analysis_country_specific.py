@@ -1276,24 +1276,24 @@ def do_country_specific_scc_part8():
     util.savefig(f"country_specific_scatter_part8_git_{git_branch}", tight=True)
 
 
-def do_country_specific_scc_part8_grid(
-    last_years=(2030, 2050, 2070, 2100), main_year=2100
-):
-    """Expand part 8 into a grid of panels, split into 2 figures.
+# The rule that picks the top countries to annotate, per time horizon. The
+# longer the horizon, the more the ranking is about the burden of the phaseout
+# relative to the means of the country.
+RANK_BY_OF_LAST_YEAR = {
+    2050: "gdp",
+    2070: "climate_finance_need",
+    2100: "climate_finance_need_over_gdp",
+}
+RANK_BY_LABEL = {
+    "gdp": "GDP",
+    "climate_finance_need": "climate finance need",
+    "climate_finance_need_over_gdp": "climate finance need / GDP",
+}
 
-    The main figure only shows the main_year horizon, and the remaining
-    horizons of last_years go into a second figure.
 
-    Only the main figure annotates the countries, and it is done twice: once
-    with the annotated countries picked by GDP, and once with them picked by
-    total climate finance need. The second figure has too many panels for the
-    annotations to stay readable, and so it is plotted only once, unannotated.
-    """
-    for rank_by in ["gdp", "climate_finance_need"]:
-        _do_country_specific_scc_part8_grid_figure([main_year], "", rank_by)
-    _do_country_specific_scc_part8_grid_figure(
-        [y for y in last_years if y != main_year], "_rest"
-    )
+def do_country_specific_scc_part8_grid(last_years=(2050, 2070, 2100)):
+    """Expand part 8 into a grid of panels, 1 row per time horizon."""
+    _do_country_specific_scc_part8_grid_figure(last_years)
 
 
 def _prepare_gdp_for_ranking():
@@ -1406,40 +1406,43 @@ def _annotate_country_pairs(ax, annotations, static_points, fontsize=7):
             )
 
 
-def _do_country_specific_scc_part8_grid_figure(
-    last_years, fname_suffix, rank_by=None
-):
+def _do_country_specific_scc_part8_grid_figure(last_years):
     """Plot 1 grid figure of part 8.
 
-    The left column groups the countries by level of development, the right one
-    by region. There is 1 row per time horizon in last_years.
+    The 4 columns come in 2 pairs: the first pair groups the countries by level
+    of development, the second one by region. Within a pair, the left panel is
+    plain and the right one repeats it with the top countries of each group
+    annotated. There is 1 row per time horizon in last_years.
 
     Within a panel, the filled marker is the country benefit when the whole
     world takes action, and the hollow marker of the same color is the benefit
     the country gets when it is the only one taking action.
 
-    When rank_by is set, the name of the top countries of each group is
-    annotated once per country, with 1 arrow from the name to each of the 2
-    markers of the country. rank_by picks the top countries either by "gdp" or
-    by "climate_finance_need" (the country cost when the world takes action).
-    rank_by None annotates no country at all.
+    The annotation is 1 country name per country, with 1 arrow from the name to
+    each of the 2 markers of the country. Which countries make the top of their
+    group depends on the time horizon of the row, see RANK_BY_OF_LAST_YEAR.
     """
     levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
         iso3166_df
     )
     git_branch = util.get_git_branch()
-    gdp = _prepare_gdp_for_ranking() if rank_by == "gdp" else None
+    gdp = _prepare_gdp_for_ranking()
     short_names = _prepare_short_country_names()
-    # ncol of the legend of the column. The region names are long, and so they
-    # are laid out in 2 columns to keep the 2 legends the same height.
-    # The last element is the number of annotated countries per group. The
-    # regions are fewer and larger than the levels of development, and so fewer
-    # countries per group are annotated, to keep the panels readable.
+    # ncol of the legend of the column pair. The region names are long, and so
+    # they are laid out in 2 columns to keep the 2 legends the same height.
+    # The last element is the number of annotated countries per group, None for
+    # the plain panel of the pair. The regions are fewer and larger than the
+    # levels of development, and so fewer countries per group are annotated, to
+    # keep the panels readable.
     groupings = [
-        ("By level of development", levels, levels_map, 1, 4),
-        ("By region", regions, region_countries_map, 2, 2),
+        ("level", "By level of development", levels, levels_map, 1, None),
+        ("level", "By level of development", levels, levels_map, 1, 5),
+        ("region", "By region", regions, region_countries_map, 2, None),
+        ("region", "By region", regions, region_countries_map, 2, 3),
     ]
+    # The column of each pair that carries the legend of the pair.
+    legend_cols = [0, 2]
 
     def mul_1000(x):
         # Converts trillion to billion dollars
@@ -1448,7 +1451,7 @@ def _do_country_specific_scc_part8_grid_figure(
     fig, axs = plt.subplots(
         len(last_years),
         len(groupings),
-        figsize=(10, 4.5 * len(last_years)),
+        figsize=(5 * len(groupings), 4.5 * len(last_years)),
         sharex=True,
         sharey=True,
         # So that axs stays 2D even when there is a single row.
@@ -1459,6 +1462,8 @@ def _do_country_specific_scc_part8_grid_figure(
     # the panels.
     panels_to_annotate = []
     for row, last_year in enumerate(last_years):
+        rank_by = RANK_BY_OF_LAST_YEAR[last_year]
+
         # Global action
         (
             cs_level,
@@ -1488,6 +1493,7 @@ def _do_country_specific_scc_part8_grid_figure(
         )
 
         for col, (
+            grouping_key,
             grouping_name,
             group_names,
             group_map,
@@ -1496,9 +1502,9 @@ def _do_country_specific_scc_part8_grid_figure(
         ) in enumerate(groupings):
             ax = axs[row][col]
             plt.sca(ax)
-            cs_global = [cs_level, cs_region][col]
-            bs_global = [bs_level, bs_region][col]
-            names_global = [names_level, names_region][col]
+            cs_global = {"level": cs_level, "region": cs_region}[grouping_key]
+            bs_global = {"level": bs_level, "region": bs_region}[grouping_key]
+            names_global = {"level": names_level, "region": names_region}[grouping_key]
 
             # Every marker of the panel, so that the annotations can be laid
             # out in the empty spaces between them.
@@ -1540,21 +1546,31 @@ def _do_country_specific_scc_part8_grid_figure(
             # Annotate the name of the top countries of each group, once per
             # country, with 1 arrow to each of its 2 markers.
             annotations = []
-            for group in group_names if rank_by is not None else []:
+            for group in group_names if top_k is not None else []:
                 global_by_country = dict(
                     zip(names_global[group], zip(cs_global[group], bs_global[group]))
                 )
                 # Only the countries that have both markers are candidates, so
                 # that the annotation always comes in a pair.
                 candidates = [c for c in global_by_country if c in cs_combined]
+                # The climate finance need of a country is its cost when the
+                # whole world takes action.
                 if rank_by == "gdp":
                     def ranking_value(c):
                         return gdp.get(c, 0.0)
-                else:
-                    # The climate finance need of a country is its cost when
-                    # the whole world takes action.
+                elif rank_by == "climate_finance_need":
                     def ranking_value(c):
                         return global_by_country[c][0]
+                else:
+                    assert rank_by == "climate_finance_need_over_gdp", rank_by
+
+                    def ranking_value(c):
+                        # A country we have no GDP for ranks last, because its
+                        # ratio cannot be compared with the ones of the others.
+                        country_gdp = gdp.get(c)
+                        if not country_gdp:
+                            return 0.0
+                        return global_by_country[c][0] / country_gdp
 
                 for c in sorted(candidates, key=ranking_value, reverse=True)[:top_k]:
                     points = [
@@ -1588,18 +1604,22 @@ def _do_country_specific_scc_part8_grid_figure(
                 va="top",
             )
             if row == 0:
-                ax.set_title(grouping_name)
+                ax.set_title(
+                    grouping_name
+                    if top_k is None
+                    else f"{grouping_name}\n(top {top_k} of each group labelled)"
+                )
             if row == len(last_years) - 1:
                 plt.xlabel("PV country costs (bln dollars)")
             if col == 0:
                 plt.ylabel("PV country benefits (bln dollars)")
-            elif len(last_years) > 1:
-                # The time horizon of the row, on the right edge of the grid.
-                # Only needed when the figure mixes several horizons.
+            elif col == len(groupings) - 1:
+                # The time horizon of the row, and the rule that picks the
+                # labelled countries of the row, on the right edge of the grid.
                 ax.text(
                     1.03,
                     0.5,
-                    f"Up to {last_year}",
+                    f"Up to {last_year}\ntop by {RANK_BY_LABEL[rank_by]}",
                     transform=ax.transAxes,
                     rotation=270,
                     va="center",
@@ -1610,23 +1630,25 @@ def _do_country_specific_scc_part8_grid_figure(
     for ax, annotations, static_points in panels_to_annotate:
         _annotate_country_pairs(ax, annotations, static_points)
 
-    # 1 legend per column, because the 2 columns group the countries
-    # differently. Anchored to the bottom panel of its own column, so that the
-    # 2 legends stay side by side.
-    for col, (_, _, _, legend_ncol, _) in enumerate(groupings):
+    # 1 legend per column pair, because the 2 pairs group the countries
+    # differently while the 2 columns of a pair share their groups. Centered
+    # under its own pair, so that the 2 legends stay side by side.
+    for col in legend_cols:
+        legend_ncol = groupings[col][4]
         handles, labels = axs[0][col].get_legend_handles_labels()
         fig.legend(
             handles,
             labels,
             loc="upper center",
-            bbox_to_anchor=(0.5, -0.12),
+            # x slightly past the right edge of the left panel of the pair,
+            # which is the midpoint of the pair.
+            bbox_to_anchor=(1.05, -0.12),
             bbox_transform=axs[len(last_years) - 1][col].transAxes,
             ncol=legend_ncol,
             frameon=False,
         )
-    rank_by_suffix = f"_top_by_{rank_by}" if rank_by is not None else ""
     util.savefig(
-        f"country_specific_scatter_part8_grid{fname_suffix}{rank_by_suffix}_git_{git_branch}",
+        f"country_specific_scatter_part8_grid_git_{git_branch}",
         tight=True,
     )
 
