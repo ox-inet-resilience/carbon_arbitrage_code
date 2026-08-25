@@ -1286,8 +1286,8 @@ RANK_BY_OF_LAST_YEAR = {
 }
 RANK_BY_LABEL = {
     "gdp": "GDP",
-    "climate_finance_need": "climate finance",
-    "climate_finance_need_over_gdp": "climate finance / GDP",
+    "climate_finance_need": "cost",
+    "climate_finance_need_over_gdp": "cost / GDP",
 }
 
 # The colours of the climate financing figure of the paper, which is
