@@ -1316,7 +1316,7 @@ TITLE_PAD = 18
 
 
 def do_country_specific_scc_part8_grid(last_years=(2050, 2070, 2100)):
-    """Expand part 8 into a grid of panels, 1 row per time horizon."""
+    """Expand part 8 into a grid of panels, 1 column per time horizon."""
     _do_country_specific_scc_part8_grid_figure(last_years)
 
 
@@ -1463,11 +1463,11 @@ def _annotate_country_pairs(ax, annotations, static_points, fontsize=10):
 def _do_country_specific_scc_part8_grid_figure(last_years):
     """Plot 1 grid figure of part 8.
 
-    The 4 columns come in 2 pairs: the first pair groups the countries by level
-    of development, the second one by region. Within a pair, the left panel
-    holds every country and the right one keeps only the top countries of each
-    group, which it annotates with their name. There is 1 row per time horizon
-    in last_years.
+    The 4 rows come in 2 pairs: the first pair groups the countries by level of
+    development, the second one by region. Within a pair, the top panel holds
+    every country and the bottom one keeps only the top countries of each
+    group, which it annotates with their name. There is 1 column per time
+    horizon in last_years.
 
     Within a panel, the filled marker is the country benefit when the whole
     world takes action, and the hollow marker of the same color is the benefit
@@ -1475,7 +1475,7 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
 
     The annotation is 1 country name per country, with 1 arrow from the name to
     each of the 2 markers of the country. Which countries make the top of their
-    group depends on the time horizon of the row, see RANK_BY_OF_LAST_YEAR.
+    group depends on the time horizon of the column, see RANK_BY_OF_LAST_YEAR.
     """
     levels, levels_map, iso3166_df = prepare_level_development()
     region_countries_map, regions = analysis_main.prepare_regions_for_climate_financing(
@@ -1484,8 +1484,9 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
     git_branch = util.get_git_branch()
     gdp = _prepare_gdp_for_ranking()
     short_names = _prepare_short_country_names()
-    # ncol of the legend of the column pair. The region names are long, and so
-    # they are laid out in 2 columns to keep the 2 legends the same height.
+    # ncol of the legend of the row pair. The 2 legends sit one above the other
+    # at the right edge of the grid, and so both are laid out in a single
+    # column to keep them the same width.
     # The last element is the number of annotated countries per group, None for
     # the plain panel of the pair. The regions are fewer and larger than the
     # levels of development, and so fewer countries per group are annotated, to
@@ -1493,30 +1494,30 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
     groupings = [
         ("level", "By level of development", levels, levels_map, 1, None),
         ("level", "By level of development", levels, levels_map, 1, 5),
-        ("region", "By region", regions, region_countries_map, 2, None),
-        ("region", "By region", regions, region_countries_map, 2, 3),
+        ("region", "By region", regions, region_countries_map, 1, None),
+        ("region", "By region", regions, region_countries_map, 1, 3),
     ]
-    # The column of each pair that carries the legend of the pair.
-    legend_cols = [0, 2]
+    # The row of each pair that carries the legend of the pair.
+    legend_rows = [0, 2]
 
     def mul_1000(x):
         # Converts trillion to billion dollars
         return [i * 1e3 for i in x]
 
     fig, axs = plt.subplots(
-        len(last_years),
         len(groupings),
-        figsize=(5 * len(groupings), 4.5 * len(last_years)),
+        len(last_years),
+        figsize=(5 * len(last_years), 4.5 * len(groupings)),
         sharex=True,
         sharey=True,
-        # So that axs stays 2D even when there is a single row.
+        # So that axs stays 2D even when there is a single column.
         squeeze=False,
     )
     # (ax, annotations, static_points) of each panel. The annotations are laid
     # out only after tight_layout, because adjustText needs the final size of
     # the panels.
     panels_to_annotate = []
-    for row, last_year in enumerate(last_years):
+    for col, last_year in enumerate(last_years):
         rank_by = RANK_BY_OF_LAST_YEAR[last_year]
 
         # Global action
@@ -1547,7 +1548,7 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
             last_year=last_year,
         )
 
-        for col, (
+        for row, (
             grouping_key,
             grouping_name,
             group_names,
@@ -1666,42 +1667,46 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
             ax.text(
                 0.03,
                 0.96,
-                "abcdefghijklmnop"[row * len(groupings) + col],
+                "abcdefghijklmnop"[row * len(last_years) + col],
                 transform=ax.transAxes,
                 fontweight="bold",
                 va="top",
             )
             if row == 0:
-                # The heading of every column sits at the same height, whether
-                # or not the column has a qualifier under it. The qualifier of
-                # the labelled columns goes on its own line, in a smaller
-                # italic, and TITLE_PAD is the room the heading leaves for it.
-                ax.set_title(grouping_name, pad=TITLE_PAD)
-                if top_k is not None:
-                    ax.text(
-                        0.5,
-                        1.0,
-                        f"(top {top_k} of each group labelled)",
-                        transform=ax.transAxes,
-                        ha="center",
-                        va="bottom",
-                        **QUALIFIER_FONT,
-                    )
-            if row == len(last_years) - 1:
+                # The time horizon of the column, and the rule that picks the
+                # labelled countries of the column, as the heading of it. The
+                # qualifier goes on its own line, in a smaller italic, and
+                # TITLE_PAD is the room the heading leaves for it.
+                ax.set_title(f"{last_year}", pad=TITLE_PAD)
+                ax.text(
+                    0.5,
+                    1.0,
+                    f"(top by {RANK_BY_LABEL[rank_by]})",
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="bottom",
+                    **QUALIFIER_FONT,
+                )
+            if row == len(groupings) - 1:
                 plt.xlabel("PV country costs (bln dollars)")
             if col == 0:
                 plt.ylabel("PV country benefits (bln dollars)")
-            elif col == len(groupings) - 1:
-                # The time horizon of the row, and the rule that picks the
-                # labelled countries of the row, on the right edge of the grid.
-                # 2 texts rather than 2 lines of 1 text, because only the
-                # second one is in the smaller italic of a qualifier. Rotated
-                # by 270 the first line of a text is the rightmost one, and so
-                # the qualifier is the one nearer to the panel.
-                for offset, label, font in [
-                    (26, f"Up to {last_year}", {}),
-                    (13, f"(top by {RANK_BY_LABEL[rank_by]})", QUALIFIER_FONT),
-                ]:
+            elif col == len(last_years) - 1:
+                # The grouping of the row, and the qualifier of a labelled row,
+                # on the right edge of the grid. 2 texts rather than 2 lines of
+                # 1 text, because only the second one is in the smaller italic
+                # of a qualifier. Rotated by 270 the first line of a text is
+                # the rightmost one, and so the qualifier is the one nearer to
+                # the panel. The label sits at the same offset whether or not
+                # the row has a qualifier, so that the 2 rows of a pair line
+                # up.
+                for offset, label, font in [(26, grouping_name, {})] + (
+                    []
+                    if top_k is None
+                    else [
+                        (13, f"(top {top_k} of each group labelled)", QUALIFIER_FONT)
+                    ]
+                ):
                     ax.annotate(
                         label,
                         xy=(1, 0.5),
@@ -1718,35 +1723,36 @@ def _do_country_specific_scc_part8_grid_figure(last_years):
     for ax, annotations, static_points in panels_to_annotate:
         _annotate_country_pairs(ax, annotations, static_points)
 
-    # 1 legend per column pair, because the 2 pairs group the countries
-    # differently while the 2 columns of a pair share their groups. Each one is
+    # 1 legend per row pair, because the 2 pairs group the countries
+    # differently while the 2 rows of a pair share their groups. Each one is
     # boxed and centered on its own pair, so that it reads as belonging to the
-    # 2 panels above it rather than to the figure as a whole.
+    # 2 panels beside it rather than to the figure as a whole.
     #
-    # Sat under the lowest point of the bottom row, which is the bottom of its
-    # x axis label, and not under the bottom of the figure: bbox_inches="tight"
-    # only trims what is below the legends, and so anchoring them to the figure
-    # would leave the whole bottom margin as a gap above them.
+    # Sat past the rightmost point of the last column, which is the row label
+    # of the pair, and not past the right edge of the figure:
+    # bbox_inches="tight" only trims what is beyond the legends, and so
+    # anchoring them to the figure would leave the whole right margin as a gap
+    # beside them.
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     to_figure = fig.transFigure.inverted()
-    bottom = min(
-        ax.get_tightbbox(renderer).transformed(to_figure).y0 for ax in axs[-1]
+    right = max(
+        ax.get_tightbbox(renderer).transformed(to_figure).x1 for ax in axs[:, -1]
     )
-    # Below the x axis label rather than right under it, so that the 2 do not
+    # Past the row label rather than right next to it, so that the 2 do not
     # read as 1 block.
     pad_inches = 0.4
-    for col in legend_cols:
-        legend_ncol = groupings[col][4]
-        handles, labels = axs[0][col].get_legend_handles_labels()
-        pair = [axs[-1][col].get_position(), axs[-1][col + 1].get_position()]
+    for row in legend_rows:
+        legend_ncol = groupings[row][4]
+        handles, labels = axs[row][0].get_legend_handles_labels()
+        pair = [axs[row][-1].get_position(), axs[row + 1][-1].get_position()]
         fig.legend(
             handles,
             labels,
-            loc="upper center",
+            loc="center left",
             bbox_to_anchor=(
-                (pair[0].x0 + pair[1].x1) / 2,
-                bottom - pad_inches / fig.get_figheight(),
+                right + pad_inches / fig.get_figwidth(),
+                (pair[0].y1 + pair[1].y0) / 2,
             ),
             bbox_transform=fig.transFigure,
             ncol=legend_ncol,
