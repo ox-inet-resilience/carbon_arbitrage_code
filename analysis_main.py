@@ -3022,33 +3022,87 @@ def make_battery_unit_ic_plot():
     def GJ2TW(arr):
         return [util.GJ2MW(i) / 1e6 for i in arr]
 
+    # Colour style shared with the climate financing map figure: each series
+    # takes a swatch from the same seven-class ColorBrewer ramps that the map's
+    # per-column legends use (Blues for wind, Oranges for solar, PuRd for
+    # storage), sampled the same way as its discrete_cmap().
+    def brewer(name, index, n_bins=7):
+        return plt.get_cmap(name)((index + 0.5) / n_bins)
+
+    colors = {
+        "Solar": brewer("Oranges", 4),
+        "Wind onshore": brewer("Blues", 3),
+        "Wind offshore": brewer("Blues", 6),
+        "Short": brewer("PuRd", 3),
+        "Long": brewer("PuRd", 6),
+    }
+
     fig, axs = plt.subplots(1, 2, figsize=(8, 5))
     plt.sca(axs[0])
-    plt.plot(years, global_unit_ic["solar"].values(), label="Solar")
-    plt.plot(years, global_unit_ic["onshore_wind"].values(), label="Wind onshore")
-    plt.plot(years, global_unit_ic["offshore_wind"].values(), label="Wind offshore")
+    plt.plot(
+        years, global_unit_ic["solar"].values(), label="Solar", color=colors["Solar"]
+    )
+    plt.plot(
+        years,
+        global_unit_ic["onshore_wind"].values(),
+        label="Wind onshore",
+        color=colors["Wind onshore"],
+    )
+    plt.plot(
+        years,
+        global_unit_ic["offshore_wind"].values(),
+        label="Wind offshore",
+        color=colors["Wind offshore"],
+    )
     # Need to convert $/GJ to $/kWh
     plt.plot(
-        years, convert_unit(global_battery_unit_ic["short"].values()), label="Short"
+        years,
+        convert_unit(global_battery_unit_ic["short"].values()),
+        label="Short",
+        color=colors["Short"],
     )
-    plt.plot(years, global_battery_unit_ic["long"].values(), label="Long")
+    plt.plot(
+        years,
+        global_battery_unit_ic["long"].values(),
+        label="Long",
+        color=colors["Long"],
+    )
     plt.xlabel("Time")
     plt.ylabel("Unit investment cost ($/kW)")
     plt.sca(axs[1])
-    plt.plot(years, kW2TW(global_cumulative_G["solar"].values()), label="Solar")
     plt.plot(
-        years, kW2TW(global_cumulative_G["onshore_wind"].values()), label="Wind onshore"
+        years,
+        kW2TW(global_cumulative_G["solar"].values()),
+        label="Solar",
+        color=colors["Solar"],
+    )
+    plt.plot(
+        years,
+        kW2TW(global_cumulative_G["onshore_wind"].values()),
+        label="Wind onshore",
+        color=colors["Wind onshore"],
     )
     plt.plot(
         years,
         kW2TW(global_cumulative_G["offshore_wind"].values()),
         label="Wind offshore",
+        color=colors["Wind offshore"],
     )
     # Need to convert GJ to TW
     print("short", GJ2TW(global_cumulative_G["short"].values()))
     print("long", kW2TW(global_cumulative_G["long"].values()))
-    plt.plot(years, GJ2TW(global_cumulative_G["short"].values()), label="Short")
-    plt.plot(years, kW2TW(global_cumulative_G["long"].values()), label="Long")
+    plt.plot(
+        years,
+        GJ2TW(global_cumulative_G["short"].values()),
+        label="Short",
+        color=colors["Short"],
+    )
+    plt.plot(
+        years,
+        kW2TW(global_cumulative_G["long"].values()),
+        label="Long",
+        color=colors["Long"],
+    )
     plt.xlabel("Time")
     plt.ylabel("Cumulative installed capacity (TW)")
 
@@ -3063,7 +3117,12 @@ def make_battery_unit_ic_plot():
         ncol=5,
     )
     plt.tight_layout()
-    plt.savefig("plots/battery_unit_ic.png", bbox_inches="tight")
+    plt.savefig(
+        "plots/battery_unit_ic.png",
+        bbox_inches="tight",
+        dpi=300,
+        facecolor="white",
+    )
     plt.close()
 
 
