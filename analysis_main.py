@@ -1532,11 +1532,12 @@ def make_carbon_arbitrage_opportunity_plot(relative_to_world_gdp=False):
     from matplotlib.pyplot import text
 
     vertical_lines = {
-        51: "Biden administration, 51 $/tC02",
+        51: "Biden administration (default/first estimate), 51$/tCO2",
         61.4: "Lower estimate, Rennert et al. (2021), 61.4 $/tC02",
         80: "Pindyck (2019), 80 $/tCO2",
         114.9: "Mid estimate, Rennert et al. (2021), 114.9 $/tC02",
         168.4: "Upper estimate, Rennert et al. (2021), 168.4 $/tC02",
+        190: "Biden administration (updated/second estimate, based on Rennert), 190$/tCO2",
     }
     ax = plt.gca()
     y_min, y_max = ax.get_ylim()
