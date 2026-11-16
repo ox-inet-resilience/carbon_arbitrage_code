@@ -92,13 +92,20 @@ def summarize(results, rho, discount_base_year):
         cost = rebase * sum(x["opportunity_cost"] + x["investment_cost"] for x in v)
         residual = r["residual_benefit"]
         out[last_year] = {
-            "PV benefits": benefit,
             "PV benefits incl. residual": benefit + residual,
             "PV costs": cost,
-            "NPV": benefit - cost,
             "NPV incl. residual": benefit + residual - cost,
         }
     return out
+
+
+def add_difference(table, original):
+    # Difference in NPV incl. residual relative to the original method
+    # (start 2024, discounted to 2022).
+    for last_year, row in table.items():
+        row["NPV difference vs original"] = (
+            row["NPV incl. residual"] - original[last_year]["NPV incl. residual"]
+        )
 
 
 if __name__ == "__main__":
@@ -106,10 +113,14 @@ if __name__ == "__main__":
     print(f"rho = {rho:.4f}, SCC = {am.social_cost_of_carbon}")
     yearly_by_start = {}
     output = {}
+    original = None
     for start_year, base_year in CASES:
         if start_year not in yearly_by_start:
             yearly_by_start[start_year] = run_yearly(start_year)
         table = summarize(yearly_by_start[start_year], rho, base_year)
+        if (start_year, base_year) == CASES[0]:
+            original = summarize(yearly_by_start[start_year], rho, base_year)
+        add_difference(table, original)
         label = f"start {start_year}, discounted to {base_year}"
         output[label] = table
         print(f"\n### Start {start_year}, costs discounted to {base_year}")
