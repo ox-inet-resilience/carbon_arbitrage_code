@@ -99,13 +99,46 @@ def summarize(results, rho, discount_base_year):
     return out
 
 
+DIFFERENCE_METRICS = ["PV benefits incl. residual", "PV costs", "NPV incl. residual"]
+
+
+def difference_key(metric):
+    return "NPV difference vs original" if metric == "NPV incl. residual" else (
+        f"{metric} difference vs original"
+    )
+
+
 def add_difference(table, original):
-    # Difference in NPV incl. residual relative to the original method
-    # (start 2024, discounted to 2022).
+    # Differences relative to the original method (start 2024, discounted to
+    # 2022). Only the NPV difference is printed in the main tables; the others
+    # get their own tables.
     for last_year, row in table.items():
-        row["NPV difference vs original"] = (
-            row["NPV incl. residual"] - original[last_year]["NPV incl. residual"]
-        )
+        for metric in DIFFERENCE_METRICS:
+            row[difference_key(metric)] = row[metric] - original[last_year][metric]
+
+
+MAIN_TABLE_COLUMNS = [
+    "PV benefits incl. residual",
+    "PV costs",
+    "NPV incl. residual",
+    "NPV difference vs original",
+]
+
+
+def print_difference_tables(output):
+    # One table per metric, with a column per non-original case.
+    labels = list(output)[1:]
+    for metric in DIFFERENCE_METRICS[:2]:
+        key = difference_key(metric)
+        print(f"\n### Difference vs original: {metric}")
+        print("| End | " + " | ".join(labels) + " |")
+        print("|---" * (len(labels) + 1) + "|")
+        for last_year in output[labels[0]]:
+            print(
+                f"| {last_year} | "
+                + " | ".join(f"{output[lb][last_year][key]:.2f}" for lb in labels)
+                + " |"
+            )
 
 
 if __name__ == "__main__":
@@ -124,11 +157,12 @@ if __name__ == "__main__":
         label = f"start {start_year}, discounted to {base_year}"
         output[label] = table
         print(f"\n### Start {start_year}, costs discounted to {base_year}")
-        cols = list(next(iter(table.values())).keys())
+        cols = MAIN_TABLE_COLUMNS
         print("| End | " + " | ".join(cols) + " |")
         print("|---" * (len(cols) + 1) + "|")
         for last_year, row in table.items():
             print(f"| {last_year} | " + " | ".join(f"{row[c]:.2f}" for c in cols) + " |")
+    print_difference_tables(output)
 
     os.makedirs("output", exist_ok=True)
     with open("output/start_year_shift.json", "w") as fp:
